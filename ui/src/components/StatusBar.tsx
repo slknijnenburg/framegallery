@@ -2,7 +2,7 @@ import React from "react";
 import { Paper, Stack } from "@mui/material";
 import { styled } from '@mui/material/styles';
 
-interface StatusBarProps {
+export interface StatusBarProps {
     tv_on: boolean;
     art_mode_supported: boolean;
     art_mode_active: boolean;
@@ -20,7 +20,7 @@ const Item = styled(Paper)(({ theme }) => ({
     }),
 }));
 
-export default function StatusBar({tv_on, art_mode_supported, art_mode_active, api_version}: StatusBarProps) {
+function StatusBar({tv_on, art_mode_supported, art_mode_active, api_version}: StatusBarProps) {
     return (
         <>
             <h2>Status</h2>
@@ -32,3 +32,5 @@ export default function StatusBar({tv_on, art_mode_supported, art_mode_active, a
         </>
     )
 }
+
+export default StatusBar;
