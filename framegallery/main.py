@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import os
 
 from fastapi import Depends, FastAPI
@@ -118,7 +119,7 @@ async def refresh_available_art(request: Request, db: Session = Depends(get_db))
             if thumbs:  # dictionary of content_id (with file type extension) and binary data, e.g. "{'MY_F0003.jpg': b'...'}"
                 thumb = list(thumbs.values())[0]
                 content_id = list(thumbs.keys())[0]
-                art_item.thumbnail_data = thumb
+                art_item.thumbnail_data = base64.b64encode(thumb)
                 art_item.thumbnail_filename = content_id
                 art_item.thumbnail_filetype = os.path.splitext(content_id)[1][1:]
 
