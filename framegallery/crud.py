@@ -6,7 +6,7 @@ def get_art_item(db: Session, content_id: str):
     return db.query(models.ArtItem).filter(models.ArtItem.content_id == content_id).first()
 
 def get_art_items(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.ArtItem).offset(skip).limit(limit).all()
+    return db.query(models.ArtItem).order_by(models.ArtItem.content_id.asc()).offset(skip).limit(limit).all()
 
 def create_art_item(db: Session, art_item: schemas.ArtItem) -> models.ArtItem:
     db_art_item = models.ArtItem(**art_item.model_dump())
