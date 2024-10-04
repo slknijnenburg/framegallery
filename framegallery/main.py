@@ -1,3 +1,6 @@
+import asyncio
+import os
+
 from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -18,6 +21,7 @@ models.Base.metadata.create_all(bind=engine)
 
 logging.basicConfig(level=logging.INFO)  # or logging.DEBUG to see messages
 ip = "192.168.2.76"
+api_version = "4.3.4.0"
 
 app = FastAPI()
 
@@ -84,12 +88,35 @@ async def refresh_available_art(request: Request, db: Session = Depends(get_db))
     artlist = await tv.available('MY-C0002')
     for art in artlist:
         # Check if the art item already exists in the database
-        art_in_db = crud.get_art_item(db, content_id=art['content_id'])
-        if art_in_db:
+        art_item = crud.get_art_item(db, content_id=art['content_id'])
+        if art_item:
             continue
 
         art_item = crud.create_art_item(db, art_item=schemas.ArtItem(**art))
-        logging.info('Art item: {}'.format(art_item))
+        art_item_dict = schemas.ArtItem.model_validate(art_item).model_dump_json()
+        logging.info('Art item: {}'.format(art_item_dict))
+
+        ## Add thumbnail for this new item
+        try:
+            thumb = b''
+            if int(api_version.replace('.', '')) < 4000:  # check api version number, and use correct api call
+                thumbs = await tv.get_thumbnail(art_item.content_id, True)  # old api, gets thumbs in same format as new api
+            else:
+                thumbs = await tv.get_thumbnail_list(art_item.content_id)  # list of content_id's or single content_id
+            if thumbs:  # dictionary of content_id (with file type extension) and binary data, e.g. "{'MY_F0003.jpg': b'...'}"
+                thumb = list(thumbs.values())[0]
+                content_id = list(thumbs.keys())[0]
+                art_item.thumbnail_data = thumb
+                art_item.thumbnail_filename = content_id
+                art_item.thumbnail_filetype = os.path.splitext(content_id)[1][1:]
+
+                db.flush([art_item])
+                db.commit()
+            logging.info('got thumbnail for {} binary data length: {}'.format(art_item.content_id, len(thumb)))
+        except asyncio.exceptions.IncompleteReadError as e:
+            logging.error('FAILED to get thumbnail for {}: {}'.format(art_item.content_id, e))
+
+    # TODO Remove items from the database that are not available on the TV anymore (or mark them as deleted).
 
     return Response(status_code=HTTP_204_NO_CONTENT)
 
