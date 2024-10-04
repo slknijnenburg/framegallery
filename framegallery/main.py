@@ -11,6 +11,7 @@ from pydantic import BaseModel
 import logging
 
 from sqlalchemy.orm import Session
+from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 from starlette.status import HTTP_204_NO_CONTENT
 
@@ -24,6 +25,17 @@ ip = "192.168.2.76"
 api_version = "4.3.4.0"
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000", # React dev server
+        "http://localhost:7999", # ASGI server
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 def get_db():
     db = SessionLocal()
