@@ -1,15 +1,19 @@
-from pydantic import BaseModel
+from sqlalchemy import Boolean, Column, Integer, String
 
-class ArtContent(BaseModel):
-    content_id: str
-    category_id: str
-    slideshow: bool
-    matte_id: str
-    portrait_matte_id: str
-    width: int
-    height: int
-    image_date: str
-    content_type: str
+from .database import Base
+
+class ArtItem(Base):
+    __tablename__ = "art_items"
+    content_id = Column(String, primary_key=True)
+    category_id = Column(String)
+    slideshow = Column(Boolean)
+    matte_id = Column(String)
+    portrait_matte_id = Column(String)
+    width = Column(Integer)
+    height = Column(Integer)
+    image_date = Column(String)
+    content_type = Column(String)
+    thumbnail = Column(String)
 
 #art_contents: List[ArtContent] = [
 #    {"content_id": "MY_F0003", "category_id": "MY-C0002", "slideshow": False, "matte_id": "none", "portrait_matte_id": "shadowbox_black", "width": 1920, "height": 1080, "image_date": "2024:10:02 12:08:25", "content_type": "mobile"},

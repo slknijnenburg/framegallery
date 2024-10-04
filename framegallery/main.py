@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
@@ -6,12 +6,28 @@ from samsungtvws.async_art import SamsungTVAsyncArt
 from typing import Optional
 from pydantic import BaseModel
 import logging
-from .models import ArtContent
+
+from sqlalchemy.orm import Session
+from starlette.responses import Response
+from starlette.status import HTTP_204_NO_CONTENT
+
+from . import crud, models, schemas
+from .database import SessionLocal, engine
+
+models.Base.metadata.create_all(bind=engine)
 
 logging.basicConfig(level=logging.INFO)  # or logging.DEBUG to see messages
 ip = "192.168.2.76"
 
 app = FastAPI()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 
 @app.middleware("http")
 async def bootstrap_tv(request: Request, call_next):
@@ -21,7 +37,6 @@ async def bootstrap_tv(request: Request, call_next):
 
     response = await call_next(request)
     return response
-
 
 
 # Sets the templates directory to the `build` folder from `npm run build`
@@ -55,15 +70,29 @@ async def status(request: Request) -> Status:
 
     return Status(tv_on=True, art_mode_supported=supported, art_mode_active=art_mode_active, api_version=api_version)
 
+
 @app.get("/api/available-art")
-async def available_art(request: Request):
+async def available_art(request: Request, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    art_items = crud.get_art_items(db, skip=skip, limit=limit)
+
+    return art_items
+
+
+@app.get("/api/available-art/refresh", status_code=200)
+async def refresh_available_art(request: Request, db: Session = Depends(get_db)):
     tv = request.state.tv
     artlist = await tv.available('MY-C0002')
     for art in artlist:
-        artObject = ArtContent(**art)
-        logging.info('Art item: {}'.format(artObject))
+        # Check if the art item already exists in the database
+        art_in_db = crud.get_art_item(db, content_id=art['content_id'])
+        if art_in_db:
+            continue
 
-    return artlist
+        art_item = crud.create_art_item(db, art_item=schemas.ArtItem(**art))
+        logging.info('Art item: {}'.format(art_item))
+
+    return Response(status_code=HTTP_204_NO_CONTENT)
+
 
 # Defines a route handler for `/*` essentially.
 # NOTE: this needs to be the last route defined b/c it's a catch all route
