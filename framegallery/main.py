@@ -92,6 +92,23 @@ async def available_art(request: Request, skip: int = 0, limit: int = 100, db: S
 
     return art_items
 
+@app.get("/api/active-art")
+async def active_art(request: Request):
+    tv = request.state.tv
+
+    return await tv.get_current()
+
+@app.post("/api/active-art/{content_id}")
+async def select_art(request: Request, content_id: str, db: Session = Depends(get_db)):
+    tv = request.state.tv # type: SamsungTVAsyncArt
+
+    art_item = crud.get_art_item(db, content_id=content_id)
+    if not art_item:
+        return {"error": "Art item not found"}
+
+    await tv.select_image(content_id, "MY-C0002")
+
+    return {"content_id": content_id}
 
 @app.get("/api/available-art/refresh", status_code=200)
 async def refresh_available_art(request: Request, db: Session = Depends(get_db)):
