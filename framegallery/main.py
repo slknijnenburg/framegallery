@@ -13,8 +13,6 @@ import logging
 
 from sqlalchemy.orm import Session
 from starlette.middleware.cors import CORSMiddleware
-from starlette.responses import Response
-from starlette.status import HTTP_204_NO_CONTENT
 
 from . import crud, models, schemas
 from .database import SessionLocal, engine
@@ -98,11 +96,21 @@ async def available_art(request: Request, skip: int = 0, limit: int = 100, db: S
 @app.get("/api/available-art/refresh", status_code=200)
 async def refresh_available_art(request: Request, db: Session = Depends(get_db)):
     tv = request.state.tv
+    counts = {
+        "items_on_tv": 0,
+        "existed_in_db_already": 0,
+        "deleted_from_db": 0,
+    }
+    processed_items = []
+
     artlist = await tv.available('MY-C0002')
     for art in artlist:
+        counts["items_on_tv"] += 1
         # Check if the art item already exists in the database
         art_item = crud.get_art_item(db, content_id=art['content_id'])
         if art_item:
+            processed_items.append(art['content_id'])
+            counts["existed_in_db_already"] += 1
             continue
 
         art_item = crud.create_art_item(db, art_item=schemas.ArtItem(**art))
@@ -125,13 +133,14 @@ async def refresh_available_art(request: Request, db: Session = Depends(get_db))
 
                 db.flush([art_item])
                 db.commit()
+                processed_items.append(art_item.content_id)
             logging.info('got thumbnail for {} binary data length: {}'.format(art_item.content_id, len(thumb)))
         except asyncio.exceptions.IncompleteReadError as e:
             logging.error('FAILED to get thumbnail for {}: {}'.format(art_item.content_id, e))
 
-    # TODO Remove items from the database that are not available on the TV anymore (or mark them as deleted).
+    counts["deleted_from_db"] = crud.delete_items_not_in_list(db, processed_items)
 
-    return Response(status_code=HTTP_204_NO_CONTENT)
+    return counts
 
 
 # Defines a route handler for `/*` essentially.

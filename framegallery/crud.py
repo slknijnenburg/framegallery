@@ -1,6 +1,6 @@
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from .models import ArtItem
@@ -28,3 +28,17 @@ def     get_image_by_path(db: Session, image_path: str) -> Optional[ArtItem]:
     stmt = select(ArtItem).filter_by(local_filename=image_path)
 
     return db.execute(stmt).scalar_one_or_none()
+
+
+def delete_items_not_in_list(db: Session, processed_items: list) -> int:
+    """
+    Delete all items that are not in the processed_items list via sqlalchemy 2.0
+    :param db: Session
+    :param processed_items: list[str]
+    :return: int The number of deleted items
+    """
+    stmt = delete(ArtItem).where(~ArtItem.content_id.in_(processed_items))
+    result = db.execute(stmt)
+    db.commit()
+
+    return result.rowcount

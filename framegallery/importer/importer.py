@@ -31,7 +31,7 @@ async def upload_new_image_to_tv(db: Session, tv: SamsungTVAsyncArt, image_path:
     file_data, file_type = read_file(full_path)
 
     logging.info('Going to upload {} with file_type {}'.format(full_path, file_type))
-    content_id = await tv.upload(file_data, file_type=file_type)
+    content_id = await tv.upload(file_data, file_type=file_type, timeout=60)
     logging.info('Received content_id: {}'.format(content_id))
 
     content_id_without_extension = os.path.splitext(content_id)[0]    #remove file extension if any (eg .jpg)
