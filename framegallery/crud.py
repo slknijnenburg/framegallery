@@ -1,17 +1,30 @@
+from typing import Optional
+
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import models, schemas
+from .models import ArtItem
+from .schemas import ArtItem as ArtItemSchema
 
 def get_art_item(db: Session, content_id: str):
-    return db.query(models.ArtItem).filter(models.ArtItem.content_id == content_id).first()
+    return db.query(ArtItem).filter_by(content_id=content_id).first()
 
 def get_art_items(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.ArtItem).order_by(models.ArtItem.content_id.asc()).offset(skip).limit(limit).all()
+    return db.query(ArtItem).order_by(ArtItem.content_id.asc()).offset(skip).limit(limit).all()
 
-def create_art_item(db: Session, art_item: schemas.ArtItem) -> models.ArtItem:
-    db_art_item = models.ArtItem(**art_item.model_dump())
+def create_art_item(db: Session, art_item: ArtItemSchema) -> ArtItem:
+    db_art_item = ArtItem(**art_item.model_dump())
     db.add(db_art_item)
     db.commit()
     db.refresh(db_art_item)
 
     return db_art_item
+
+def persist_art_item(db: Session, art_item: ArtItem) -> None:
+    db.add(art_item)
+    db.commit()
+
+def     get_image_by_path(db: Session, image_path: str) -> Optional[ArtItem]:
+    stmt = select(ArtItem).filter_by(local_filename=image_path)
+
+    return db.execute(stmt).scalar_one_or_none()
