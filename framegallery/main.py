@@ -61,11 +61,22 @@ templates = Jinja2Templates(directory="./ui/build")
 # Mounts the `static` folder within the `build` folder to the `/static` route.
 app.mount('/static', StaticFiles(directory="./ui/build/static"), 'static')
 
+class SlideshowStatus(BaseModel):
+    value: str
+    category_id: str
+    sub_category_id: str
+    current_content_id: str
+    type: str
+    content_list: str|list[str]
+
+
 class Status(BaseModel):
     tv_on: bool
     art_mode_supported: Optional[bool] = None
     art_mode_active: Optional[bool] = None
     api_version: Optional[str] = None
+    slideshow_status: Optional[SlideshowStatus] = None
+
 
 @app.get("/api/status")
 async def status(request: Request) -> Status:
@@ -82,8 +93,13 @@ async def status(request: Request) -> Status:
 
     art_mode_active = await tv.get_artmode()
     api_version = await tv.get_api_version()
+    # INFO:root:slideshow_details = {'event': 'get_slideshow_status', 'request_id': '67e800e0-32bb-4b5e-ab40-13c3f978885e', 'value': 'off', 'category_id': '', 'sub_category_id': '', 'current_content_id': '', 'type': '', 'content_list': ''}
+    slideshow_status_response = await tv.get_slideshow_status()
+    slideshow_status = SlideshowStatus(**slideshow_status_response)
 
-    return Status(tv_on=True, art_mode_supported=supported, art_mode_active=art_mode_active, api_version=api_version)
+    logging.info("slideshow_details = {}".format(slideshow_status))
+
+    return Status(tv_on=True, art_mode_supported=supported, art_mode_active=art_mode_active, api_version=api_version, slideshow_status=slideshow_status)
 
 
 @app.get("/api/available-art")

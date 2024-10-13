@@ -8,7 +8,7 @@ import ImageGrid from "./components/ImageGrid";
 import ArtItem from "./models/ArtItem";
 
 export default function App() {
-    const [status, setStatus] = useState<StatusBarProps>({tv_on: false, art_mode_supported: false, art_mode_active: false, api_version: ''});
+    const [status, setStatus] = useState<StatusBarProps>({tv_on: false, art_mode_supported: false, art_mode_active: false, api_version: '', slideshow_status: null});
 
     const [items, setItems] = useState<ArtItem[]>([]);
 
