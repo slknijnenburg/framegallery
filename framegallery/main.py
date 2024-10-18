@@ -1,40 +1,70 @@
 import asyncio
 import base64
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
+from fastapi.templating import Jinja2Templates
 from samsungtvws.async_art import SamsungTVAsyncArt
 from typing import Optional
 from pydantic import BaseModel
 import logging
 
 from sqlalchemy.orm import Session
-from starlette.middleware.cors import CORSMiddleware
 
 from . import crud, models, schemas
 from .database import SessionLocal, engine
 
 models.Base.metadata.create_all(bind=engine)
 
-logging.basicConfig(level=logging.INFO)  # or logging.DEBUG to see messages
+logging.basicConfig(level=logging.DEBUG)  # or logging.DEBUG to see messages
 ip = "192.168.2.76"
 api_version = "4.3.4.0"
 
-app = FastAPI()
+pid = os.getpid()
+token_file = os.path.dirname(os.path.realpath(__file__)) + f"/tv-token-{pid}.txt"
+tv = SamsungTVAsyncArt(host=ip, port=8002, name=f"FrameTV-{pid}", token_file=token_file)
 
+# Background task to start and keep WebSocket connection alive
+async def tv_keepalive():
+    while True:
+        if not tv.connection:
+            logging.warning("Should be reconnecting to TV")
+        else:
+            logging.warning("No need to reconnect to TV")
+        await asyncio.sleep(10)  # Adjust interval as needed
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await tv.on()
+    await tv.start_listening()
+
+    asyncio.create_task(tv_keepalive())
+
+    yield
+    await tv.close()
+
+
+app = FastAPI(lifespan=lifespan)
+
+origins = [
+    "http://localhost:3000",  # React dev server
+    "http://127.0.0.1:3000",  # React dev server
+    "http://localhost:7999",  # ASGI server
+    "http://127.0.0.1:7999",  # ASGI server
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000", # React dev server
-        "http://localhost:7999", # ASGI server
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 def get_db():
     db = SessionLocal()
@@ -43,17 +73,6 @@ def get_db():
     finally:
         db.close()
 
-
-@app.middleware("http")
-async def bootstrap_tv(request: Request, call_next):
-    tv = SamsungTVAsyncArt(host=ip, port=8002)
-    await tv.start_listening()
-    request.state.tv = tv
-
-    response = await call_next(request)
-    return response
-
-
 # Sets the templates directory to the `build` folder from `npm run build`
 # this is where you'll find the index.html file.
 templates = Jinja2Templates(directory="./ui/build")
@@ -61,13 +80,14 @@ templates = Jinja2Templates(directory="./ui/build")
 # Mounts the `static` folder within the `build` folder to the `/static` route.
 app.mount('/static', StaticFiles(directory="./ui/build/static"), 'static')
 
+
 class SlideshowStatus(BaseModel):
     value: str
     category_id: str
     sub_category_id: str
     current_content_id: str
     type: str
-    content_list: str|list[str]
+    content_list: str | list[str]
 
 
 class Status(BaseModel):
@@ -80,8 +100,6 @@ class Status(BaseModel):
 
 @app.get("/api/status")
 async def status(request: Request) -> Status:
-    tv = request.state.tv
-
     # is art mode supported
     tv_on = await tv.on()
     if not tv_on:
@@ -91,7 +109,8 @@ async def status(request: Request) -> Status:
     if not supported:
         return Status(tv_on=True, art_mode_supported=False)
 
-    art_mode_active = await tv.get_artmode()
+    # art_mode_active = await tv.get_artmode()
+    art_mode_active = True
     api_version = await tv.get_api_version()
     # INFO:root:slideshow_details = {'event': 'get_slideshow_status', 'request_id': '67e800e0-32bb-4b5e-ab40-13c3f978885e', 'value': 'off', 'category_id': '', 'sub_category_id': '', 'current_content_id': '', 'type': '', 'content_list': ''}
     slideshow_status_response = await tv.get_slideshow_status()
@@ -99,7 +118,8 @@ async def status(request: Request) -> Status:
 
     logging.info("slideshow_details = {}".format(slideshow_status))
 
-    return Status(tv_on=True, art_mode_supported=supported, art_mode_active=art_mode_active, api_version=api_version, slideshow_status=slideshow_status)
+    return Status(tv_on=True, art_mode_supported=supported, art_mode_active=art_mode_active, api_version=api_version,
+                  slideshow_status=slideshow_status)
 
 
 @app.get("/api/available-art")
@@ -108,16 +128,14 @@ async def available_art(request: Request, skip: int = 0, limit: int = 100, db: S
 
     return art_items
 
+
 @app.get("/api/active-art")
 async def active_art(request: Request):
-    tv = request.state.tv
-
     return await tv.get_current()
+
 
 @app.post("/api/active-art/{content_id}")
 async def select_art(request: Request, content_id: str, db: Session = Depends(get_db)):
-    tv = request.state.tv # type: SamsungTVAsyncArt
-
     art_item = crud.get_art_item(db, content_id=content_id)
     if not art_item:
         return {"error": "Art item not found"}
@@ -126,9 +144,9 @@ async def select_art(request: Request, content_id: str, db: Session = Depends(ge
 
     return {"content_id": content_id}
 
+
 @app.get("/api/available-art/refresh", status_code=200)
 async def refresh_available_art(request: Request, db: Session = Depends(get_db)):
-    tv = request.state.tv
     counts = {
         "items_on_tv": 0,
         "existed_in_db_already": 0,
@@ -154,7 +172,8 @@ async def refresh_available_art(request: Request, db: Session = Depends(get_db))
         try:
             thumb = b''
             if int(api_version.replace('.', '')) < 4000:  # check api version number, and use correct api call
-                thumbs = await tv.get_thumbnail(art_item.content_id, True)  # old api, gets thumbs in same format as new api
+                thumbs = await tv.get_thumbnail(art_item.content_id,
+                                                True)  # old api, gets thumbs in same format as new api
             else:
                 thumbs = await tv.get_thumbnail_list(art_item.content_id)  # list of content_id's or single content_id
             if thumbs:  # dictionary of content_id (with file type extension) and binary data, e.g. "{'MY_F0003.jpg': b'...'}"
@@ -176,8 +195,22 @@ async def refresh_available_art(request: Request, db: Session = Depends(get_db))
     return counts
 
 
+@app.post("/api/slideshow/enable")
+async def enable_slideshow(request: Request):
+    response = await tv.set_slideshow_status(duration=5)
+
+    return response
+
+
+@app.post("/api/slideshow/disable")
+async def enable_slideshow(request: Request):
+    response = await tv.set_slideshow_status(type="shuffleslideshow", category=2, duration=0)
+
+    return response
+
+
 # Defines a route handler for `/*` essentially.
 # NOTE: this needs to be the last route defined b/c it's a catch all route
 @app.get("/{rest_of_path:path}")
 async def react_app(req: Request, rest_of_path: str):
-    return templates.TemplateResponse('index.html', { 'request': req })
+    return templates.TemplateResponse('index.html', {'request': req})
