@@ -95,7 +95,6 @@ class Status(BaseModel):
     art_mode_supported: Optional[bool] = None
     art_mode_active: Optional[bool] = None
     api_version: Optional[str] = None
-    slideshow_status: Optional[SlideshowStatus] = None
 
 
 @app.get("/api/status")
@@ -112,14 +111,8 @@ async def status(request: Request) -> Status:
     # art_mode_active = await tv.get_artmode()
     art_mode_active = True
     api_version = await tv.get_api_version()
-    # INFO:root:slideshow_details = {'event': 'get_slideshow_status', 'request_id': '67e800e0-32bb-4b5e-ab40-13c3f978885e', 'value': 'off', 'category_id': '', 'sub_category_id': '', 'current_content_id': '', 'type': '', 'content_list': ''}
-    slideshow_status_response = await tv.get_slideshow_status()
-    slideshow_status = SlideshowStatus(**slideshow_status_response)
 
-    logging.info("slideshow_details = {}".format(slideshow_status))
-
-    return Status(tv_on=True, art_mode_supported=supported, art_mode_active=art_mode_active, api_version=api_version,
-                  slideshow_status=slideshow_status)
+    return Status(tv_on=True, art_mode_supported=supported, art_mode_active=art_mode_active, api_version=api_version)
 
 
 @app.get("/api/available-art")
@@ -194,10 +187,17 @@ async def refresh_available_art(request: Request, db: Session = Depends(get_db))
 
     return counts
 
+@app.get("/api/slideshow")
+async def get_slideshow_status(request: Request) -> SlideshowStatus:
+    response = await tv.get_slideshow_status()
+
+    slideshow_status = SlideshowStatus(**response)
+
+    return slideshow_status
 
 @app.post("/api/slideshow/enable")
 async def enable_slideshow(request: Request):
-    response = await tv.set_slideshow_status(duration=5)
+    response = await tv.set_slideshow_status(duration=3)
 
     return response
 
