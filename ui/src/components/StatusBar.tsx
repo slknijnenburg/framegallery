@@ -1,9 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Paper, Stack, ToggleButton, ToggleButtonGroup } from "@mui/material";
 import { styled } from '@mui/material/styles';
+import { disableSlideshow, enableSlideshow } from "../actions/slideshow";
+import { API_BASE_URL } from "../App";
 
 export interface SlideshowStatus {
-    value: 'on'|'off';
+    value: boolean;
     category_id: string;
     sub_category_id: string;
     current_content_id: string;
@@ -16,7 +18,6 @@ export interface StatusBarProps {
     art_mode_supported: boolean;
     art_mode_active: boolean;
     api_version: string;
-    slideshow_status?: SlideshowStatus|null;
 }
 
 const Item = styled(Paper)(({ theme }) => ({
@@ -31,12 +32,44 @@ const Item = styled(Paper)(({ theme }) => ({
 }));
 
 
-function StatusBar({tv_on, art_mode_supported, art_mode_active, api_version, slideshow_status}: StatusBarProps) {
-    const [slideshowStatus, setSlideshowStatus] = useState(slideshow_status?.value ?? 'off');
+function StatusBar({tv_on, art_mode_supported, art_mode_active, api_version}: StatusBarProps) {
+    const [slideshowStatus, setSlideshowStatus] = useState(false);
+    const [isFirstLoad, setIsFirstLoad] = useState(true); // Track initial load
 
-    const toggleSlideshowStatus = (event: React.MouseEvent<HTMLElement>, newStatus: 'on'|'off') => {
-        console.log("Toggling slideshow status to", newStatus);
-        setSlideshowStatus(newStatus);
+    // Load initial toggle status from backend on component mount
+    useEffect(() => {
+        const fetchStatus = async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/slideshow`);
+                const data = await response.json();
+                console.log('slideshow data = ', data);
+                setSlideshowStatus(data.value === "on");
+                setIsFirstLoad(false); // Set to false after initial load
+            } catch (error) {
+                console.error("Error fetching status:", error);
+            }
+        };
+
+        fetchStatus();
+    }, []);
+
+
+    // Handle status change (when user toggles the switch)
+    const handleToggleChange = async (event: React.MouseEvent<HTMLElement>, newStatus: 'on'|'off') => {
+        console.log("New slideshow status: ", newStatus);
+        setSlideshowStatus(newStatus === 'on'); // Update toggle UI
+
+        if (!isFirstLoad) {
+            try {
+                if (newStatus === 'on') {
+                    await enableSlideshow();
+                } else {
+                    await disableSlideshow();
+                }
+            } catch (error) {
+                console.error("Error updating slideshow status:", error);
+            }
+        }
     };
 
     return (
@@ -55,9 +88,9 @@ function StatusBar({tv_on, art_mode_supported, art_mode_active, api_version, sli
                     Status: &nbsp;
                     <ToggleButtonGroup
                         exclusive
-                        onChange={toggleSlideshowStatus}
+                        onChange={handleToggleChange}
                         aria-label="Slideshow"
-                        value={slideshowStatus}
+                        value={slideshowStatus ? "on" : "off"}
                     >
                         <ToggleButton value="on">On</ToggleButton>
                         <ToggleButton value="off">Off</ToggleButton>

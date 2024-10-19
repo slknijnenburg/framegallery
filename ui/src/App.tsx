@@ -7,14 +7,16 @@ import axios from "axios";
 import ImageGrid from "./components/ImageGrid";
 import ArtItem from "./models/ArtItem";
 
+export const API_BASE_URL = 'http://localhost:7999';
+
 export default function App() {
-    const [status, setStatus] = useState<StatusBarProps>({tv_on: false, art_mode_supported: false, art_mode_active: false, api_version: '', slideshow_status: null});
+    const [status, setStatus] = useState<StatusBarProps>({tv_on: false, art_mode_supported: false, art_mode_active: false, api_version: ''});
 
     const [items, setItems] = useState<ArtItem[]>([]);
 
     useEffect(() => {
         const fetchStatus = async () => {
-            const url = 'http://localhost:7999/api/status';
+            const url = `${API_BASE_URL}/api/status`;
 
             try {
                 const response = await axios.get(url);
