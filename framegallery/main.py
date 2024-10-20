@@ -15,8 +15,10 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from . import crud, models, schemas
-from .database import SessionLocal, engine
+import framegallery.crud as crud
+import framegallery.models as models
+import framegallery.schemas as schemas
+from framegallery.database import SessionLocal, engine
 
 models.Base.metadata.create_all(bind=engine)
 

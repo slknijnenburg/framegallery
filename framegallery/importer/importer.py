@@ -5,13 +5,20 @@ from typing import Optional
 
 from samsungtvws.async_art import SamsungTVAsyncArt
 from sqlalchemy.orm import Session
-from framegallery import crud, database, models
+
+import framegallery.crud as crud
+import framegallery.models as models
+import framegallery.database as database
+
 
 def get_imagelist_on_disk(image_folder: str):
     files = [os.path.join(root, f) for root, dirs, files in os.walk(image_folder) for f in files if f.endswith('.jpg') or f.endswith('.png')]
 
     # Remove image_folder from the paths.
     files = [f.replace(image_folder + '/', './') for f in files]
+
+    logging.info('Found {} images in folder {}'.format(len(files), image_folder))
+    logging.info('Images: {}'.format(files))
 
     return files
 
