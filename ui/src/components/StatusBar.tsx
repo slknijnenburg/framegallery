@@ -5,7 +5,7 @@ import { disableSlideshow, enableSlideshow } from "../actions/slideshow";
 import { API_BASE_URL } from "../App";
 
 export interface SlideshowStatus {
-    value: boolean;
+    value: string;
     category_id: string;
     sub_category_id: string;
     current_content_id: string;
@@ -41,9 +41,10 @@ function StatusBar({tv_on, art_mode_supported, art_mode_active, api_version}: St
         const fetchStatus = async () => {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/slideshow`);
-                const data = await response.json();
+                const data: SlideshowStatus = await response.json();
                 console.log('slideshow data = ', data);
-                setSlideshowStatus(data.value === "on");
+                // `value` is either "off" or the slideshow interval in minutes.
+                setSlideshowStatus(data.value !== "off");
                 setIsFirstLoad(false); // Set to false after initial load
             } catch (error) {
                 console.error("Error fetching status:", error);
