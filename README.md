@@ -25,3 +25,14 @@ To run the project, you need to start the backend and the frontend separately:
 poetry run uvicorn framegallery.main:app --reload --port 7999
 cd ui && npm start
 ```
+
+### Importing your images
+
+To import your image, you can put them in the `./images` folder. 
+You can use a subfolder structure if you want to, all files will be sent to the TV.
+
+To start the upload synchronization, you can run the following command from the root folder of the project.
+
+```bash
+poetry run python3 -m framegallery.importer.importer
+```

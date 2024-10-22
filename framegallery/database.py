@@ -1,8 +1,12 @@
+import os
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./sql_app.db"
+base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data'))
+SQLALCHEMY_DATABASE_URL = f"sqlite:///{os.path.join(base_dir, 'sql_app.db')}"
+
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
