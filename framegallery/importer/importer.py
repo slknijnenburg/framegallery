@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import logging
 import os
 from typing import Optional
@@ -10,9 +11,10 @@ import framegallery.crud as crud
 import framegallery.models as models
 import framegallery.database as database
 
+api_version = "4.3.4.0"
 
 def get_imagelist_on_disk(image_folder: str):
-    files = [os.path.join(root, f) for root, dirs, files in os.walk(image_folder) for f in files if f.endswith('.jpg') or f.endswith('.png')]
+    files = sorted([os.path.join(root, f) for root, dirs, files in os.walk(image_folder) for f in files if f.endswith('.jpg') or f.endswith('.png')])
 
     # Remove image_folder from the paths.
     files = [f.replace(image_folder + '/', './') for f in files]
@@ -38,20 +40,49 @@ async def upload_new_image_to_tv(db: Session, tv: SamsungTVAsyncArt, image_path:
     file_data, file_type = read_file(full_path)
 
     logging.info('Going to upload {} with file_type {}'.format(full_path, file_type))
-    content_id = await tv.upload(file_data, file_type=file_type, timeout=60)
+    data = await tv.upload(file_data, file_type=file_type, timeout=60)
+    content_id = data['content_id']
     logging.info('Received content_id: {}'.format(content_id))
 
     content_id_without_extension = os.path.splitext(content_id)[0]    #remove file extension if any (eg .jpg)
     logging.info('uploaded {} to tv as {}'.format(full_path, content_id_without_extension))
 
     # Now the upload has complete, we can add the image to the database
-    art_item = models.ArtItem(content_id=content_id_without_extension, local_filename=image_path)
+    art_item = models.ArtItem(
+        content_id=content_id_without_extension,
+        local_filename=image_path,
+        matte_id=data['matte_id'],
+        portrait_matte_id=data['portrait_matte_id'],
+        width=data['width'],
+        height=data['height'],
+    )
     crud.persist_art_item(db, art_item)
     logging.info('Persisted {} to database'.format(content_id_without_extension))
 
-'''
+    ## Add thumbnail for this new item
+    try:
+        thumb = b''
+        if int(api_version.replace('.', '')) < 4000:  # check api version number, and use correct api call
+            thumbs = await tv.get_thumbnail(art_item.content_id,
+                                            True)  # old api, gets thumbs in same format as new api
+        else:
+            thumbs = await tv.get_thumbnail_list(art_item.content_id)  # list of content_id's or single content_id
+        if thumbs:  # dictionary of content_id (with file type extension) and binary data, e.g. "{'MY_F0003.jpg': b'...'}"
+            thumb = list(thumbs.values())[0]
+            content_id = list(thumbs.keys())[0]
+            art_item.thumbnail_data = base64.b64encode(thumb)
+            art_item.thumbnail_filename = content_id
+            art_item.thumbnail_filetype = os.path.splitext(content_id)[1][1:]
+
+            db.flush([art_item])
+            db.commit()
+        logging.info('got thumbnail for {} binary data length: {}'.format(art_item.content_id, len(thumb)))
+    except asyncio.exceptions.IncompleteReadError as e:
+        logging.error('FAILED to get thumbnail for {}: {}'.format(art_item.content_id, e))
+
+"""
 read image file, return file binary data and file type
-'''
+"""
 def read_file(filename: str):
     try:
         with open(filename, 'rb') as f:
