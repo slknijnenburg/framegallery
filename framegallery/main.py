@@ -3,7 +3,7 @@ import base64
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.requests import Request
@@ -123,6 +123,25 @@ async def available_art(request: Request, skip: int = 0, limit: int = 100, db: S
 
     return art_items
 
+
+@app.get("/api/available-art/{content_id}")
+async def available_art_single(request: Request, content_id: str, db: Session = Depends(get_db)):
+    art_item = crud.get_art_item(db, content_id)
+
+    return art_item
+
+@app.patch("/api/available-art/{content_id}")
+async def update_art_item(request: Request, content_id: str, art_item_update: schemas.ArtItemUpdate, db: Session = Depends(get_db)) -> schemas.ArtItem:
+    stored_art_item = crud.get_art_item(db, content_id)
+    if not stored_art_item:
+        raise HTTPException(status_code=404, detail=f"Art item {content_id} not found")
+
+    input_art_item = art_item_update.model_dump(exclude_unset=True)
+    for field, value in input_art_item.items():
+        setattr(stored_art_item, field, value)
+    db.commit()
+
+    return stored_art_item
 
 @app.get("/api/active-art")
 async def active_art(request: Request):
