@@ -1,10 +1,10 @@
 interface ArtItem {
     content_id: string;
     local_filename?: string;
-    category_id: string;
+    category_id: string|null;
     slideshow: boolean;
-    matte_id: string;
-    portrait_matte_id: string;
+    matte_id: string|null;
+    portrait_matte_id: string|null;
     width: number;
     height: number;
     image_date: string;
