@@ -30,6 +30,8 @@ pid = os.getpid()
 token_file = os.path.dirname(os.path.realpath(__file__)) + f"/tv-token-{pid}.txt"
 tv = SamsungTVAsyncArt(host=ip, port=8002, name=f"FrameTV-{pid}", token_file=token_file)
 
+current_active_art: Optional[schemas.ActiveArt] = None
+
 # Background task to start and keep WebSocket connection alive
 async def tv_keepalive():
     while True:
@@ -141,13 +143,29 @@ async def update_art_item(request: Request, content_id: str, art_item_update: sc
         setattr(stored_art_item, field, value)
     db.commit()
 
+    # Now we have updated the matte in the local DB, let's update it on the TV as well
+    await tv.change_matte(content_id, stored_art_item.matte_id)
+
+    # In order to reload the image on the screen, we need to re-activate the image.
+    await tv.select_image(content_id, "MY-C0002")
+
     return stored_art_item
 
+
 @app.get("/api/active-art")
-async def active_art(request: Request):
-    return await tv.get_current()
+async def active_art() -> schemas.ActiveArt:
+    active_art_details_response = await tv.get_current()
+    active_art_details = schemas.ActiveArt(**active_art_details_response)
+
+    current_active_art = active_art_details
+
+    return active_art_details
 
 
+"""
+Sets the active item displayed on the television.
+TODO: Figure out whether this stops the slideshow or not.
+"""
 @app.post("/api/active-art/{content_id}")
 async def select_art(request: Request, content_id: str, db: Session = Depends(get_db)):
     art_item = crud.get_art_item(db, content_id=content_id)
@@ -155,6 +173,9 @@ async def select_art(request: Request, content_id: str, db: Session = Depends(ge
         return {"error": "Art item not found"}
 
     await tv.select_image(content_id, "MY-C0002")
+
+    # Update current_active_art
+    await active_art()
 
     return {"content_id": content_id}
 
