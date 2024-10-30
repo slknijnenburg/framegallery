@@ -14,12 +14,13 @@ from framegallery.config import settings
 
 
 class Importer:
-    def __init__(self, image_path: str):
+    def __init__(self, image_path: str, db: Session):
         # Validate that image_path is a full path
         if not os.path.isabs(image_path):
             raise ValueError('image_path must be an absolute path')
 
         self.image_path = image_path
+        self._db = db
 
     def get_imagelist_on_disk(self):
         files = sorted([os.path.join(root, f) for root, dirs, files in os.walk(self.image_path) for f in files if f.endswith('.jpg') or f.endswith('.png')])
@@ -32,13 +33,14 @@ class Importer:
 
         return files
 
-    def check_if_local_image_exists_in_db(self, image_path: str, db: Session) -> Optional[models.ArtItem]:
-        return crud.get_image_by_path(db, filepath=image_path)
+    def check_if_local_image_exists_in_db(self, image_path: str) -> Optional[models.ArtItem]:
+        return crud.get_image_by_path(self._db, filepath=image_path)
 
     """
     Get image dimensions using PIL
     """
-    def get_image_dimensions(self, image_path: str) -> Tuple[int, int]:
+    @staticmethod
+    def get_image_dimensions(image_path: str) -> Tuple[int, int]:
         try:
             with Image.open(image_path) as img:
                 width, height = img.size
@@ -65,7 +67,7 @@ class Importer:
     Try to figure out what kind of image file is, starting with the extension
     '''
     @staticmethod
-    def get_file_type(filename):
+    def get_file_type(filename: str):
         try:
             file_type = os.path.splitext(filename)[1][1:].lower()
             file_type = file_type.lower() if file_type else None
@@ -75,14 +77,14 @@ class Importer:
         return None
 
 
-    async def synchronize_files(self, db: Session):
+    async def synchronize_files(self):
         # First, let's read all files currently on disk and ensure they are present in the DB/
         image_list = self.get_imagelist_on_disk()
 
         processed_images = []
 
         for image in image_list:
-            image_exists = self.check_if_local_image_exists_in_db(image, db)
+            image_exists = self.check_if_local_image_exists_in_db(image)
             if image_exists:
                 logging.info('Image {} already exists in the database'.format(image))
                 processed_images.append(image_exists)
@@ -99,27 +101,28 @@ class Importer:
                 aspect_width=aspect_ratio[0],
                 aspect_height=aspect_ratio[1]
             )
-            db.add(img)
-            db.commit()
+            self._db.add(img)
+            self._db.commit()
             processed_images.append(img)
             logging.info('Added image {} to the database'.format(img.id))
 
         logging.info('Processed {} images'.format(len(processed_images)))
 
         # Delete all Images that have not been processed
-        delete_count = crud.delete_images_not_in_processed_items_list(db, [i.filepath for i in processed_images])
+        delete_count = crud.delete_images_not_in_processed_items_list(self._db, [i.filepath for i in processed_images])
         logging.info('Deleted {} images from the database'.format(delete_count))
 
 
     async def main(self):
-        models.Base.metadata.create_all(bind=database.engine)
-        db = database.SessionLocal()
-        await self.synchronize_files(db)
+        await self.synchronize_files()
 
 
 if __name__ == '__main__':
     try:
-        importer = Importer(settings.gallery_path)
+        models.Base.metadata.create_all(bind=database.engine)
+        db = database.SessionLocal()
+
+        importer = Importer(settings.gallery_path, db)
         logging.basicConfig(level=logging.INFO)  # or logging.DEBUG to see messages
         asyncio.run(importer.main())
     except (KeyboardInterrupt, SystemExit):
