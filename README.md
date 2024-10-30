@@ -36,3 +36,11 @@ To start the upload synchronization, you can run the following command from the 
 ```bash
 poetry run python3 -m framegallery.importer.importer
 ```
+
+#### Image configuration
+
+The Frame's aspect ratio is 16:9.  Images with these dimensions can be configured with any matte.
+Images with an aspect ratio of 3:2 (e.g. 1920x1280) can also be configured with a matte. When using "none" the image will be slightly cropped to 1920x1080.
+Images with an aspect ratio of 4:3 (e.g. 1920x1440) can also be configured with a matte. When using "none" the image will be cropped to 1920x1080
+
+It actually seems you can select any matte style for any image, as long the slideshow mode is disabled.
