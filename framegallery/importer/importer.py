@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 import framegallery.crud as crud
 import framegallery.models as models
 import framegallery.database as database
+from config import settings
 
 api_version = "4.3.4.0"
 
@@ -25,7 +26,7 @@ def get_imagelist_on_disk(image_folder: str):
     return files
 
 def check_if_local_image_exists_in_db(image_path: str, db: Session) -> Optional[models.ArtItem]:
-    return crud.get_image_by_path(db, image_path=image_path)
+    return crud.get_artitem_by_path(db, image_path=image_path)
 
 
 async def upload_new_image_to_tv(db: Session, tv: SamsungTVAsyncArt, image_path: str):
@@ -120,7 +121,7 @@ async def synchronize_files(tv: SamsungTVAsyncArt, db: Session):
 async def main():
     models.Base.metadata.create_all(bind=database.engine)
     db = database.SessionLocal()
-    tv = SamsungTVAsyncArt(host="192.168.2.76", port=8002, timeout=60)
+    tv = SamsungTVAsyncArt(host=settings.ip_address, port=8002, timeout=60)
     await tv.start_listening()
     await synchronize_files(tv, db)
 

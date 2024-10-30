@@ -19,17 +19,17 @@ import framegallery.aspect_ratio as aspect_ratio
 import framegallery.crud as crud
 import framegallery.models as models
 import framegallery.schemas as schemas
+from config import settings
 from framegallery.database import SessionLocal, engine
 
 models.Base.metadata.create_all(bind=engine)
 
 logging.basicConfig(level=logging.DEBUG)  # or logging.DEBUG to see messages
-ip = "192.168.2.76"
 api_version = "4.3.4.0"
 
 pid = os.getpid()
 token_file = os.path.dirname(os.path.realpath(__file__)) + f"/tv-token-{pid}.txt"
-tv = SamsungTVAsyncArt(host=ip, port=8002, name=f"FrameTV-{pid}", token_file=token_file)
+tv = SamsungTVAsyncArt(host=settings.ip_address, port=8002, name=f"FrameTV-{pid}", token_file=token_file)
 
 current_active_art: Optional[schemas.ActiveArt] = None
 
