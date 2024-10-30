@@ -40,7 +40,7 @@ async def upload_new_image_to_tv(db: Session, tv: SamsungTVAsyncArt, image_path:
     file_data, file_type = read_file(full_path)
 
     logging.info('Going to upload {} with file_type {}'.format(full_path, file_type))
-    data = await tv.upload(file_data, file_type=file_type, timeout=60)
+    data = await tv.upload(file_data, file_type=file_type, timeout=60, matte="none", portrait_matte="none")
     content_id = data['content_id']
     logging.info('Received content_id: {}'.format(content_id))
 
