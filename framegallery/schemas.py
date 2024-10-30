@@ -11,6 +11,8 @@ class ArtItem(BaseModel):
     portrait_matte_id: str
     width: int
     height: int
+    aspect_width: int
+    aspect_height: int
     image_date: Optional[str] = None
     content_type: Optional[str] = None
     thumbnail_filename: Optional[str] = None

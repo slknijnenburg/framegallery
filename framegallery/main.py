@@ -15,6 +15,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
+import framegallery.aspect_ratio as aspect_ratio
 import framegallery.crud as crud
 import framegallery.models as models
 import framegallery.schemas as schemas

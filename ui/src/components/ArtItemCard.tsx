@@ -40,6 +40,7 @@ export default function ArtItemCard({item}: ArtItemCardProps) {
     return (
         <Card sx={{maxWidth: 345}}>
             <CardMedia
+                component='img'
                 sx={{height: 140}}
                 image={`data:image/jpeg;base64,${item.thumbnail_data}`}
                 title={item.thumbnail_filename}

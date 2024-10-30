@@ -12,6 +12,8 @@ class ArtItem(Base):
     portrait_matte_id = Column(String)
     width = Column(Integer)
     height = Column(Integer)
+    aspect_width = Column(Integer)
+    aspect_height = Column(Integer)
     image_date = Column(String)
     content_type = Column(String)
     thumbnail_filename = Column(String)

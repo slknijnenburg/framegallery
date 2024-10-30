@@ -24,6 +24,7 @@ def persist_art_item(db: Session, art_item: ArtItem) -> None:
     db.add(art_item)
     db.commit()
 
+
 def get_image_by_path(db: Session, image_path: str) -> Optional[ArtItem]:
     stmt = select(ArtItem).filter_by(local_filename=image_path)
 
