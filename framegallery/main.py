@@ -15,13 +15,14 @@ import logging
 
 from sqlalchemy.orm import Session
 
-import framegallery.aspect_ratio as aspect_ratio
 import framegallery.crud as crud
 import framegallery.models as models
 import framegallery.schemas as schemas
+from framegallery.frame_connector.frame_connector import FrameConnector
 from framegallery.config import settings
 from framegallery.database import engine, get_db
 from framegallery.importer2.importer import Importer
+from framegallery.slideshow.slideshow import Slideshow
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -52,6 +53,12 @@ async def run_importer_periodically(db: Session):
         await importer.synchronize_files()
         await asyncio.sleep(settings.filesystem_refresh_interval)
 
+async def update_slideshow_periodically(slideshow: Slideshow):
+    while True:
+        logging.info("Updating slideshow")
+        await slideshow.update_slideshow()
+        await asyncio.sleep(20)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await tv.on()
@@ -62,6 +69,11 @@ async def lifespan(app: FastAPI):
     # Create a database session and run the importer periodically
     db = next(get_db())
     asyncio.create_task(run_importer_periodically(db))
+
+    frame_connector = FrameConnector(tv)
+
+    slideshow = Slideshow(db)
+    asyncio.create_task(update_slideshow_periodically(slideshow))
 
     yield
     await tv.close()

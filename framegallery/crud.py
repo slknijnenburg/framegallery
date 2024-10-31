@@ -1,6 +1,6 @@
 from typing import Optional
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from .models import ArtItem, Image
@@ -46,6 +46,12 @@ def delete_items_not_in_list(db: Session, processed_items: list) -> int:
 
 def get_image_by_path(db: Session, filepath: str) -> Optional[Image]:
     stmt = select(Image).filter_by(filepath=filepath)
+
+    return db.execute(stmt).scalar_one_or_none()
+
+# Get a random image from the database
+def get_random_image(db: Session) -> Optional[Image]:
+    stmt = select(Image).order_by(func.random()).limit(1)
 
     return db.execute(stmt).scalar_one_or_none()
 
