@@ -3,7 +3,11 @@ import logging
 import os
 from typing import Optional, Tuple
 
+
 from PIL import Image
+from PIL.ExifTags import TAGS, GPSTAGS, IFD
+from pillow_heif import register_heif_opener  # HEIF support
+
 from sqlalchemy.orm import Session
 
 import framegallery.aspect_ratio
@@ -12,6 +16,7 @@ import framegallery.database as database
 import framegallery.models as models
 from framegallery.config import settings
 
+register_heif_opener()  # HEIF support
 
 class Importer:
     def __init__(self, image_path: str, db: Session):
@@ -40,13 +45,12 @@ class Importer:
     Get image dimensions using PIL
     """
     @staticmethod
-    def get_image_dimensions(image_path: str) -> Tuple[int, int]:
+    def get_image_dimensions(img: Image) -> Tuple[int, int]:
         try:
-            with Image.open(image_path) as img:
-                width, height = img.size
-                return width, height
+            width, height = img.size
+            return width, height
         except Exception as e:
-            logging.error('Error reading image dimensions: {}, {}'.format(image_path, e))
+            logging.error('Error reading image dimensions: {}'.format(e))
 
 
 
@@ -76,6 +80,30 @@ class Importer:
             logging.error('Error reading file: {}, {}'.format(filename, e))
         return None
 
+    @staticmethod
+    def print_exif(img: Image):
+        exif = img.getexif()
+
+        print('>>>>>>>>>>>>>>>>>>', 'Base tags', '<<<<<<<<<<<<<<<<<<<<')
+        for k, v in exif.items():
+            tag = TAGS.get(k, k)
+            print(tag, v)
+
+        for ifd_id in IFD:
+            print('>>>>>>>>>', ifd_id.name, '<<<<<<<<<<')
+            try:
+                ifd = exif.get_ifd(ifd_id)
+
+                if ifd_id == IFD.GPSInfo:
+                    resolve = GPSTAGS
+                else:
+                    resolve = TAGS
+
+                for k, v in ifd.items():
+                    tag = resolve.get(k, k)
+                    print(tag, v)
+            except KeyError:
+                pass
 
     async def synchronize_files(self):
         # First, let's read all files currently on disk and ensure they are present in the DB/
@@ -90,8 +118,10 @@ class Importer:
                 processed_images.append(image_exists)
                 continue
 
-            width, height = self.get_image_dimensions(image)
+            pil_image = Image.open(image)
+            width, height = self.get_image_dimensions(pil_image)
             aspect_ratio = framegallery.aspect_ratio.get_aspect_ratio(width, height)
+            self.print_exif(pil_image)
             img = models.Image(
                 filepath=image,
                 filename=os.path.basename(image),
