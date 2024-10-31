@@ -19,8 +19,9 @@ import framegallery.aspect_ratio as aspect_ratio
 import framegallery.crud as crud
 import framegallery.models as models
 import framegallery.schemas as schemas
-from config import settings
-from framegallery.database import SessionLocal, engine
+from framegallery.config import settings
+from framegallery.database import engine, get_db
+from framegallery.importer2.importer import Importer
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -43,12 +44,24 @@ async def tv_keepalive():
         await asyncio.sleep(10)  # Adjust interval as needed
 
 
+# Background task to run the filesystem sync
+async def run_importer_periodically(db: Session):
+    importer = Importer(settings.gallery_path, db)
+    while True:
+        logging.info("Running importer")
+        await importer.synchronize_files()
+        await asyncio.sleep(settings.filesystem_refresh_interval)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await tv.on()
     await tv.start_listening()
 
     asyncio.create_task(tv_keepalive())
+
+    # Create a database session and run the importer periodically
+    db = next(get_db())
+    asyncio.create_task(run_importer_periodically(db))
 
     yield
     await tv.close()
@@ -70,13 +83,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 # Sets the templates directory to the `build` folder from `npm run build`
 # this is where you'll find the index.html file.

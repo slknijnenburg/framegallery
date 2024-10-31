@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     ip_address: str = "192.168.2.76"
     gallery_path: str = "./images"
     db_url: str = "sqlite:///./data/framegallery.db"
+    filesystem_refresh_interval: int = 60
 
 settings = Settings()
 
