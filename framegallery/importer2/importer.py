@@ -122,6 +122,9 @@ class Importer:
             width, height = self.get_image_dimensions(pil_image)
             aspect_ratio = framegallery.aspect_ratio.get_aspect_ratio(width, height)
             self.print_exif(pil_image)
+            # Create thumbnail image for display in browser
+            thumbnail_path = self.resize_image(pil_image, image)
+
             img = models.Image(
                 filepath=image,
                 filename=os.path.basename(image),
@@ -141,6 +144,15 @@ class Importer:
         # Delete all Images that have not been processed
         delete_count = crud.delete_images_not_in_processed_items_list(self._db, [i.filepath for i in processed_images])
         logging.info('Deleted {} images from the database'.format(delete_count))
+
+
+    @staticmethod
+    def resize_image(pil_image: Image, image_path: str) -> str:
+        thumbnail = pil_image.thumbnail((200, 200))
+        thumbnail_path = image_path.replace('.jpg', '.thumbnail.jpg')
+        thumbnail.save(thumbnail_path)
+
+        return thumbnail_path
 
 
     async def main(self):

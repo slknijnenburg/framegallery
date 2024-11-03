@@ -22,7 +22,7 @@ from framegallery.frame_connector.frame_connector import FrameConnector
 from framegallery.config import settings
 from framegallery.database import engine, get_db
 from framegallery.importer2.importer import Importer
-from framegallery.slideshow.slideshow import Slideshow
+from framegallery.slideshow.slideshow import Slideshow, get_slideshow
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -57,7 +57,7 @@ async def update_slideshow_periodically(slideshow: Slideshow):
     while True:
         logging.info("Updating slideshow")
         await slideshow.update_slideshow()
-        await asyncio.sleep(20)
+        await asyncio.sleep(120)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -72,7 +72,7 @@ async def lifespan(app: FastAPI):
 
     frame_connector = FrameConnector(tv)
 
-    slideshow = Slideshow(db)
+    slideshow = next(get_slideshow(db))
     asyncio.create_task(update_slideshow_periodically(slideshow))
 
     yield
@@ -180,23 +180,27 @@ async def active_art() -> schemas.ActiveArt:
 
     return active_art_details
 
+@app.get("/api/available-images")
+async def available_images(request: Request, db: Session = Depends(get_db)):
+    images = crud.get_images(db)
 
-"""
-Sets the active item displayed on the television.
-TODO: Figure out whether this stops the slideshow or not.
-"""
-@app.post("/api/active-art/{content_id}")
-async def select_art(request: Request, content_id: str, db: Session = Depends(get_db)):
-    art_item = crud.get_art_item(db, content_id=content_id)
-    if not art_item:
-        return {"error": "Art item not found"}
+    return images
 
-    await tv.select_image(content_id, "MY-C0002")
-
-    # Update current_active_art
-    await active_art()
-
-    return {"content_id": content_id}
+# """
+# Sets the active item
+# """
+# @app.post("/api/active-art/{id}")
+# async def select_art(request: Request, id: int, db: Session = Depends(get_db), slideshow: Slideshow = Depends(get_slideshow)):
+#     image = crud.get_image_by_id(db, id)
+#     if not image:
+#         raise HTTPException(status_code=404, detail=f"Image with ID {id} not found")
+#
+#     await slideshow.set_slideshow_active_image(image)
+#
+#     # Update current_active_art
+#     await active_art()
+#
+#     return image
 
 
 @app.get("/api/available-art/refresh", status_code=200)

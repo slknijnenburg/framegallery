@@ -34,6 +34,7 @@ class Image(Base):
     filename = Column(String, index=True)
     filepath = Column(String, index=True)
     filetype = Column(String)
+    thumbnail_path = Column(String)
     width = Column(Integer)
     height = Column(Integer)
     aspect_width = Column(Integer)

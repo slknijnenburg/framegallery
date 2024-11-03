@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Type
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
@@ -49,6 +49,12 @@ def get_image_by_path(db: Session, filepath: str) -> Optional[Image]:
 
     return db.execute(stmt).scalar_one_or_none()
 
+
+def get_image_by_id(db: Session, id: int) -> Optional[Image]:
+    stmt = select(Image).filter_by(id=id)
+
+    return db.execute(stmt).scalar_one_or_none()
+
 # Get a random image from the database
 def get_random_image(db: Session) -> Optional[Image]:
     stmt = select(Image).order_by(func.random()).limit(1)
@@ -67,3 +73,7 @@ def delete_images_not_in_processed_items_list(db: Session, processed_items: list
     db.commit()
 
     return result.rowcount
+
+
+def get_images(db: Session, skip: int = 0, limit: int = 100) -> list[Type[Image]]:
+    return db.query(Image).order_by(Image.id.asc()).offset(skip).limit(limit).all()
