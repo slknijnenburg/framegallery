@@ -47,7 +47,7 @@ export default function ArtItemCard({item}: ArtItemCardProps) {
                 title={item.filename}
             />
             <CardContent>
-                <Typography gutterBottom variant="h5" component="div">
+                <Typography gutterBottom variant="h6" component="div">
                     {item.filename}
                 </Typography>
             </CardContent>

@@ -75,5 +75,5 @@ def delete_images_not_in_processed_items_list(db: Session, processed_items: list
     return result.rowcount
 
 
-def get_images(db: Session, skip: int = 0, limit: int = 100) -> list[Type[Image]]:
+def get_images(db: Session, skip: int = 0, limit: int = 500) -> list[Type[Image]]:
     return db.query(Image).order_by(Image.id.asc()).offset(skip).limit(limit).all()

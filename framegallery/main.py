@@ -118,7 +118,7 @@ async def available_images(request: Request, db: Session = Depends(get_db)):
 
     for image in images:
         image.thumbnail_path = image.thumbnail_path.replace(settings.gallery_path, '/images')
-    
+
     return images
 
 # """
