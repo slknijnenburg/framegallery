@@ -1,4 +1,3 @@
-import ArtItem from "../models/ArtItem";
 import Card from '@mui/material/Card';
 import CardActions from '@mui/material/CardActions';
 import CardContent from '@mui/material/CardContent';
@@ -11,16 +10,18 @@ import axios from "axios";
 import { IconButton } from "@mui/material";
 import ArtItemDialog from "./ArtItemDialog";
 import { useState } from "react";
+import Image from "../models/Image";
+import { API_BASE_URL } from "../App";
 
 export interface ArtItemCardProps {
-    item: ArtItem;
+    item: Image;
 }
 
 export default function ArtItemCard({item}: ArtItemCardProps) {
     // Create function to POST to the API to make this art active, that will be called when the button is clicked
     const makeActiveArt = async () => {
         try {
-            await axios.post(`http://localhost:7999/api/active-art/${item.content_id}`);
+            await axios.post(`http://localhost:7999/api/active-art/${item.id}`);
         } catch (error) {
             console.error(error);
         }
@@ -42,27 +43,27 @@ export default function ArtItemCard({item}: ArtItemCardProps) {
             <CardMedia
                 component='img'
                 sx={{height: 140}}
-                image={`data:image/jpeg;base64,${item.thumbnail_data}`}
-                title={item.thumbnail_filename}
+                image={`${API_BASE_URL}${item.thumbnail_path}`}
+                title={item.filename}
             />
             <CardContent>
                 <Typography gutterBottom variant="h5" component="div">
-                    {item.thumbnail_filename}
+                    {item.filename}
                 </Typography>
             </CardContent>
             <CardActions>
-                <IconButton aria-label={`Make ${item.thumbnail_filename} active`} onClick={makeActiveArt}>
+                <IconButton aria-label={`Make ${item.filename} active`} onClick={makeActiveArt}>
                     <VisibilityIcon/>
                 </IconButton>
 
-                <IconButton aria-label={`Delete ${item.thumbnail_filename} from TV`}>
+                <IconButton aria-label={`Delete ${item.filename} from TV`}>
                     <DeleteIcon/>
                 </IconButton>
 
-                <IconButton aria-label={`Settings for ${item.thumbnail_filename}`} onClick={openDialog}>
+                <IconButton aria-label={`Settings for ${item.filename}`} onClick={openDialog}>
                     <SettingsIcon/>
                 </IconButton>
-                <ArtItemDialog open={dialogOpened} artItem={item} onClose={closeDialog}/>
+                <ArtItemDialog open={dialogOpened} image={item} onClose={closeDialog}/>
             </CardActions>
         </Card>
     );

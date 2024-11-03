@@ -6,14 +6,14 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
-import ArtItem from "../models/ArtItem";
 import { InputLabel, MenuItem, Select, SelectChangeEvent, Stack } from "@mui/material";
 import Grid from "@mui/material/Grid2";
 import axios from "axios";
+import Image from "../models/Image";
 
 interface ArtItemDialogProps {
     open: boolean;
-    artItem: ArtItem;
+    image: Image;
     onClose: Function;
 }
 
@@ -43,7 +43,7 @@ export default function ArtItemDialog(props: ArtItemDialogProps) {
         props.onClose();
     };
 
-    const landscapeMatteStyleSplit = props.artItem.matte_id?.split('_') ?? ['none', 'black'];
+    const landscapeMatteStyleSplit = props.image.matte_id?.split('_') ?? ['none', 'black'];
     const landscapeMatteStyle = landscapeMatteStyleSplit[0];
     const landscapeMatteColor = landscapeMatteStyleSplit[1];
 
@@ -78,7 +78,7 @@ export default function ArtItemDialog(props: ArtItemDialogProps) {
 
         // Send the new matte ID to the backend
         try {
-            await axios.patch(`http://localhost:7999/api/available-art/${props.artItem.content_id}`, {matte_id: matteId, portrait_matte_id: matteId});
+            await axios.patch(`http://localhost:7999/api/available-art/${props.image.id}`, {matte_id: matteId, portrait_matte_id: matteId});
         } catch (error) {
             console.error(error);
         }
@@ -95,7 +95,7 @@ export default function ArtItemDialog(props: ArtItemDialogProps) {
                     onSubmit: handleSubmit,
                 }}
             >
-                <DialogTitle>Item properties for {props.artItem.thumbnail_filename}</DialogTitle>
+                <DialogTitle>Item properties for {props.image.filename}</DialogTitle>
                 <DialogContent>
                     <DialogContentText>
                         Update the display settings for the art item here.

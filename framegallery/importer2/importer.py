@@ -28,7 +28,7 @@ class Importer:
         self._db = db
 
     def get_imagelist_on_disk(self):
-        files = sorted([os.path.join(root, f) for root, dirs, files in os.walk(self.image_path) for f in files if f.endswith('.jpg') or f.endswith('.png')])
+        files = sorted([os.path.join(root, f) for root, dirs, files in os.walk(self.image_path) for f in files if (f.endswith('.jpg') or f.endswith('.png')) and not f.endswith('.thumbnail.jpg')])
 
         # Remove image_folder from the paths.
         # files = [f.replace(self.image_path + '/', './') for f in files]
@@ -132,7 +132,8 @@ class Importer:
                 width=width,
                 height=height,
                 aspect_width=aspect_ratio[0],
-                aspect_height=aspect_ratio[1]
+                aspect_height=aspect_ratio[1],
+                thumbnail_path=thumbnail_path
             )
             self._db.add(img)
             self._db.commit()
@@ -148,7 +149,8 @@ class Importer:
 
     @staticmethod
     def resize_image(pil_image: Image, image_path: str) -> str:
-        thumbnail = pil_image.thumbnail((200, 200))
+        thumbnail = pil_image.copy()
+        thumbnail.thumbnail((200, 200))
         thumbnail_path = image_path.replace('.jpg', '.thumbnail.jpg')
         thumbnail.save(thumbnail_path)
 

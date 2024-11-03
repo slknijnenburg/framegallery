@@ -2,6 +2,7 @@
 The FrameConnector provides a signal handler for the `active_image_updated` signal, and will
 update the active image on the Frame TV when the signal is emitted.
 """
+import asyncio
 import logging
 import os
 from typing import Tuple
@@ -9,7 +10,24 @@ from typing import Tuple
 from blinker import signal
 from samsungtvws.async_art import SamsungTVAsyncArt
 
+from framegallery.config import settings
 from framegallery.models import Image
+
+api_version = "4.3.4.0"
+pid = os.getpid()
+token_file = os.path.dirname(os.path.realpath(__file__)) + f"/tv-token-{pid}.txt"
+# tv = SamsungTVAsyncArt(host=settings.ip_address, port=8002, name=f"FrameTV-{pid}", token_file=token_file)
+
+
+# Background task to start and keep WebSocket connection alive
+# async def tv_keepalive():
+#     while True:
+#         if not tv.connection:
+#             logging.warning("Should be reconnecting to TV")
+#         else:
+#             logging.warning("No need to reconnect to TV")
+#         await asyncio.sleep(10)  # Adjust interval as needed
+
 
 
 class FrameConnector:

@@ -1,10 +1,10 @@
 import Grid from '@mui/material/Grid2';
 import React from "react";
-import ArtItem from "../models/ArtItem";
 import ArtItemCard from "./ArtItemCard";
+import Image from "../models/Image";
 
 export interface ImageGridProps {
-    items: ArtItem[];
+    items: Image[];
 }
 
 function ImageGrid({items}: ImageGridProps) {

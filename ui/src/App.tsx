@@ -5,14 +5,14 @@ import Box from '@mui/material/Box';
 import StatusBar, { StatusBarProps } from "./components/StatusBar";
 import axios from "axios";
 import ImageGrid from "./components/ImageGrid";
-import ArtItem from "./models/ArtItem";
+import Image from "./models/Image";
 
 export const API_BASE_URL = 'http://localhost:7999';
 
 export default function App() {
     const [status, setStatus] = useState<StatusBarProps>({tv_on: false, art_mode_supported: false, art_mode_active: false, api_version: ''});
 
-    const [items, setItems] = useState<ArtItem[]>([]);
+    const [items, setItems] = useState<Image[]>([]);
 
     useEffect(() => {
         const fetchStatus = async () => {
@@ -30,7 +30,7 @@ export default function App() {
 
     useEffect(() => {
         const fetchItems = async () => {
-            const url = 'http://localhost:7999/api/available-art';
+            const url = 'http://localhost:7999/api/available-images';
 
             try {
                 const response = await axios.get(url);
