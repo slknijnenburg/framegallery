@@ -1,7 +1,8 @@
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
-from typing import Optional
+from typing import Dict, Optional
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -120,6 +121,32 @@ async def available_images(request: Request, db: Session = Depends(get_db)):
         image.thumbnail_path = image.thumbnail_path.replace(settings.gallery_path, '/images')
 
     return images
+
+
+"""
+Retrieves a list of (nested) folders in the gallery path, that can be used for filtering in the UI.
+"""
+@app.get("/api/albums")
+async def get_albums(request: Request):
+    def build_tree(path: str) -> Dict:
+        tree = {"id": "/", "name": "/", "label": "/", "children": []}
+        for root, dirs, _ in os.walk(path):
+            folder = root.replace(path, '').strip(os.sep)
+            subtree = tree["children"]
+            if folder:
+                for part in folder.split(os.sep):
+                    found = next((item for item in subtree if item["id"] == part), None)
+                    if not found:
+                        found = {"id": part, "name": part, "label": part, "children": []}
+                        subtree.append(found)
+                    subtree = found["children"]
+            for directory in dirs:
+                subtree.append({"id": directory, "name": directory, "label": directory, "children": []})
+
+        return tree
+
+    return build_tree(settings.gallery_path)
+
 
 # """
 # Sets the active item

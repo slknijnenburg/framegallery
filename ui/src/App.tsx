@@ -6,6 +6,10 @@ import StatusBar, { StatusBarProps } from "./components/StatusBar";
 import axios from "axios";
 import ImageGrid from "./components/ImageGrid";
 import Image from "./models/Image";
+import { Stack } from "@mui/material";
+import { Album, findAlbumById } from "./models/Album";
+import { RichTreeView, TreeItem2 } from "@mui/x-tree-view";
+
 
 export const API_BASE_URL = 'http://localhost:7999';
 
@@ -13,6 +17,8 @@ export default function App() {
     const [status, setStatus] = useState<StatusBarProps>({tv_on: false, art_mode_supported: false, art_mode_active: false, api_version: ''});
 
     const [items, setItems] = useState<Image[]>([]);
+    const [albums, setAlbums] = useState<Album[]>([]);
+    const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
 
     useEffect(() => {
         const fetchStatus = async () => {
@@ -42,10 +48,38 @@ export default function App() {
         fetchItems();
     }, []);
 
+    useEffect(() => {
+        const fetchItems = async () => {
+            const url = 'http://localhost:7999/api/albums';
+
+            try {
+                const response = await axios.get(url);
+                setAlbums([response.data]);
+                setSelectedAlbum(response.data[0]);
+            } catch (error) {
+                console.error(error);
+            }
+        };
+        fetchItems();
+    }, []);
+
+    const selectAlbum = function(event: React.SyntheticEvent, itemIds: string|null): void {
+        console.log("Selected album was ", selectedAlbum);
+        console.log("New album is ", itemIds);
+        console.log(albums);
+        // Find the album in the `albums` tree by iterating over each elements `children` property:
+
+        const newAlbum = findAlbumById(albums, itemIds);
+        console.log(newAlbum);
+        setSelectedAlbum(newAlbum);
+    }
+
+    const filteredImages = items.filter((item: Image): Boolean => item.filepath.includes(selectedAlbum?.name ?? ''));
+
     return (
         <Container maxWidth="xl">
             <Box sx={{my: 4}}>
-                <Typography variant="h4" component="h1" sx={{mb: 2, px: 50}}>
+                <Typography variant="h4" sx={{mb: 2}} align={"center"}>
                     The Frame Art Gallery Manager
                 </Typography>
             </Box>
@@ -56,7 +90,35 @@ export default function App() {
                            art_mode_supported={status.art_mode_supported}
                 />
             </Container>
-            <ImageGrid items={items}/>
+            <Stack
+                direction="row"
+                spacing={2}
+                justifyContent="center"
+                alignItems="flex-start"
+            >
+                <Stack direction="column" spacing={1} justifyContent="flex-start" alignItems="flex-start">
+                    <Typography variant="h5" component="h2" sx={{mb: 2}}>
+                        Albums
+                    </Typography>
+                    <Box sx={{minWidth: 200}}>
+                        <RichTreeView items={albums}
+                                      slots={{item: TreeItem2}}
+                                      defaultExpandedItems={["/"]}
+                                      multiSelect={false}
+                                      onSelectedItemsChange={selectAlbum}
+                                      expansionTrigger={"iconContainer"}
+                        >
+                        </RichTreeView>
+                    </Box>
+                </Stack>
+                <Stack direction="column" spacing={1} justifyContent="flex-start" alignItems="flex-start">
+                    <Typography variant="h5" component="h2" sx={{mb: 2}}>
+                        Photos
+                    </Typography>
+                    <ImageGrid items={filteredImages}/>
+                </Stack>
+            </Stack>
+
         </Container>
     );
 }

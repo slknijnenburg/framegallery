@@ -1,4 +1,5 @@
-interface ArtItem {
+/** Representation of an art item stored on the Frame TV */
+export default interface ArtItem {
     content_id: string;
     local_filename?: string;
     category_id: string|null;
@@ -13,5 +14,3 @@ interface ArtItem {
     thumbnail_filetype?: string;
     thumbnail_data?: string;
 }
-
-export default ArtItem;

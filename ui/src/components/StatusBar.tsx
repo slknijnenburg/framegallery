@@ -75,7 +75,7 @@ function StatusBar({tv_on, art_mode_supported, art_mode_active, api_version}: St
 
     return (
         <>
-            <Stack direction={"column"} spacing={2}>
+            <Stack direction={"row"} justifyContent={"space-evenly"} spacing={2}>
                 <div>
                     <h2>Status</h2>
                     <Stack direction="row" spacing={2}>

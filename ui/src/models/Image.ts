@@ -1,4 +1,4 @@
-interface Image {
+export default interface Image {
     id: number;
     filename: string;
     filepath: string;
@@ -10,5 +10,3 @@ interface Image {
     aspect_height: number;
     matte_id?: string;
 }
-
-export default Image;
