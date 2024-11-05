@@ -121,7 +121,7 @@ async def synchronize_files(tv: SamsungTVAsyncArt, db: Session):
 async def main():
     models.Base.metadata.create_all(bind=database.engine)
     db = database.SessionLocal()
-    tv = SamsungTVAsyncArt(host=settings.ip_address, port=8002, timeout=60)
+    tv = SamsungTVAsyncArt(host=settings.tv_ip_address, port=settings.tv_port, timeout=60)
     await tv.start_listening()
     await synchronize_files(tv, db)
 
