@@ -9,7 +9,7 @@ packages = [{include = "framegallery"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-samsungtvws = {git = "https://github.com/slknijnenburg/samsung-tv-ws-api.git", branch = "modifiable-timeout"}
+samsungtvws = {git = "https://github.com/slknijnenburg/samsung-tv-ws-api.git", branch = "reconnect-after-disconnect"}
 fastapi = "^0.115.0"
 uvicorn = "^0.31.0"
 pydantic = "^2.9.2"
