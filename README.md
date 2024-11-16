@@ -26,16 +26,14 @@ poetry run uvicorn framegallery.main:app --reload --port 7999
 cd ui && npm start
 ```
 
-### Importing your images
+### Running the project via Docker
 
-To import your image, you can put them in the `./images` folder. 
-You can use a subfolder structure if you want to, all files will be sent to the TV.
-
-To start the upload synchronization, you can run the following command from the root folder of the project.
-
+First build the image with:
 ```bash
-poetry run python3 -m framegallery.importer.importer
+docker build -f Dockerfile -t slknijnenburg/framegallery:latest . 
 ```
+
+`docker run -it --rm -v $(pwd)/images:/app/images -v $(pwd)/data:/app/data slknijnenburg/framegallery:latest`
 
 #### Image configuration
 
