@@ -9,12 +9,12 @@ packages = [{include = "framegallery"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-samsungtvws = {git = "https://github.com/slknijnenburg/samsung-tv-ws-api.git", branch = "reconnect-after-disconnect"}
+samsungtvws = {git = "https://github.com/slknijnenburg/samsung-tv-ws-api.git", branch = "master"}
 fastapi = "^0.115.0"
-uvicorn = "^0.31.0"
+uvicorn = "^0.32.0"
 pydantic = "^2.9.2"
 aiohttp = "^3.10.8"
-websockets = "^13.1"
+websockets = "^14.1"
 jinja2 = "^3.1.4"
 sqlalchemy = "^2.0.35"
 wakeonlan = "^3.1.0"
