@@ -35,7 +35,7 @@ docker build -f Dockerfile -t slknijnenburg/framegallery:latest .
 
 Then run it with:
 ```bash
-docker run -it --rm -v $(pwd)/images:/app/images -v $(pwd)/data:/app/data slknijnenburg/framegallery:latest
+docker run -it --rm -p 127.0.0.1:7999:7999 -v $(pwd)/images:/app/images -v $(pwd)/data:/app/data slknijnenburg/framegallery:latest
 ```
 
 In case changes were made to the database schema, migrations will need to be executed manually when running the updated container.
