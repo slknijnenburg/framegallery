@@ -33,7 +33,17 @@ First build the image with:
 docker build -f Dockerfile -t slknijnenburg/framegallery:latest . 
 ```
 
-`docker run -it --rm -v $(pwd)/images:/app/images -v $(pwd)/data:/app/data slknijnenburg/framegallery:latest`
+Then run it with:
+```bash
+docker run -it --rm -v $(pwd)/images:/app/images -v $(pwd)/data:/app/data slknijnenburg/framegallery:latest
+```
+
+In case changes were made to the database schema, migrations will need to be executed manually when running the updated container.
+This can be done with the following command:
+
+```bash
+docker run -it --rm -v $(pwd)/images:/app/images -v $(pwd)/data:/app/data slknijnenburg/framegallery:latest poetry run alembic upgrade head
+```
 
 #### Image configuration
 
