@@ -18,12 +18,13 @@ from framegallery.config import settings
 
 register_heif_opener()  # HEIF support
 
+"""
+Imports all images from the gallery folder to the SQLite database.
+Generates thumbnails on the fly for display in the UI.
+Calculates aspect ratio of the image.
+"""
 class Importer:
     def __init__(self, image_path: str, db: Session):
-        # Validate that image_path is a full path
-        if not os.path.isabs(image_path):
-            raise ValueError('image_path must be an absolute path')
-
         self.image_path = image_path
         self._db = db
 
