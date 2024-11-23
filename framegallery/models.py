@@ -1,6 +1,6 @@
 from sqlalchemy import Boolean, Column, Integer, String
 
-from .database import Base
+from framegallery.database import Base
 
 """
 Representation of an Art item on the Samsung television

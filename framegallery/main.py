@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 import framegallery.crud as crud
 import framegallery.models as models
+from framegallery.repository.image_repository import ImageRepository
 from framegallery.frame_connector.frame_connector import FrameConnector
 from framegallery.config import settings
 from framegallery.database import engine, get_db
@@ -50,7 +51,8 @@ async def lifespan(app: FastAPI):
     db = next(get_db())
     asyncio.create_task(run_importer_periodically(db))
 
-    slideshow = next(get_slideshow(db))
+    image_repository = ImageRepository(db)
+    slideshow = next(get_slideshow(image_repository))
     asyncio.create_task(update_slideshow_periodically(slideshow))
     yield
 
