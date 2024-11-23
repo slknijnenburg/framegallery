@@ -1,0 +1,11 @@
+services:
+  framegallery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "7999:7999"
+    volumes:
+      - ./images:/app/images
+      - ./data:/app/data
+    env_file: .env
