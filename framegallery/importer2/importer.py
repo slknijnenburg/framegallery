@@ -115,7 +115,6 @@ class Importer:
         for image in image_list:
             image_exists = self.check_if_local_image_exists_in_db(image)
             if image_exists:
-                logging.debug('Image {} already exists in the database'.format(image))
                 processed_images.append(image_exists)
                 continue
 
