@@ -38,6 +38,9 @@ Then run it with:
 docker run -it --rm -p 127.0.0.1:7999:7999 -v $(pwd)/images:/app/images -v $(pwd)/data:/app/data slknijnenburg/framegallery:latest
 ```
 
+On start-up, the app will import all images from the `images` directory and create a database in the `data` directory.
+It will also generate thumbnails for display in the browser for each image, so you'll need to ensure that the images folder is writeable by the container.
+
 In case changes were made to the database schema, migrations will need to be executed manually when running the updated container.
 This can be done with the following command:
 
