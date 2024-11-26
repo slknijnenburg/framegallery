@@ -31,11 +31,7 @@ class Importer:
     def get_imagelist_on_disk(self):
         files = sorted([os.path.join(root, f) for root, dirs, files in os.walk(self.image_path) for f in files if (f.endswith('.jpg') or f.endswith('.png')) and not f.endswith('.thumbnail.jpg')])
 
-        # Remove image_folder from the paths.
-        # files = [f.replace(self.image_path + '/', './') for f in files]
-
         logging.info('Found {} images in folder {}'.format(len(files), self.image_path))
-        logging.info('Images: {}'.format(files))
 
         return files
 
