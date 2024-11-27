@@ -183,6 +183,6 @@ class FrameConnector:
                 logging.warning("No need to reconnect to TV")
             await asyncio.sleep(10)  # Adjust interval as needed
 
-    async def go_to_standby(self):
+    async def go_to_standby(self, trigger, data):
         logging.info("TV is going going to standby")
         await self.close()
