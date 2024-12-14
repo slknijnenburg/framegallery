@@ -32,13 +32,13 @@ frame_connector = FrameConnector(settings.tv_ip_address, settings.tv_port)
 async def run_importer_periodically(db: Session):
     importer = Importer(settings.gallery_path, db)
     while True:
-        logging.info("Running importer")
+        logging.debug("Running importer")
         await importer.synchronize_files()
         await asyncio.sleep(settings.filesystem_refresh_interval)
 
 async def update_slideshow_periodically(slideshow: Slideshow):
     while True:
-        logging.info("Updating slideshow")
+        logging.debug("Updating slideshow")
         await slideshow.update_slideshow()
         await asyncio.sleep(settings.slideshow_interval)
 

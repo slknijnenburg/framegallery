@@ -134,13 +134,13 @@ class Importer:
             self._db.add(img)
             self._db.commit()
             processed_images.append(img)
-            logging.info('Added image {} to the database'.format(img.id))
+            logging.debug('Added image {} to the database'.format(img.id))
 
-        logging.info('Processed {} images'.format(len(processed_images)))
+        logging.debug('Processed {} images'.format(len(processed_images)))
 
         # Delete all Images that have not been processed
         delete_count = crud.delete_images_not_in_processed_items_list(self._db, [i.filepath for i in processed_images])
-        logging.info('Deleted {} images from the database'.format(delete_count))
+        logging.debug('Deleted {} images from the database'.format(delete_count))
 
 
     @staticmethod
