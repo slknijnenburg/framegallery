@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     db_url: str = "sqlite:///./data/framegallery.db"
     filesystem_refresh_interval: int = 600
     slideshow_interval: int = 180
+    log_level: str = "INFO"
 
 settings = Settings()
 

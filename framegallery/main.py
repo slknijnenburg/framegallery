@@ -23,7 +23,7 @@ from framegallery.slideshow.slideshow import Slideshow, get_slideshow
 
 models.Base.metadata.create_all(bind=engine)
 
-logging.basicConfig(level=logging.DEBUG)  # or logging.DEBUG to see messages
+logging.basicConfig(level=logging.getLevelName(settings.log_level))
 
 # Create Frame TV Connector
 frame_connector = FrameConnector(settings.tv_ip_address, settings.tv_port)
