@@ -44,7 +44,6 @@ async def update_slideshow_periodically(slideshow: Slideshow):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await frame_connector.open()
     await frame_connector.get_active_item_details()
 
     # Create a database session and run the importer periodically
