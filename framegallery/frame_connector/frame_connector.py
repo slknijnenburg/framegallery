@@ -22,19 +22,25 @@ class TvNotConnectedError(Exception):
 
 class FrameConnector:
     def __init__(self, ip_address: str, port: int):
+        self._tv = None
         self._ip_address = ip_address
         self._port = port
         self._pid = os.getpid()
         self._token_file = os.path.dirname(os.path.realpath(__file__)) + f"/tv-token-{self._pid}.txt"
 
         self._latest_content_id = None
+        self._tv_is_online = False
         self._connected = False
 
-        self._tv = SamsungTVAsyncArt(host=self._ip_address, port=self._port, name=f"FrameTV-{self._pid}", token_file=self._token_file)
-
         self._active_image_updated_signal = signal('active_image_updated')
+        
+        # Check if the TV is available on the network. If it is, the connection sequence will be started.
+        self._start_reconnection_pinger()
 
     async def open(self):
+        if not self._tv_is_online:
+            return
+
         try:
             await self._tv.on()
             await self._tv.start_listening()
@@ -43,6 +49,7 @@ class FrameConnector:
         except TimeoutError as e:
             logging.error(f"Timeout error connecting to TV: {e}")
             raise TvNotConnectedError("Timeout error connecting to TV", e)
+
         self._connected = True
         self._active_image_updated_signal.connect(self._on_active_image_updated)
 
@@ -50,18 +57,39 @@ class FrameConnector:
         await self._tv.close()
         self._connected = False
         self._active_image_updated_signal.disconnect(self._on_active_image_updated)
+        self._start_reconnection_pinger()
+
+    def _start_reconnection_pinger(self):
+        logging.info("Starting reconnection timer")
+        asyncio.create_task(self._reconnect_ping())
+
+    async def _reconnect_ping(self):
+        from icmplib import ping
+
+        while True:
+            try:
+                response = ping(self._ip_address, count=1, timeout=2)
+                if not response.is_alive:
+                    logging.debug(f"Ping to {self._ip_address} failed, retrying in 10 seconds")
+                    self._tv_is_online = False
+                else:
+                    logging.info(f"Ping to {self._ip_address} successful, reconnecting to the TV")
+                    self._tv_is_online = True
+                    await self.reconnect()
+                    break
+
+            except Exception as e:
+                logging.error(f"Error during ping: {e}")
+            await asyncio.sleep(10)
+
 
     async def reconnect(self):
         self._tv = SamsungTVAsyncArt(host=self._ip_address, port=self._port, name=f"FrameTV-{self._pid}", token_file=self._token_file)
         await self.open()
 
     async def get_active_item_details(self):
-        if not self._connected:
-            try:
-                await self.open()
-            except TvNotConnectedError as e:
-                logging.error(f"TV not connected, cannot get active item details: {e}")
-                return
+        if not self._connected or not self._tv_is_online:
+            return
 
         data = await self._tv.get_current()
         logging.critical(f"Current active item: {data}")
@@ -73,12 +101,7 @@ class FrameConnector:
 
         # Upload the image to the TV
         try:
-            if not self._connected:
-                logging.debug("_on_active_image_updated: TV not connected, trying to reconnect")
-                try:
-                    await self.reconnect()
-                except TvNotConnectedError as e:
-                    logging.error(f"TV not connected, cannot update active image: {e}")
+            if not self._connected or not self._tv_is_online:
                     return
 
             logging.debug("_on_active_image_updated: TV connected, uploading image")

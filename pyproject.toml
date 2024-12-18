@@ -23,6 +23,7 @@ pydantic-settings = "^2.6.0"
 pillow = "^11.0.0"
 pillow-heif = "^0.20.0"
 blinker = "^1.8.2"
+icmplib = "^3.0.4"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.8.0"
