@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 import framegallery.crud
 from framegallery.repository.image_repository import ImageRepository
+from framegallery.repository.filters.image_filter import DirectoryFilter
 from framegallery.crud import get_random_image
 from framegallery.models import Image
 
@@ -16,7 +17,9 @@ class Slideshow:
         self._image_repository = image_repository
 
     async def update_slideshow(self) -> Image:
-        image = self._image_repository.get_random_image()
+        # image = self._image_repository.get_image_matching_filter(None)
+        image = self._image_repository.get_image_matching_filter(DirectoryFilter('Normandie').get_expression())
+
         if image is None:
             raise ValueError('No images in database')
 
