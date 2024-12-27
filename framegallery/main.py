@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 import framegallery.crud as crud
 import framegallery.models as models
 from framegallery.repository.image_repository import ImageRepository
+from framegallery.repository.config_repository import ConfigRepository
 from framegallery.frame_connector.frame_connector import FrameConnector
 from framegallery.config import settings
 from framegallery.database import engine, get_db
@@ -76,6 +77,7 @@ app.add_middleware(
 # Sets the templates directory to the `build` folder from `npm run build`
 # this is where you'll find the index.html file.
 templates = Jinja2Templates(directory="./ui/build")
+# templates = Jinja2Templates(directory="./ui/templates")
 
 # Mounts the `static` folder within the `build` folder to the `/static` route.
 app.mount('/static', StaticFiles(directory="./ui/build/static"), 'static')
@@ -140,37 +142,34 @@ async def get_albums(request: Request):
 
 
 @app.get("/api/slideshow")
-async def get_slideshow_status(request: Request) -> SlideshowStatus:
-    # response = await tv.get_slideshow_status()
+async def get_slideshow_status(request: Request, db: Session = Depends(get_db)) -> SlideshowStatus:
+    config_repo = ConfigRepository(db)
+    slideshow_status = config_repo.get_or("slideshow_enabled", True)
+    return SlideshowStatus(enabled=slideshow_status.value=="true", interval=settings.slideshow_interval)
 
-    # slideshow_status = SlideshowStatus(**response)
+@app.post("/api/slideshow/enable")
+async def enable_slideshow(request: Request, db: Session = Depends(get_db)):
+    config_repo = ConfigRepository(db)
+    config_repo.set("slideshow_enabled", True)
 
-    # return slideshow_status
-    return SlideshowStatus(
-        value="off",
-        category_id="MY-C0002",
-        sub_category_id="",
-        type="shuffleslideshow",
-        current_content_id="",
-        content_list=[]
-    )
+    return {}
 
-# @app.post("/api/slideshow/enable")
-# async def enable_slideshow(request: Request):
-#     response = await tv.set_slideshow_status(duration=3)
-#
-#     return response
-#
-#
-# @app.post("/api/slideshow/disable")
-# async def enable_slideshow(request: Request):
-#     response = await tv.set_slideshow_status(type="shuffleslideshow", category=2, duration=0)
-#
-#     return response
+
+@app.post("/api/slideshow/disable")
+async def enable_slideshow(request: Request, db: Session = Depends(get_db)):
+    config_repo = ConfigRepository(db)
+    config_repo.set("slideshow_enabled", False)
+
+    return {}
 
 
 # Defines a route handler for `/*` essentially.
 # NOTE: this needs to be the last route defined b/c it's a catch all route
 @app.get("/{rest_of_path:path}")
-async def react_app(req: Request, rest_of_path: str):
-    return templates.TemplateResponse('index.html', {'request': req})
+async def react_app(req: Request, rest_of_path: str, db: Session = Depends(get_db)):
+    config_repo = ConfigRepository(db)
+    config = {
+        "slideshow_enabled": config_repo.get_or("slideshow_enabled", True).value,
+    }
+
+    return templates.TemplateResponse('index.html', {'request': req, 'config': config})

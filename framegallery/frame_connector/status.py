@@ -10,9 +10,5 @@ class Status(BaseModel):
 
 
 class SlideshowStatus(BaseModel):
-    value: str
-    category_id: str
-    sub_category_id: str
-    current_content_id: str
-    type: str
-    content_list: str | list[str]
+    enabled: bool
+    interval: int
