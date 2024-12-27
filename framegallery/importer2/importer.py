@@ -35,7 +35,7 @@ class Importer:
 
         return files
 
-    def check_if_local_image_exists_in_db(self, image_path: str) -> Optional[models.ArtItem]:
+    def check_if_local_image_exists_in_db(self, image_path: str) -> Optional[models.Image]:
         return crud.get_image_by_path(self._db, filepath=image_path)
 
     """
