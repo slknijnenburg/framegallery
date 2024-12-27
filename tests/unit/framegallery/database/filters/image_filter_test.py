@@ -3,11 +3,6 @@ from framegallery.repository.filters.image_filter import AndFilter, DirectoryFil
 from framegallery.models import Image
 
 
-def test_image_filter_initialization():
-    # Example test for initialization
-    image_filter = ImageFilter()
-    assert image_filter is not None
-
 def test_directory_filter():
     dir_filter = DirectoryFilter('2024-Album')
     binary_operator = dir_filter.get_expression()
@@ -25,7 +20,7 @@ def test_file_filter():
     compiled_expression = str(binary_operator.compile(compile_kwargs={"literal_binds": True}))
 
     # Assert the components of the SQL expression
-    assert compiled_expression == "images.filepath LIKE '%_001.jpg%'"
+    assert compiled_expression == "images.filename LIKE '%_001.jpg%'"
 
 def test_and_filter():
     file_filter = FilenameFilter('_001.jpg')
@@ -36,7 +31,7 @@ def test_and_filter():
     compiled_expression = str(binary_operator.compile(compile_kwargs={"literal_binds": True}))
 
     # Assert the components of the SQL expression
-    assert compiled_expression == "images.filepath LIKE '%_001.jpg%' AND images.filepath LIKE '%2024-Album%'"
+    assert compiled_expression == "images.filename LIKE '%_001.jpg%' AND images.filepath LIKE '%2024-Album%'"
 
 def test_or_filter():
     file_filter = FilenameFilter('_001.jpg')

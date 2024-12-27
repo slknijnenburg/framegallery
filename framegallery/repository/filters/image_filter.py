@@ -62,10 +62,10 @@ class OrFilter(ImageFilter):
         self._filters = filters
 
     def get_expression(self) -> BinaryExpression:
-        return self._and_filters(self._filters)
+        return self._or_filters(self._filters)
 
     @staticmethod
-    def _and_filters(filters: List[ImageFilter]) -> BinaryExpression:
+    def _or_filters(filters: List[ImageFilter]) -> BinaryExpression:
         if len(filters) == 0:
             raise ValueError('No filters provided')
 
