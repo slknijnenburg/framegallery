@@ -6,14 +6,62 @@ import StatusBar, { StatusBarProps } from "./components/StatusBar";
 import axios from "axios";
 import ImageGrid from "./components/ImageGrid";
 import Image from "./models/Image";
-import { Stack } from "@mui/material";
+import { AppBar, Stack, Toolbar } from "@mui/material";
 import { Album, findAlbumById } from "./models/Album";
 import { RichTreeView, TreeItem2 } from "@mui/x-tree-view";
+import { BrowserRouter as Router, Link as RouterLink, Outlet, Route, Routes } from 'react-router-dom';
+import Button from "@mui/material/Button";
 
 
 export const API_BASE_URL = 'http://localhost:7999';
 
 export default function App() {
+    return (
+        <Router>
+            <Routes>
+                <Route path="/" element={<Root/>}>
+                    <Route index element={<Home/>}/>
+                    <Route path="/filters" element={<Filters/>}/>
+                </Route>
+
+            </Routes>
+        </Router>
+    );
+}
+
+function Root() {
+    return (
+        <>
+            <AppBar position="static">
+                <Container maxWidth="xl">
+                    <Toolbar disableGutters>
+                        <Box sx={{flexGrow: 1, display: {xs: 'none', md: 'flex'}}}>
+                            <Button
+                                key='home'
+                                sx={{my: 2, color: 'white', display: 'block'}}
+                                to="/"
+                                component={RouterLink}
+                            >
+                                Home
+                            </Button>
+                            <Button
+                                key='filters'
+                                sx={{my: 2, color: 'white', display: 'block'}}
+                                to="/filters"
+                                component={RouterLink}
+                            >
+                                Filters
+                            </Button>
+                        </Box>
+                    </Toolbar>
+                </Container>
+            </AppBar>
+            <Outlet/>
+        </>
+    );
+}
+
+function Home() {
     const [status, setStatus] = useState<StatusBarProps>({tv_on: false, art_mode_supported: false, art_mode_active: false, api_version: ''});
 
     const [items, setItems] = useState<Image[]>([]);
@@ -63,7 +111,7 @@ export default function App() {
         fetchItems();
     }, []);
 
-    const selectAlbum = function(event: React.SyntheticEvent, itemIds: string|null): void {
+    const selectAlbum = function (event: React.SyntheticEvent, itemIds: string | null): void {
         console.log("Selected album was ", selectedAlbum);
         console.log("New album is ", itemIds);
         console.log(albums);
@@ -76,7 +124,9 @@ export default function App() {
 
     const filteredImages = items.filter((item: Image): Boolean => item.filepath.includes(selectedAlbum?.name ?? ''));
 
+
     return (
+
         <Container maxWidth="xl">
             <Box sx={{my: 4}}>
                 <Typography variant="h4" sx={{mb: 2}} align={"center"}>
@@ -120,5 +170,11 @@ export default function App() {
             </Stack>
 
         </Container>
+    );
+}
+
+function Filters() {
+    return (
+        <h1>This is where the filter management will be</h1>
     );
 }
