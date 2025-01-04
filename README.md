@@ -8,7 +8,7 @@ Python project to manage a Samsung The Frame TV as a digital frame and (photo) g
 
 - Python 3.10 or higher
 - Poetry
-- NodeJS 16 or higher
+- NodeJS 20 or higher
 
 Run the following commands to install the required dependencies:
 
