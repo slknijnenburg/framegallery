@@ -11,7 +11,7 @@ packages = [{include = "framegallery"}]
 python = "^3.10"
 samsungtvws = {git = "https://github.com/slknijnenburg/samsung-tv-ws-api.git", branch = "master"}
 fastapi = "^0.115.0"
-uvicorn = "^0.32.0"
+uvicorn = "^0.34.0"
 pydantic = "^2.9.2"
 aiohttp = "^3.10.8"
 websockets = "^14.1"
@@ -21,7 +21,7 @@ wakeonlan = "^3.1.0"
 alembic = "^1.13.3"
 pydantic-settings = "^2.6.0"
 pillow = "^11.0.0"
-pillow-heif = "^0.20.0"
+pillow-heif = "^0.21.0"
 blinker = "^1.8.2"
 icmplib = "^3.0.4"
 
