@@ -68,7 +68,7 @@ class FrameConnector:
 
         while True:
             try:
-                response = ping(self._ip_address, count=1, timeout=2)
+                response = ping(self._ip_address, count=1, timeout=2, privileged=False)
                 if not response.is_alive:
                     logging.debug(f"Ping to {self._ip_address} failed, retrying in 10 seconds")
                     self._tv_is_online = False
