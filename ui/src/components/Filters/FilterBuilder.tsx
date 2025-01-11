@@ -17,21 +17,12 @@ const fields: Field[] = [
 interface FilterBuilderProps {
     selectedFilter?: Filter | undefined,
     saveFilterHandler?: (name: string, rule: string) => void
+    updateFilterHandler?: (id: string, name: string, rule: string) => void
 }
 
-const defaultFilter: RuleGroupType = {
-    id: 'root', combinator: 'and', rules: [
-        {
-            "id": "75d80eb5-edf8-4dd3-a49c-ba794f62225c",
-            "field": "aspect_ratio_width",
-            "operator": "=",
-            "valueSource": "value",
-            "value": "16"
-        }
-    ]
-};
+const defaultFilter: RuleGroupType = {id: 'root', combinator: 'and', rules: []};
 
-const Filters = ({selectedFilter, saveFilterHandler}: FilterBuilderProps) => {
+const Filters = ({selectedFilter, saveFilterHandler, updateFilterHandler}: FilterBuilderProps) => {
     const [query, setQuery] = useState<RuleGroupType>(defaultFilter);
     const [filterName, setFilterName] = useState<string>(selectedFilter?.name || '');
 
@@ -58,26 +49,47 @@ const Filters = ({selectedFilter, saveFilterHandler}: FilterBuilderProps) => {
             saveFilterHandler(filterName, JSON.stringify(query));
         }
     }
+    const updateFilter = (): void => {
+        if (!filterName || filterName === '') {
+            console.error('Filter name cannot be empty');
+            return;
+        }
+
+        if (updateFilterHandler && selectedFilter) {
+            // @TODO add validation so that filterName must be unique
+            updateFilterHandler(selectedFilter.id, filterName, JSON.stringify(query));
+        }
+    }
 
     const updateFilterName = (event: ChangeEvent<HTMLInputElement>) => {
         setFilterName(event.target.value);
     }
+    const removeAllFilters = (): void => {
+        setQuery(defaultFilter);
+    }
 
     return (
         <Stack spacing={2}>
-            <FormControl>
+            <FormControl margin={'normal'}>
                 <TextField label={"Filter name"} variant={"outlined"} onChange={updateFilterName} value={filterName}/>
-                <Stack direction={"row"}>
-                    <Button variant={"contained"} onClick={saveFilter}>Save</Button>
-                    <Button variant={"outlined"}>Clear</Button>
+                <Stack direction={"row"} spacing={2}>
+                    <Button variant={"contained"} onClick={saveFilter}>Save as new filter</Button>
+                    {selectedFilter && (
+                        <Button variant={"contained"} color={"secondary"} onClick={updateFilter}>Update existing filter</Button>
+                    )}
                 </Stack>
 
             </FormControl>
-            <QueryBuilder
-                fields={fields}
-                query={query}
-                onQueryChange={setQuery}
-            />
+            <Container sx={{ padding: 2 }}>
+                <QueryBuilder
+                    fields={fields}
+                    query={query}
+                    onQueryChange={setQuery}
+                />
+                <FormControl>
+                    <Button variant={"outlined"} onClick={removeAllFilters}>Clear filters</Button>
+                </FormControl>
+            </Container>
             <Container>
                 <h2>JSON</h2>
                 <pre>{formatQuery(query)}</pre>

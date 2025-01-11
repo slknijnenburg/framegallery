@@ -29,7 +29,9 @@ const Filters = () => {
         }
     };
 
+    // TODO add support to delete filters
     const handleSaveFilter = (name: string, rule: string) => {
+        // TODO add support to update existing filters
         const newFilter = {
             id: (filters.length + 1).toString(),
             name: name,
@@ -38,6 +40,15 @@ const Filters = () => {
         setFilters([...filters, newFilter]);
         setSelectedFilter(newFilter);
     }
+
+    const handleUpdateFilter = (id: string, name: string, rule: string) => {
+        const updatedFilters = filters.map((filter) =>
+            filter.id === id ? {...filter, name, query: rule} : filter
+        );
+        setFilters(updatedFilters);
+        const updatedFilter = updatedFilters.find((filter) => filter.id === id);
+        setSelectedFilter(updatedFilter);
+    };
 
     return (
         <Container maxWidth="xl">
@@ -65,7 +76,11 @@ const Filters = () => {
                 </Grid>
                 <Grid size={12}/>
             </Grid>
-            <FilterBuilder selectedFilter={selectedFilter} saveFilterHandler={handleSaveFilter} />
+            <FilterBuilder
+                selectedFilter={selectedFilter}
+                saveFilterHandler={handleSaveFilter}
+                updateFilterHandler={handleUpdateFilter}
+            />
         </Container>
     );
 }
