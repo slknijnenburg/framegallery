@@ -17,8 +17,7 @@ class Slideshow:
         self._image_repository = image_repository
 
     async def update_slideshow(self) -> Image:
-        # image = self._image_repository.get_image_matching_filter(None)
-        image = self._image_repository.get_image_matching_filter(DirectoryFilter('Normandie').get_expression())
+        image = self._image_repository.get_image_matching_filter(None)
 
         if image is None:
             raise ValueError('No images in database')
