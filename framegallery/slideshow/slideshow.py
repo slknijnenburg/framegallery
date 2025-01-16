@@ -5,17 +5,20 @@ from blinker import signal
 from sqlalchemy.orm import Session
 
 import framegallery.crud
+from framegallery.repository.image_repository import ImageRepository
+from framegallery.repository.filters.image_filter import DirectoryFilter
 from framegallery.crud import get_random_image
 from framegallery.models import Image
 
 
 class Slideshow:
-    def __init__(self, db: Session):
+    def __init__(self, image_repository: ImageRepository):
         self._active_image = None
-        self._db = db
+        self._image_repository = image_repository
 
     async def update_slideshow(self) -> Image:
-        image = get_random_image(self._db)
+        image = self._image_repository.get_image_matching_filter(None)
+
         if image is None:
             raise ValueError('No images in database')
 
@@ -31,5 +34,5 @@ class Slideshow:
 
 
 
-def get_slideshow(db: Session):
-    yield Slideshow(db)
+def get_slideshow(image_repository: ImageRepository):
+    yield Slideshow(image_repository)

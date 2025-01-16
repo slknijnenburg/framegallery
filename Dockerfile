@@ -10,6 +10,7 @@ RUN npm run build
 FROM python:3.11-slim AS backend-builder
 WORKDIR /app
 COPY ./pyproject.toml ./poetry.lock ./alembic.ini ./alembic/  ./
+RUN pip install --upgrade pip
 RUN pip install poetry && poetry install --no-dev
 COPY alembic/ ./alembic
 COPY framegallery/ ./framegallery
