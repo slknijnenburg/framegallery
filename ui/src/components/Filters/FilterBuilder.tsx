@@ -1,11 +1,13 @@
 import { Field, formatQuery, QueryBuilder, RuleGroupType } from 'react-querybuilder';
 import 'react-querybuilder/dist/query-builder.css';
 import { ChangeEvent, useEffect, useState } from "react";
-import { Stack, TextField } from "@mui/material";
+import { CardHeader, Stack, TextField } from "@mui/material";
 import Container from "@mui/material/Container";
 import FormControl from "@mui/material/FormControl";
 import Button from "@mui/material/Button";
 import { Filter } from "./Filter";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
 
 const fields: Field[] = [
     {name: 'directory', label: 'Directory'},
@@ -69,17 +71,19 @@ const Filters = ({selectedFilter, saveFilterHandler, updateFilterHandler}: Filte
     }
 
     return (
-        <Stack spacing={2}>
-            <FormControl margin={'normal'}>
-                <TextField label={"Filter name"} variant={"outlined"} onChange={updateFilterName} value={filterName}/>
-                <Stack direction={"row"} spacing={2}>
-                    <Button variant={"contained"} onClick={saveFilter}>Save as new filter</Button>
-                    {selectedFilter && (
-                        <Button variant={"contained"} color={"secondary"} onClick={updateFilter}>Update existing filter</Button>
-                    )}
-                </Stack>
+        <>
 
-            </FormControl>
+        <Stack spacing={2}>
+            {/*/!*<FormControl margin={'normal'}>*!/*/}
+            {/*/!*    <TextField label={"Filter name"} variant={"outlined"} onChange={updateFilterName} value={filterName}/>*!/*/}
+            {/*/!*    <Stack direction={"row"} spacing={2}>*!/*/}
+            {/*/!*        <Button variant={"contained"} onClick={saveFilter}>Save as new filter</Button>*!/*/}
+            {/*/!*        {selectedFilter && (*!/*/}
+            {/*/!*            <Button variant={"contained"} color={"secondary"} onClick={updateFilter}>Update existing filter</Button>*!/*/}
+            {/*/!*        )}*!/*/}
+            {/*/!*    </Stack>*!/*/}
+
+            {/*</FormControl>*/}
             <Container sx={{ padding: 2 }}>
                 <QueryBuilder
                     fields={fields}
@@ -97,7 +101,7 @@ const Filters = ({selectedFilter, saveFilterHandler, updateFilterHandler}: Filte
                 <pre>{formatQuery(query, "parameterized_named").sql}</pre>
             </Container>
         </Stack>
-
+            </>
     );
 };
 export default Filters;
