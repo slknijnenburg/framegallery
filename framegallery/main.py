@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 import framegallery.crud as crud
 import framegallery.models as models
 from framegallery.repository.image_repository import ImageRepository
-from framegallery.repository.config_repository import ConfigRepository
+from framegallery.repository.config_repository import ConfigRepository, ConfigKey
 from framegallery.frame_connector.frame_connector import FrameConnector
 from framegallery.config import settings
 from framegallery.database import engine, get_db
@@ -144,13 +144,13 @@ async def get_albums(request: Request):
 @app.get("/api/slideshow")
 async def get_slideshow_status(request: Request, db: Session = Depends(get_db)) -> SlideshowStatus:
     config_repo = ConfigRepository(db)
-    slideshow_status = config_repo.get_or("slideshow_enabled", True)
+    slideshow_status = config_repo.get_or(ConfigKey.SLIDESHOW_ENABLED, True)
     return SlideshowStatus(enabled=slideshow_status.value=="true", interval=settings.slideshow_interval)
 
 @app.post("/api/slideshow/enable")
 async def enable_slideshow(request: Request, db: Session = Depends(get_db)):
     config_repo = ConfigRepository(db)
-    config_repo.set("slideshow_enabled", True)
+    config_repo.set(ConfigKey.SLIDESHOW_ENABLED, True)
 
     return {}
 
@@ -158,7 +158,7 @@ async def enable_slideshow(request: Request, db: Session = Depends(get_db)):
 @app.post("/api/slideshow/disable")
 async def enable_slideshow(request: Request, db: Session = Depends(get_db)):
     config_repo = ConfigRepository(db)
-    config_repo.set("slideshow_enabled", False)
+    config_repo.set(ConfigKey.SLIDESHOW_ENABLED, False)
 
     return {}
 
@@ -169,7 +169,7 @@ async def enable_slideshow(request: Request, db: Session = Depends(get_db)):
 async def react_app(req: Request, rest_of_path: str, db: Session = Depends(get_db)):
     config_repo = ConfigRepository(db)
     config = {
-        "slideshow_enabled": config_repo.get_or("slideshow_enabled", True).value,
+        "slideshow_enabled": config_repo.get_or(ConfigKey.SLIDESHOW_ENABLED, True).value,
     }
 
     return templates.TemplateResponse('index.html', {'request': req, 'config': config})
