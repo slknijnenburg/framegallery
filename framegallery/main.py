@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import Dict, Optional
+from typing import Dict
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 import framegallery.crud as crud
 import framegallery.models as models
+from framegallery.configuration.update_current_active_image_config_listener import UpdateCurrentActiveImageConfigListener
 from framegallery.repository.image_repository import ImageRepository
 from framegallery.repository.config_repository import ConfigRepository, ConfigKey
 from framegallery.frame_connector.frame_connector import FrameConnector
@@ -55,6 +56,10 @@ async def lifespan(app: FastAPI):
     image_repository = ImageRepository(db)
     slideshow = next(get_slideshow(image_repository))
     asyncio.create_task(update_slideshow_periodically(slideshow))
+
+    config_repository = ConfigRepository(db)
+    update_current_active_image_config_listener = UpdateCurrentActiveImageConfigListener(config_repository)
+
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -170,6 +175,9 @@ async def react_app(req: Request, rest_of_path: str, db: Session = Depends(get_d
     config_repo = ConfigRepository(db)
     config = {
         "slideshow_enabled": config_repo.get_or(ConfigKey.SLIDESHOW_ENABLED, True).value,
+        "slideshow_interval": settings.slideshow_interval,
+        "current_active_image": config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE, None).value,
+        "current_active_image_since": config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, None).value,
     }
 
     return templates.TemplateResponse('index.html', {'request': req, 'config': config})
