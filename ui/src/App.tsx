@@ -11,7 +11,8 @@ import {Album, findAlbumById} from "./models/Album";
 import {RichTreeView, TreeItem2} from "@mui/x-tree-view";
 import {BrowserRouter as Router, Link as RouterLink, Outlet, Route, Routes} from 'react-router-dom';
 import Button from "@mui/material/Button";
-import {SettingsProvider} from "./SettingsContext";
+import {SettingsProvider, useSettings} from "./SettingsContext";
+import FrameDisplayPreview from "./components/FrameDisplayPreview";
 
 
 export const API_BASE_URL = 'http://localhost:7999';
@@ -74,6 +75,8 @@ function Root() {
 }
 
 function Home() {
+  const { settings } = useSettings();
+
     const [status, setStatus] = useState<StatusBarProps>({
         tv_on: false,
         art_mode_supported: false,
@@ -95,20 +98,25 @@ function Home() {
     }, []); // The empty dependency array ensures the effect runs only once
 
     return (
-        <Container maxWidth="xl">
-            <Box sx={{my: 4}}>
-                <Typography variant="h4" sx={{mb: 2}} align={"center"}>
-                    The Frame Art Gallery Manager
-                </Typography>
-            </Box>
-            <Container sx={{mb: 10}}>
-                <StatusBar tv_on={status.tv_on}
-                           api_version={status.api_version}
-                           art_mode_active={status.art_mode_active}
-                           art_mode_supported={status.art_mode_supported}
-                />
+        <Stack direction={"column"}>
+            <Container maxWidth="xl">
+                <Box sx={{my: 4}}>
+                    <Typography variant="h4" sx={{mb: 2}} align={"center"}>
+                        The Frame Art Gallery Manager
+                    </Typography>
+                </Box>
+                <Container sx={{mb: 10}}>
+                    <StatusBar tv_on={status.tv_on}
+                               api_version={status.api_version}
+                               art_mode_active={status.art_mode_active}
+                               art_mode_supported={status.art_mode_supported}
+                    />
+                </Container>
             </Container>
-        </Container>
+            <Container>
+                <FrameDisplayPreview imageUrl={API_BASE_URL + '/' + settings?.current_active_image.filepath}/>
+            </Container>
+        </Stack>
     );
 }
 
