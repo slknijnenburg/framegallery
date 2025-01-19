@@ -21,6 +21,7 @@ export default function App() {
             <Routes>
                 <Route path="/" element={<Root/>}>
                     <Route index element={<Home/>}/>
+                    <Route path="/browser" element={<Browser/>}/>
                     <Route path="/filters" element={<Filters/>}/>
                 </Route>
 
@@ -45,6 +46,14 @@ function Root() {
                                 Home
                             </Button>
                             <Button
+                                key='browser'
+                                sx={{my: 2, color: 'white', display: 'block'}}
+                                to="/browser"
+                                component={RouterLink}
+                            >
+                                Browser
+                            </Button>
+                            <Button
                                 key='filters'
                                 sx={{my: 2, color: 'white', display: 'block'}}
                                 to="/filters"
@@ -62,6 +71,40 @@ function Root() {
 }
 
 function Home() {
+    const [status, setStatus] = useState<StatusBarProps>({tv_on: false, art_mode_supported: false, art_mode_active: false, api_version: ''});
+    useEffect(() => {
+        const fetchStatus = async () => {
+            const url = `${API_BASE_URL}/api/status`;
+
+            try {
+                const response = await axios.get(url);
+                setStatus(response.data);
+            } catch (error) {
+                console.error(error);
+            }
+        };
+        fetchStatus();
+    }, []); // The empty dependency array ensures the effect runs only once
+
+    return (
+        <Container maxWidth="xl">
+            <Box sx={{my: 4}}>
+                <Typography variant="h4" sx={{mb: 2}} align={"center"}>
+                    The Frame Art Gallery Manager
+                </Typography>
+            </Box>
+            <Container sx={{mb: 10}}>
+                <StatusBar tv_on={status.tv_on}
+                           api_version={status.api_version}
+                           art_mode_active={status.art_mode_active}
+                           art_mode_supported={status.art_mode_supported}
+                />
+            </Container>
+        </Container>
+    );
+}
+
+function Browser() {
     const [status, setStatus] = useState<StatusBarProps>({tv_on: false, art_mode_supported: false, art_mode_active: false, api_version: ''});
 
     const [items, setItems] = useState<Image[]>([]);
