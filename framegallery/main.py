@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 import framegallery.crud as crud
 import framegallery.models as models
+from framegallery.schemas import ConfigResponse
 from framegallery.configuration.update_current_active_image_config_listener import UpdateCurrentActiveImageConfigListener
 from framegallery.repository.image_repository import ImageRepository
 from framegallery.repository.config_repository import ConfigRepository, ConfigKey
@@ -166,6 +167,18 @@ async def enable_slideshow(request: Request, db: Session = Depends(get_db)):
     config_repo.set(ConfigKey.SLIDESHOW_ENABLED, False)
 
     return {}
+
+@app.get("/api/settings")
+async def get_settings(request: Request, db: Session = Depends(get_db)) -> ConfigResponse:
+    config_repo = ConfigRepository(db)
+    config = {
+        "slideshow_enabled": config_repo.get_or(ConfigKey.SLIDESHOW_ENABLED, True).value,
+        "slideshow_interval": settings.slideshow_interval,
+        "current_active_image": config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE, None).value,
+        "current_active_image_since": config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, None).value,
+    }
+
+    return ConfigResponse(**config)
 
 
 # Defines a route handler for `/*` essentially.

@@ -18,3 +18,9 @@ class Image(BaseModel):
     height: int
     aspect_width: int
     aspect_height: int
+
+class ConfigResponse(BaseModel):
+    slideshow_enabled: bool
+    slideshow_interval: int
+    current_active_image: str|None
+    current_active_image_since: str|None

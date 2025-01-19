@@ -1,32 +1,35 @@
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useState} from 'react';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import StatusBar, { StatusBarProps } from "./components/StatusBar";
+import StatusBar, {StatusBarProps} from "./components/StatusBar";
 import axios from "axios";
 import ImageGrid from "./components/ImageGrid";
 import Image from "./models/Image";
-import { AppBar, Stack, Toolbar } from "@mui/material";
-import { Album, findAlbumById } from "./models/Album";
-import { RichTreeView, TreeItem2 } from "@mui/x-tree-view";
-import { BrowserRouter as Router, Link as RouterLink, Outlet, Route, Routes } from 'react-router-dom';
+import {AppBar, Stack, Toolbar} from "@mui/material";
+import {Album, findAlbumById} from "./models/Album";
+import {RichTreeView, TreeItem2} from "@mui/x-tree-view";
+import {BrowserRouter as Router, Link as RouterLink, Outlet, Route, Routes} from 'react-router-dom';
 import Button from "@mui/material/Button";
+import {SettingsProvider} from "./SettingsContext";
 
 
 export const API_BASE_URL = 'http://localhost:7999';
 
 export default function App() {
     return (
-        <Router>
-            <Routes>
-                <Route path="/" element={<Root/>}>
-                    <Route index element={<Home/>}/>
-                    <Route path="/browser" element={<Browser/>}/>
-                    <Route path="/filters" element={<Filters/>}/>
-                </Route>
+        <SettingsProvider>
+            <Router>
+                <Routes>
+                    <Route path="/" element={<Root/>}>
+                        <Route index element={<Home/>}/>
+                        <Route path="/browser" element={<Browser/>}/>
+                        <Route path="/filters" element={<Filters/>}/>
+                    </Route>
 
-            </Routes>
-        </Router>
+                </Routes>
+            </Router>
+        </SettingsProvider>
     );
 }
 
@@ -71,7 +74,12 @@ function Root() {
 }
 
 function Home() {
-    const [status, setStatus] = useState<StatusBarProps>({tv_on: false, art_mode_supported: false, art_mode_active: false, api_version: ''});
+    const [status, setStatus] = useState<StatusBarProps>({
+        tv_on: false,
+        art_mode_supported: false,
+        art_mode_active: false,
+        api_version: ''
+    });
     useEffect(() => {
         const fetchStatus = async () => {
             const url = `${API_BASE_URL}/api/status`;
@@ -105,7 +113,12 @@ function Home() {
 }
 
 function Browser() {
-    const [status, setStatus] = useState<StatusBarProps>({tv_on: false, art_mode_supported: false, art_mode_active: false, api_version: ''});
+    const [status, setStatus] = useState<StatusBarProps>({
+        tv_on: false,
+        art_mode_supported: false,
+        art_mode_active: false,
+        api_version: ''
+    });
 
     const [items, setItems] = useState<Image[]>([]);
     const [albums, setAlbums] = useState<Album[]>([]);
