@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import {API_BASE_URL} from "./App";
+import Image from "./models/Image";
 
 // Define the shape of your settings
 interface Settings {
   // [key: string]: any;  // Replace with your specific settings structure
   slideshow_enabled: Boolean
   slideshow_interval: Number
-  current_active_image: string|null
+  current_active_image: Image
   current_active_image_since: string|null
 }
 

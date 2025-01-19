@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 import framegallery.crud as crud
 import framegallery.models as models
-from framegallery.schemas import ConfigResponse
+from framegallery.schemas import ConfigResponse, Image
 from framegallery.configuration.update_current_active_image_config_listener import UpdateCurrentActiveImageConfigListener
 from framegallery.repository.image_repository import ImageRepository
 from framegallery.repository.config_repository import ConfigRepository, ConfigKey
@@ -171,10 +171,12 @@ async def enable_slideshow(request: Request, db: Session = Depends(get_db)):
 @app.get("/api/settings")
 async def get_settings(request: Request, db: Session = Depends(get_db)) -> ConfigResponse:
     config_repo = ConfigRepository(db)
+    active_image_id = config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE, None).value
+    active_image = crud.get_image_by_id(db, int(active_image_id))
     config = {
         "slideshow_enabled": config_repo.get_or(ConfigKey.SLIDESHOW_ENABLED, True).value,
         "slideshow_interval": settings.slideshow_interval,
-        "current_active_image": config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE, None).value,
+        "current_active_image": Image.model_validate(active_image),
         "current_active_image_since": config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, None).value,
     }
 
