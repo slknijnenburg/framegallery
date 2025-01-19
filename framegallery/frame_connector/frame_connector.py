@@ -104,6 +104,10 @@ class FrameConnector:
             if not self._connected or not self._tv_is_online:
                     return
 
+            if not self._tv.art_mode:
+                logging.debug('TV is not in art-mode, skipping image update.')
+                return
+
             logging.debug("_on_active_image_updated: TV connected, uploading image")
             data = await self._upload_image(active_image)
         except websockets.exceptions.ConnectionClosedError as e:
