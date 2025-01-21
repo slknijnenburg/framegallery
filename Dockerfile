@@ -9,11 +9,11 @@ RUN npm run build
 # Stage 2: Build the FastAPI backend
 FROM python:3.11-slim AS backend-builder
 WORKDIR /app
-COPY ./pyproject.toml ./poetry.lock ./alembic.ini ./alembic/  ./
-RUN pip install --upgrade pip
-RUN pip install poetry && poetry install --no-dev
+COPY ./pyproject.toml ./poetry.lock ./alembic.ini ./alembic/ ./README.md  ./
 COPY alembic/ ./alembic
 COPY framegallery/ ./framegallery
+RUN pip install --upgrade pip
+RUN pip install poetry && poetry install
 
 # Copy the frontend build
 COPY --from=frontend-builder /app/build /app/ui/build
