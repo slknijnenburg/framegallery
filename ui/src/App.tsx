@@ -1,31 +1,36 @@
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useState} from 'react';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import StatusBar, { StatusBarProps } from "./components/StatusBar";
+import StatusBar, {StatusBarProps} from "./components/StatusBar";
 import axios from "axios";
 import ImageGrid from "./components/ImageGrid";
 import Image from "./models/Image";
-import { AppBar, Stack, Toolbar } from "@mui/material";
-import { Album, findAlbumById } from "./models/Album";
-import { RichTreeView, TreeItem2 } from "@mui/x-tree-view";
-import { BrowserRouter as Router, Link as RouterLink, Outlet, Route, Routes } from 'react-router-dom';
+import {AppBar, Stack, Toolbar} from "@mui/material";
+import {Album, findAlbumById} from "./models/Album";
+import {RichTreeView, TreeItem2} from "@mui/x-tree-view";
+import {BrowserRouter as Router, Link as RouterLink, Outlet, Route, Routes} from 'react-router-dom';
 import Button from "@mui/material/Button";
+import {SettingsProvider, useSettings} from "./SettingsContext";
+import FrameDisplayPreview from "./components/FrameDisplayPreview";
 
 
 export const API_BASE_URL = 'http://localhost:7999';
 
 export default function App() {
     return (
-        <Router>
-            <Routes>
-                <Route path="/" element={<Root/>}>
-                    <Route index element={<Home/>}/>
-                    <Route path="/filters" element={<Filters/>}/>
-                </Route>
+        <SettingsProvider>
+            <Router>
+                <Routes>
+                    <Route path="/" element={<Root/>}>
+                        <Route index element={<Home/>}/>
+                        <Route path="/browser" element={<Browser/>}/>
+                        <Route path="/filters" element={<Filters/>}/>
+                    </Route>
 
-            </Routes>
-        </Router>
+                </Routes>
+            </Router>
+        </SettingsProvider>
     );
 }
 
@@ -45,6 +50,14 @@ function Root() {
                                 Home
                             </Button>
                             <Button
+                                key='browser'
+                                sx={{my: 2, color: 'white', display: 'block'}}
+                                to="/browser"
+                                component={RouterLink}
+                            >
+                                Browser
+                            </Button>
+                            <Button
                                 key='filters'
                                 sx={{my: 2, color: 'white', display: 'block'}}
                                 to="/filters"
@@ -62,7 +75,58 @@ function Root() {
 }
 
 function Home() {
-    const [status, setStatus] = useState<StatusBarProps>({tv_on: false, art_mode_supported: false, art_mode_active: false, api_version: ''});
+  const { settings } = useSettings();
+
+    const [status, setStatus] = useState<StatusBarProps>({
+        tv_on: false,
+        art_mode_supported: false,
+        art_mode_active: false,
+        api_version: ''
+    });
+    useEffect(() => {
+        const fetchStatus = async () => {
+            const url = `${API_BASE_URL}/api/status`;
+
+            try {
+                const response = await axios.get(url);
+                setStatus(response.data);
+            } catch (error) {
+                console.error(error);
+            }
+        };
+        fetchStatus();
+    }, []); // The empty dependency array ensures the effect runs only once
+
+    return (
+        <Stack direction={"column"}>
+            <Container maxWidth="xl">
+                <Box sx={{my: 4}}>
+                    <Typography variant="h4" sx={{mb: 2}} align={"center"}>
+                        The Frame Art Gallery Manager
+                    </Typography>
+                </Box>
+                <Container sx={{mb: 10}}>
+                    <StatusBar tv_on={status.tv_on}
+                               api_version={status.api_version}
+                               art_mode_active={status.art_mode_active}
+                               art_mode_supported={status.art_mode_supported}
+                    />
+                </Container>
+            </Container>
+            <Container>
+                <FrameDisplayPreview imageUrl={API_BASE_URL + '/' + settings?.current_active_image.filepath}/>
+            </Container>
+        </Stack>
+    );
+}
+
+function Browser() {
+    const [status, setStatus] = useState<StatusBarProps>({
+        tv_on: false,
+        art_mode_supported: false,
+        art_mode_active: false,
+        api_version: ''
+    });
 
     const [items, setItems] = useState<Image[]>([]);
     const [albums, setAlbums] = useState<Album[]>([]);

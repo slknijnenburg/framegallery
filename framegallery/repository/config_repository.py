@@ -2,7 +2,7 @@ import json
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import BinaryExpression, delete, func, select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from framegallery.models import Config, Image
@@ -10,6 +10,8 @@ from framegallery.models import Config, Image
 class ConfigKey(Enum):
     SLIDESHOW_ENABLED = "slideshow_enabled"
     SLIDESHOW_INTERVAL = "slideshow_interval"
+    CURRENT_ACTIVE_IMAGE = "current_active_image"
+    CURRENT_ACTIVE_IMAGE_SINCE = "current_active_image_since"
 
 
 class ConfigRepository:

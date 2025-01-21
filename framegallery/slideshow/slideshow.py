@@ -2,13 +2,9 @@ import logging
 
 from blinker import signal
 
-from sqlalchemy.orm import Session
-
-import framegallery.crud
-from framegallery.repository.image_repository import ImageRepository
-from framegallery.repository.filters.image_filter import DirectoryFilter
-from framegallery.crud import get_random_image
 from framegallery.models import Image
+from framegallery.repository.config_repository import ConfigRepository
+from framegallery.repository.image_repository import ImageRepository
 
 
 class Slideshow:
