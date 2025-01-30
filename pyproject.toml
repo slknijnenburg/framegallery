@@ -26,7 +26,7 @@ blinker = "^1.8.2"
 icmplib = "^3.0.4"
 
 [tool.poetry.group.dev.dependencies]
-black = "^24.8.0"
+black = "^25.0.0"
 flake8 = "^7.1.1"
 isort = "^6.0.0"
 mypy = "^1.11.2"
