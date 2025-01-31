@@ -9,6 +9,7 @@ class ActiveArt(BaseModel):
     portrait_matte_id: str
     category_id: str
 
+
 class Image(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -27,4 +28,4 @@ class ConfigResponse(BaseModel):
     slideshow_enabled: bool
     slideshow_interval: int
     current_active_image: Image
-    current_active_image_since: str|None
+    current_active_image_since: str | None

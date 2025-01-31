@@ -16,18 +16,17 @@ class Slideshow:
         image = self._image_repository.get_image_matching_filter(None)
 
         if image is None:
-            raise ValueError('No images in database')
+            raise ValueError("No images in database")
 
         await self.set_slideshow_active_image(image)
         return image
 
     async def set_slideshow_active_image(self, image: Image) -> None:
         self._active_image = image
-        active_image_updated = signal('active_image_updated')
+        active_image_updated = signal("active_image_updated")
         await active_image_updated.send_async(self, active_image=self._active_image)
 
         logging.info(f"Active image: {self._active_image.filepath}")
-
 
 
 def get_slideshow(image_repository: ImageRepository):

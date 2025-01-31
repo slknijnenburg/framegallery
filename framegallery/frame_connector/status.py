@@ -2,6 +2,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
+
 class Status(BaseModel):
     tv_on: bool
     art_mode_supported: Optional[bool] = None

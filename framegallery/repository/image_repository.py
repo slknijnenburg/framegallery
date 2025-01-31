@@ -15,10 +15,14 @@ class ImageRepository:
 
         return self._db.execute(stmt).scalar_one_or_none()
 
-    def get_image_matching_filter(self, where_expression: BinaryExpression|None) -> Optional[Image]:
+    def get_image_matching_filter(
+        self, where_expression: BinaryExpression | None
+    ) -> Optional[Image]:
         if where_expression is None:
             stmt = select(Image).order_by(func.random()).limit(1)
         else:
-            stmt = select(Image).where(where_expression).order_by(func.random()).limit(1)
+            stmt = (
+                select(Image).where(where_expression).order_by(func.random()).limit(1)
+            )
 
         return self._db.execute(stmt).scalar_one_or_none()

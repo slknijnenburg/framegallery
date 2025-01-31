@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from framegallery.models import Config, Image
 
+
 class ConfigKey(Enum):
     SLIDESHOW_ENABLED = "slideshow_enabled"
     SLIDESHOW_INTERVAL = "slideshow_interval"
@@ -23,7 +24,7 @@ class ConfigRepository:
 
         return self._db.execute(stmt).scalar_one_or_none()
 
-    def get_or(self, key: ConfigKey, default_value = None) -> Config:
+    def get_or(self, key: ConfigKey, default_value=None) -> Config:
         value_from_db = self.get(key)
         if value_from_db is None:
             return Config(key=key.value, value=default_value)

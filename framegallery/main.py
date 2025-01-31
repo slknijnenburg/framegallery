@@ -14,7 +14,9 @@ from sqlalchemy.orm import Session
 import framegallery.crud as crud
 import framegallery.models as models
 from framegallery.schemas import ConfigResponse, Image
-from framegallery.configuration.update_current_active_image_config_listener import UpdateCurrentActiveImageConfigListener
+from framegallery.configuration.update_current_active_image_config_listener import (
+    UpdateCurrentActiveImageConfigListener,
+)
 from framegallery.repository.image_repository import ImageRepository
 from framegallery.repository.config_repository import ConfigRepository, ConfigKey
 from framegallery.frame_connector.frame_connector import FrameConnector
@@ -32,6 +34,7 @@ logging.basicConfig(level=logging.getLevelName(settings.log_level))
 # Create Frame TV Connector
 frame_connector = FrameConnector(settings.tv_ip_address, settings.tv_port)
 
+
 # Background task to run the filesystem sync
 async def run_importer_periodically(db: Session):
     importer = Importer(settings.gallery_path, db)
@@ -40,11 +43,13 @@ async def run_importer_periodically(db: Session):
         await importer.synchronize_files()
         await asyncio.sleep(settings.filesystem_refresh_interval)
 
+
 async def update_slideshow_periodically(slideshow: Slideshow):
     while True:
         logging.debug("Updating slideshow")
         await slideshow.update_slideshow()
         await asyncio.sleep(settings.slideshow_interval)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -59,9 +64,12 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(update_slideshow_periodically(slideshow))
 
     config_repository = ConfigRepository(db)
-    update_current_active_image_config_listener = UpdateCurrentActiveImageConfigListener(config_repository)
+    update_current_active_image_config_listener = (
+        UpdateCurrentActiveImageConfigListener(config_repository)
+    )
 
     yield
+
 
 app = FastAPI(lifespan=lifespan)
 
@@ -86,13 +94,19 @@ templates = Jinja2Templates(directory="./ui/build")
 # templates = Jinja2Templates(directory="./ui/templates")
 
 # Mounts the `static` folder within the `build` folder to the `/static` route.
-app.mount('/static', StaticFiles(directory="./ui/build/static"), 'static')
-app.mount('/images', StaticFiles(directory=settings.gallery_path), 'images')
+app.mount("/static", StaticFiles(directory="./ui/build/static"), "static")
+app.mount("/images", StaticFiles(directory=settings.gallery_path), "images")
+
 
 @app.get("/api/status")
 async def status(request: Request) -> Status:
     # Stub the response for now
-    return Status(tv_on=True, art_mode_supported=True, art_mode_active=True, api_version=api_version)
+    return Status(
+        tv_on=True,
+        art_mode_supported=True,
+        art_mode_active=True,
+        api_version=api_version,
+    )
 
 
 @app.get("/api/available-images")
@@ -100,7 +114,9 @@ async def available_images(request: Request, db: Session = Depends(get_db)):
     images = crud.get_images(db)
 
     for image in images:
-        image.thumbnail_path = image.thumbnail_path.replace(settings.gallery_path, '/images')
+        image.thumbnail_path = image.thumbnail_path.replace(
+            settings.gallery_path, "/images"
+        )
 
     return images
 
@@ -108,22 +124,36 @@ async def available_images(request: Request, db: Session = Depends(get_db)):
 """
 Retrieves a list of (nested) folders in the gallery path, that can be used for filtering in the UI.
 """
+
+
 @app.get("/api/albums")
 async def get_albums(request: Request):
     def build_tree(path: str) -> Dict:
         tree = {"id": "/", "name": "/", "label": "/", "children": []}
         for root, dirs, _ in os.walk(path):
-            folder = root.replace(path, '').strip(os.sep)
+            folder = root.replace(path, "").strip(os.sep)
             subtree = tree["children"]
             if folder:
                 for part in folder.split(os.sep):
                     found = next((item for item in subtree if item["id"] == part), None)
                     if not found:
-                        found = {"id": part, "name": part, "label": part, "children": []}
+                        found = {
+                            "id": part,
+                            "name": part,
+                            "label": part,
+                            "children": [],
+                        }
                         subtree.append(found)
                     subtree = found["children"]
             for directory in dirs:
-                subtree.append({"id": directory, "name": directory, "label": directory, "children": []})
+                subtree.append(
+                    {
+                        "id": directory,
+                        "name": directory,
+                        "label": directory,
+                        "children": [],
+                    }
+                )
 
         return tree
 
@@ -148,10 +178,15 @@ async def get_albums(request: Request):
 
 
 @app.get("/api/slideshow")
-async def get_slideshow_status(request: Request, db: Session = Depends(get_db)) -> SlideshowStatus:
+async def get_slideshow_status(
+    request: Request, db: Session = Depends(get_db)
+) -> SlideshowStatus:
     config_repo = ConfigRepository(db)
     slideshow_status = config_repo.get_or(ConfigKey.SLIDESHOW_ENABLED, True)
-    return SlideshowStatus(enabled=slideshow_status.value=="true", interval=settings.slideshow_interval)
+    return SlideshowStatus(
+        enabled=slideshow_status.value == "true", interval=settings.slideshow_interval
+    )
+
 
 @app.post("/api/slideshow/enable")
 async def enable_slideshow(request: Request, db: Session = Depends(get_db)):
@@ -168,16 +203,23 @@ async def enable_slideshow(request: Request, db: Session = Depends(get_db)):
 
     return {}
 
+
 @app.get("/api/settings")
-async def get_settings(request: Request, db: Session = Depends(get_db)) -> ConfigResponse:
+async def get_settings(
+    request: Request, db: Session = Depends(get_db)
+) -> ConfigResponse:
     config_repo = ConfigRepository(db)
     active_image_id = config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE, None).value
     active_image = crud.get_image_by_id(db, int(active_image_id))
     config = {
-        "slideshow_enabled": config_repo.get_or(ConfigKey.SLIDESHOW_ENABLED, True).value,
+        "slideshow_enabled": config_repo.get_or(
+            ConfigKey.SLIDESHOW_ENABLED, True
+        ).value,
         "slideshow_interval": settings.slideshow_interval,
         "current_active_image": Image.model_validate(active_image),
-        "current_active_image_since": config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, None).value,
+        "current_active_image_since": config_repo.get_or(
+            ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, None
+        ).value,
     }
 
     return ConfigResponse(**config)
@@ -189,10 +231,16 @@ async def get_settings(request: Request, db: Session = Depends(get_db)) -> Confi
 async def react_app(req: Request, rest_of_path: str, db: Session = Depends(get_db)):
     config_repo = ConfigRepository(db)
     config = {
-        "slideshow_enabled": config_repo.get_or(ConfigKey.SLIDESHOW_ENABLED, True).value,
+        "slideshow_enabled": config_repo.get_or(
+            ConfigKey.SLIDESHOW_ENABLED, True
+        ).value,
         "slideshow_interval": settings.slideshow_interval,
-        "current_active_image": config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE, None).value,
-        "current_active_image_since": config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, None).value,
+        "current_active_image": config_repo.get_or(
+            ConfigKey.CURRENT_ACTIVE_IMAGE, None
+        ).value,
+        "current_active_image_since": config_repo.get_or(
+            ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, None
+        ).value,
     }
 
-    return templates.TemplateResponse('index.html', {'request': req, 'config': config})
+    return templates.TemplateResponse("index.html", {"request": req, "config": config})
