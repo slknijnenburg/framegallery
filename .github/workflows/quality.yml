@@ -1,5 +1,9 @@
 name: quality-actions
-on: push
+on:
+  push:
+    paths:
+      - 'ui/**'
+
 jobs:
   build:
     runs-on: ubuntu-latest
