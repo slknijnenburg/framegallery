@@ -1,14 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import {API_BASE_URL} from "./App";
-import Image from "./models/Image";
+import { API_BASE_URL } from './App';
+import Image from './models/Image';
 
 // Define the shape of your settings
 interface Settings {
   // [key: string]: any;  // Replace with your specific settings structure
-  slideshow_enabled: Boolean
-  slideshow_interval: Number
-  current_active_image: Image
-  current_active_image_since: string|null
+  slideshow_enabled: Boolean;
+  slideshow_interval: Number;
+  current_active_image: Image;
+  current_active_image_since: string | null;
 }
 
 // Define the context value type
@@ -16,7 +16,7 @@ interface SettingsContextValue {
   settings: Settings | null;
   loading: boolean;
   error: string | null;
-  updateSetting: (key: string, value: any) => Promise<boolean>;
+  updateSetting: (key: string, value: any) => Promise<boolean>; // eslint-disable-line no-unused-vars
 }
 
 // Create the context with a default value
@@ -78,10 +78,14 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      setSettings(prev => prev ? {
-        ...prev,
-        [key]: value
-      } : null);
+      setSettings((prev) =>
+        prev
+          ? {
+              ...prev,
+              [key]: value,
+            }
+          : null,
+      );
 
       return true;
     } catch (err) {
@@ -97,9 +101,5 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     updateSetting,
   };
 
-  return (
-    <SettingsContext.Provider value={value}>
-      {children}
-    </SettingsContext.Provider>
-  );
+  return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 };
