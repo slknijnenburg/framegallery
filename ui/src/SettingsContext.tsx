@@ -16,7 +16,7 @@ interface SettingsContextValue {
   settings: Settings | null;
   loading: boolean;
   error: string | null;
-  updateSetting: (key: string, value: any) => Promise<boolean>;
+  updateSetting: (key: string, value: any) => Promise<boolean>; // eslint-disable-line no-unused-vars
 }
 
 // Create the context with a default value

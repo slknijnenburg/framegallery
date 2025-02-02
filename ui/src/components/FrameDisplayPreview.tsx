@@ -1,4 +1,5 @@
 import { Box, CardMedia, Paper } from '@mui/material';
+import React from 'react';
 
 interface FrameDisplayPreviewProps {
   imageUrl: string;

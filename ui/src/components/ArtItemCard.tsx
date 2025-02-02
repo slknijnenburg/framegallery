@@ -9,6 +9,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import axios from 'axios';
 import { IconButton } from '@mui/material';
 import ArtItemDialog from './ArtItemDialog';
+import React from 'react';
 import { useState } from 'react';
 import Image from '../models/Image';
 import { API_BASE_URL } from '../App';
