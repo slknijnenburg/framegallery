@@ -26,10 +26,16 @@
     "web-vitals": "^2.1.4"
   },
   "devDependencies": {
-    "@babel/plugin-proposal-private-property-in-object": "^7.21"
+    "@babel/plugin-proposal-private-property-in-object": "^7.21",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-prettier": "^5.2.3",
+    "eslint-plugin-react": "^7.37.4",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "prettier": "^3.4.2"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "react-script  s start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
