@@ -4,9 +4,8 @@ import Image from './models/Image';
 
 // Define the shape of your settings
 interface Settings {
-  // [key: string]: any;  // Replace with your specific settings structure
-  slideshow_enabled: Boolean;
-  slideshow_interval: Number;
+  slideshow_enabled: boolean;
+  slideshow_interval: number;
   current_active_image: Image;
   current_active_image_since: string | null;
 }
@@ -16,7 +15,7 @@ interface SettingsContextValue {
   settings: Settings | null;
   loading: boolean;
   error: string | null;
-  updateSetting: (key: string, value: any) => Promise<boolean>; // eslint-disable-line no-unused-vars
+  updateSetting: (key: string, value: any) => Promise<boolean>; // eslint-disable-line no-unused-vars, @typescript-eslint/no-explicit-any
 }
 
 // Create the context with a default value
@@ -64,6 +63,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   }, []);
 
   // Method to update a specific setting
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateSetting = async (key: string, value: any): Promise<boolean> => {
     try {
       const response = await fetch('/api/settings', {
