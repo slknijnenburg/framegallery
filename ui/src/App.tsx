@@ -6,7 +6,7 @@ import StatusBar, { StatusBarProps } from './components/StatusBar';
 import axios from 'axios';
 import ImageGrid from './components/ImageGrid';
 import Image from './models/Image';
-import Filters from "./pages/Filters";
+import Filters from './pages/Filters';
 import { AppBar, Stack, Toolbar } from '@mui/material';
 import { Album, findAlbumById } from './models/Album';
 import { RichTreeView, TreeItem2 } from '@mui/x-tree-view';
@@ -19,19 +19,19 @@ export const API_BASE_URL = 'http://localhost:7999';
 
 export default function App() {
   return (
-  <StrictMode>
-    <SettingsProvider>
-      <Router>
-        <Routes>
-          <Route path="/" element={<Root />}>
-            <Route index element={<Home />} />
-            <Route path="/browser" element={<Browser />} />
-            <Route path="/filters" element={<FiltersOverview/>}/>
-          </Route>
-        </Routes>
-      </Router>
-    </SettingsProvider>
-  </StrictMode>
+    <StrictMode>
+      <SettingsProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<Root />}>
+              <Route index element={<Home />} />
+              <Route path="/browser" element={<Browser />} />
+              <Route path="/filters" element={<FiltersOverview />} />
+            </Route>
+          </Routes>
+        </Router>
+      </SettingsProvider>
+    </StrictMode>
   );
 }
 
@@ -183,7 +183,7 @@ function Browser() {
     setSelectedAlbum(newAlbum);
   };
 
-  const filteredImages = items.filter((item: Image): Boolean => item.filepath.includes(selectedAlbum?.name ?? ''));
+  const filteredImages = items.filter((item: Image): boolean => item.filepath.includes(selectedAlbum?.name ?? ''));
 
   return (
     <Container maxWidth="xl">
@@ -228,5 +228,5 @@ function Browser() {
 }
 
 function FiltersOverview() {
-    return (<Filters/>);
+  return <Filters />;
 }
