@@ -6,7 +6,7 @@ import { API_BASE_URL } from '../App';
 
 export interface SlideshowStatus {
   enabled: boolean;
-  interval: Number;
+  interval: number;
 }
 
 export interface StatusBarProps {
