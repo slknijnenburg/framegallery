@@ -29,3 +29,10 @@ class Config(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
     key: Mapped[str] = mapped_column(String, index=True)
     value: Mapped[str] = mapped_column(String, nullable=True)
+
+
+class Filter(Base):
+    __tablename__ = "filters"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String, index=True)
+    query: Mapped[str] = mapped_column(String, nullable=True)
