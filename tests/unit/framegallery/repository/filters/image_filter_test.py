@@ -1,6 +1,4 @@
-from framegallery.repository.filters.image_filter import AndFilter, DirectoryFilter, FilenameFilter, ImageFilter, \
-    OrFilter
-from framegallery.models import Image
+from framegallery.repository.filters.image_filter import AndFilter, DirectoryFilter, FilenameFilter, OrFilter
 
 
 def test_directory_filter():
