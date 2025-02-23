@@ -1,7 +1,11 @@
+import logging
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    """Settings for the Frame Gallery application."""
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     app_name: str = "Frame Gallery"
@@ -16,4 +20,4 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-print(f"Settings at boot: {settings.model_dump()}")
+logging.warning("Settings at boot: %s", settings.model_dump())

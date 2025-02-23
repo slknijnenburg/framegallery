@@ -1,12 +1,9 @@
+from collections.abc import Generator
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 import framegallery.config
-
-# base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data'))
-# SQLALCHEMY_DATABASE_URL = f"sqlite:///{os.path.join(base_dir, 'sql_app.db')}"
-
-print(framegallery.config.settings.db_url)
 
 SQLALCHEMY_DATABASE_URL = framegallery.config.settings.db_url
 
@@ -16,7 +13,8 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-def get_db():
+def get_db() -> Generator:
+    """Get a database session."""
     db = SessionLocal()
     try:
         yield db
