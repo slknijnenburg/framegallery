@@ -1,15 +1,18 @@
-from typing import Optional
 
 from pydantic import BaseModel
 
 
 class Status(BaseModel):
+    """Pydantic model for the status of the Frame TV."""
+
     tv_on: bool
-    art_mode_supported: Optional[bool] = None
-    art_mode_active: Optional[bool] = None
-    api_version: Optional[str] = None
+    art_mode_supported: bool | None = None
+    art_mode_active: bool | None = None
+    api_version: str | None = None
 
 
 class SlideshowStatus(BaseModel):
+    """Pydantic model for the slideshow status."""
+
     enabled: bool
     interval: int
