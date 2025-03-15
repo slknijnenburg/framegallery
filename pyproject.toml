@@ -21,7 +21,7 @@ wakeonlan = "^3.1.0"
 alembic = "^1.13.3"
 pydantic-settings = "^2.6.0"
 pillow = "^11.0.0"
-pillow-heif = "^0.21.0"
+pillow-heif = "^0.22.0"
 blinker = "^1.8.2"
 icmplib = "^3.0.4"
 
