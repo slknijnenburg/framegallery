@@ -1,5 +1,4 @@
 import logging
-from collections.abc import Generator
 
 from blinker import signal
 
@@ -34,8 +33,3 @@ class Slideshow:
         await active_image_updated.send_async(self, active_image=self._active_image)
 
         logging.info("Active image: %s", {self._active_image.filepath})
-
-
-def get_slideshow(image_repository: ImageRepository) -> Generator[Slideshow]:
-    """"Retrieve a Slideshow object."""
-    yield Slideshow(image_repository)

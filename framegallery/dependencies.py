@@ -1,27 +1,27 @@
 from typing import Annotated
 
-from fastapi import Header, HTTPException
+from fastapi import Depends
+from sqlalchemy.orm import Session
+
+from framegallery.database import get_db
+from framegallery.repository.config_repository import ConfigRepository
+from framegallery.repository.filter_repository import FilterRepository
+from framegallery.repository.image_repository import ImageRepository
+from framegallery.slideshow.slideshow import Slideshow
 
 
-from collections.abc import Generator
+def get_config_repository(db: Annotated[Session,  Depends(get_db)]) -> ConfigRepository:
+    """Get the configuration repository."""
+    return ConfigRepository(db)
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+def get_image_repository(db: Annotated[Session,  Depends(get_db)]) -> ImageRepository:
+    """Get the image repository."""
+    return ImageRepository(db)
 
-import framegallery.config
+def get_filter_repository(db: Annotated[Session,  Depends(get_db)]) -> FilterRepository:
+    """Get the filter repository."""
+    return FilterRepository(db)
 
-SQLALCHEMY_DATABASE_URL = framegallery.config.settings.db_url
-
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-def get_db() -> Generator:
-    """Get a database session."""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+def get_slideshow_instance(image_repository: Annotated[ImageRepository, Depends(get_image_repository)]) -> Slideshow:
+    """Get the slideshow instance."""
+    return Slideshow(image_repository)

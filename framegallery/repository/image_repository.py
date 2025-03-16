@@ -1,4 +1,3 @@
-
 from sqlalchemy import BinaryExpression, func, select
 from sqlalchemy.orm import Session
 

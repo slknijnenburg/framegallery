@@ -18,14 +18,15 @@ from framegallery.config import settings
 from framegallery.configuration.update_current_active_image_config_listener import (
     UpdateCurrentActiveImageConfigListener,
 )
-from framegallery.dependencies import engine, get_db
+from framegallery.database import engine, get_db
+from framegallery.dependencies import get_config_repository, get_slideshow_instance
 from framegallery.frame_connector.frame_connector import FrameConnector, api_version
 from framegallery.frame_connector.status import SlideshowStatus, Status
 from framegallery.importer2.importer import Importer
 from framegallery.repository.config_repository import ConfigKey, ConfigRepository
 from framegallery.repository.image_repository import ImageRepository
 from framegallery.schemas import ConfigResponse, Image
-from framegallery.slideshow.slideshow import Slideshow, get_slideshow
+from framegallery.slideshow.slideshow import Slideshow
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -55,7 +56,7 @@ async def update_slideshow_periodically(slideshow: Slideshow) -> None:
 
 
 @asynccontextmanager
-async def lifespan(application: FastAPI) -> AsyncGenerator[None, any]:
+async def lifespan() -> AsyncGenerator[None, any]:
     """Run tasks on startup and shutdown."""
     await frame_connector.get_active_item_details()
 
@@ -66,7 +67,7 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None, any]:
     image_importer.add_done_callback(background_tasks.discard)
 
     image_repository = ImageRepository(db)
-    slideshow = next(get_slideshow(image_repository))
+    slideshow = get_slideshow_instance(image_repository)
     slideshow_updater = asyncio.create_task(update_slideshow_periodically(slideshow))
     background_tasks.add(slideshow_updater)
     slideshow_updater.add_done_callback(background_tasks.discard)
@@ -74,24 +75,23 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None, any]:
     config_repository = ConfigRepository(db)
     UpdateCurrentActiveImageConfigListener(config_repository)
 
-    origins = [
-        "http://localhost:3000",  # React dev server
-        "http://127.0.0.1:3000",  # React dev server
-        "http://localhost:7999",  # ASGI server
-        "http://127.0.0.1:7999",  # ASGI server
-    ]
-    application.add_middleware(
-        CORSMiddleware,
-        allow_origins=origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
     yield
 
 
-app = FastAPI(lifespan=lifespan)
-
+app = FastAPI()
+origins = [
+    "http://localhost:3000",  # React dev server
+    "http://127.0.0.1:3000",  # React dev server
+    "http://localhost:7999",  # ASGI server
+    "http://127.0.0.1:7999",  # ASGI server
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Sets the templates directory to the `build` folder from `npm run build`
 # this is where you'll find the index.html file.
@@ -169,7 +169,7 @@ async def get_albums() -> dict:
 
 @app.post("/api/active-art/{image_id}")
 async def select_art(image_id: int, db: Annotated[Session, Depends(get_db)],
-                     slideshow: [Slideshow, Depends(get_slideshow)]) -> Image:
+                     slideshow: Annotated[Slideshow, Depends(get_slideshow_instance)]) -> Image:
     """Set the active item."""
     image = crud.get_image_by_id(db, image_id)
     if not image:
@@ -227,10 +227,11 @@ async def get_settings(db: Annotated[Session, Depends(get_db)]) -> ConfigRespons
 
 # Defines a route handler for `/*` essentially.
 # NOTE: this needs to be the last route defined b/c it's a catch all route
-@app.get("/{rest_of_path:path}")
-async def react_app(req: Request, db: Annotated[Session, Depends(get_db)]) -> templates.TemplateResponse:
+@app.get("/{rest_of_path:path}", response_model=None)
+async def react_app(req: Request,
+                    config_repo: Annotated[ConfigRepository, Depends(get_config_repository)]
+                    ) -> templates.TemplateResponse:
     """Render the React app."""
-    config_repo = ConfigRepository(db)
     config = {
         "slideshow_enabled": config_repo.get_or(
             ConfigKey.SLIDESHOW_ENABLED, default_value=True
