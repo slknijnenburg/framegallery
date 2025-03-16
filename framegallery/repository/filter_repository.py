@@ -1,5 +1,5 @@
 
-from sqlalchemy import Sequence, select
+from sqlalchemy import Sequence, delete, select, update
 from sqlalchemy.orm import Session
 
 from framegallery.models import Filter
@@ -11,9 +11,9 @@ class FilterRepository:
     def __init__(self, db: Session) -> None:
         self._db = db
 
-    def get_filters(self) -> Sequence[Filter] | None:
+    def get_filters(self, skip: int = 0, limit: int = 100) -> Sequence[Filter] | None:
         """Get all filters from the database."""
-        stmt = select(Filter).order_by(Filter.name)
+        stmt = select(Filter).order_by(Filter.name).offset(skip).limit(limit)
 
         return self._db.execute(stmt).scalars().all()
 
@@ -37,3 +37,22 @@ class FilterRepository:
         self._db.commit()
 
         return filter_
+
+    def delete_filter(self, filter_id: int) -> None:
+        """Delete a filter by its ID."""
+        stmt = delete(Filter).where(Filter.id == filter_id)
+        self._db.execute(stmt)
+        self._db.commit()
+
+    def update_filter(self, filter_to_update: Filter, filter_id: int) -> Filter:
+        """Update a filter by its ID."""
+        stmt = (
+            update(Filter).where(Filter.id == filter_id).values(
+                name=filter_to_update.name,
+                query=filter_to_update.query
+            )
+        )
+        self._db.execute(stmt)
+        self._db.commit()
+
+        return filter_to_update
