@@ -47,6 +47,12 @@ class Filter(BaseModel):
 class FilterCreate(BaseModel):
     """Pydantic model for image filters."""
 
+    name: str
+    query: str
+
+class FilterUpdate(BaseModel):
+    """Pydantic model for image filters."""
+
     id: int
     name: str
     query: str
