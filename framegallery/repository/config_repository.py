@@ -1,5 +1,6 @@
 import json
 from enum import Enum
+from typing import Any
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -28,7 +29,7 @@ class ConfigRepository:
 
         return self._db.execute(stmt).scalar_one_or_none()
 
-    def get_or(self, key: ConfigKey, default_value: any | None = None) -> Config:
+    def get_or(self, key: ConfigKey, default_value: Any | None = None) -> Config: # noqa: ANN401
         """Get a configuration value by its key or return the default value."""
         value_from_db = self.get(key)
         if value_from_db is None:
