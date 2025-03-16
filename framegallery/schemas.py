@@ -34,3 +34,19 @@ class ConfigResponse(BaseModel):
     slideshow_interval: int
     current_active_image: Image
     current_active_image_since: str | None
+
+
+class Filter(BaseModel):
+    """Pydantic model for image filters."""
+
+    id: int
+    name: str
+    query: str
+
+
+class FilterCreate(BaseModel):
+    """Pydantic model for image filters."""
+
+    id: int
+    name: str
+    query: str
