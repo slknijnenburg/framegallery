@@ -1,3 +1,8 @@
+from typing import Annotated
+
+from fastapi import Header, HTTPException
+
+
 from collections.abc import Generator
 
 from sqlalchemy import create_engine
@@ -20,6 +25,3 @@ def get_db() -> Generator:
         yield db
     finally:
         db.close()
-
-
-def

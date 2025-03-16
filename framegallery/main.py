@@ -18,7 +18,7 @@ from framegallery.config import settings
 from framegallery.configuration.update_current_active_image_config_listener import (
     UpdateCurrentActiveImageConfigListener,
 )
-from framegallery.database import engine, get_db
+from framegallery.dependencies import engine, get_db
 from framegallery.frame_connector.frame_connector import FrameConnector, api_version
 from framegallery.frame_connector.status import SlideshowStatus, Status
 from framegallery.importer2.importer import Importer
