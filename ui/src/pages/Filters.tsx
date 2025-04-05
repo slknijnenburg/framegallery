@@ -10,37 +10,39 @@ import {
   DialogTitle,
   IconButton,
   MenuItem,
-  Paper,
   Select,
   SelectChangeEvent,
   TextField,
   Typography,
 } from '@mui/material';
-import React, { ReactNode, useState } from 'react';
+import React, { ReactNode, useState, useEffect } from 'react';
 import FilterBuilder from '../components/Filters/FilterBuilder';
 import { Filter } from '../components/Filters/Filter';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const testFilters = [
-  {
-    id: '1',
-    name: '16:9 aspect ratio',
-    query:
-      '{"id":"root","combinator":"and","rules":[{"id":"b06c8a69-747e-4e37-acb0-e8e9210e801e","field":"aspect_ratio_width","operator":"=","valueSource":"value","value":"16"},{"id":"d7360b89-0cac-4f23-bd2c-318778f08e09","field":"aspect_ratio_height","operator":"=","valueSource":"value","value":"9"}]}',
-  },
-  { id: '2', name: 'Holiday photos' },
-  { id: '3', name: 'Wedding' },
-];
+import { filterService } from '../services/filterService';
 
 const Filters = () => {
   const [filters, setFilters] = useState<Filter[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<Filter>();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState<boolean>(false);
   const [newFilterName, setNewFilterName] = useState('');
+  const [error, setError] = useState<string>('');
 
-  // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
-  const handleFilterChange = (event: SelectChangeEvent<string>, child?: ReactNode) => {
+  useEffect(() => {
+    loadFilters();
+  }, []);
+
+  const loadFilters = async () => {
+    try {
+      const fetchedFilters = await filterService.getFilters();
+      setFilters(fetchedFilters);
+    } catch (err) {
+      setError('Failed to load filters');
+      console.error(err);
+    }
+  };
+
+  const handleFilterChange = (event: SelectChangeEvent<number>, child?: ReactNode) => {
     const filterId = event.target.value;
     const filter = filters.find((filter) => filter.id === filterId);
     if (filter) {
@@ -48,32 +50,47 @@ const Filters = () => {
     }
   };
 
-  const handleCreateNewFilter = () => {
+  const handleCreateNewFilter = async () => {
     if (!newFilterName.trim()) return;
 
-    const newFilter = {
-      id: Date.now().toString(),
-      name: newFilterName,
-      query: '{"id":"root","combinator":"and","rules":[]}',
-    } as Filter;
+    try {
+      const newFilter = await filterService.createFilter({
+        name: newFilterName,
+        query: '{"id":"root","combinator":"and","rules":[]}',
+      });
 
-    setFilters([...filters, newFilter]);
-    setNewFilterName('');
-    setIsCreateDialogOpen(false);
-    setSelectedFilter(newFilter);
+      setFilters([...filters, newFilter]);
+      setNewFilterName('');
+      setIsCreateDialogOpen(false);
+      setSelectedFilter(newFilter);
+    } catch (err) {
+      setError('Failed to create filter');
+      console.error(err);
+    }
   };
 
-  const handleUpdateFilter = (id: string, name: string, rule: string) => {
-    const updatedFilters = filters.map((filter) => (filter.id === id ? { ...filter, name, query: rule } : filter));
-    setFilters(updatedFilters);
-    const updatedFilter = updatedFilters.find((filter) => filter.id === id);
-    setSelectedFilter(updatedFilter);
+  const handleUpdateFilter = async (id: number, name: string, query: string) => {
+    try {
+      const updatedFilter = await filterService.updateFilter(id, { name, query });
+      const updatedFilters = filters.map((filter) => (filter.id === id ? updatedFilter : filter));
+      setFilters(updatedFilters);
+      setSelectedFilter(updatedFilter);
+    } catch (err) {
+      setError('Failed to update filter');
+      console.error(err);
+    }
   };
 
-  const handleDeleteFilter = (id: string) => {
-    setFilters(filters.filter((f) => f.id !== id));
-    if (selectedFilter?.id === id) {
-      setSelectedFilter(undefined);
+  const handleDeleteFilter = async (id: number) => {
+    try {
+      await filterService.deleteFilter(id);
+      setFilters(filters.filter((f) => f.id !== id));
+      if (selectedFilter?.id === id) {
+        setSelectedFilter(undefined);
+      }
+    } catch (err) {
+      setError('Failed to delete filter');
+      console.error(err);
     }
   };
 
@@ -83,9 +100,14 @@ const Filters = () => {
         <Card>
           <CardHeader title="Gallery Filters" subheader="Create and manage custom filters for your Frame Gallery" />
           <CardContent>
+            {error && (
+              <Typography color="error" sx={{ mb: 2 }}>
+                {error}
+              </Typography>
+            )}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Select
-                value={selectedFilter?.id || filters[0]?.id || ''}
+                value={selectedFilter?.id ?? ''}
                 onChange={handleFilterChange}
                 displayEmpty
                 sx={{ minWidth: 300 }}
@@ -99,70 +121,49 @@ const Filters = () => {
                   </MenuItem>
                 ))}
               </Select>
-
-              <IconButton color="primary" onClick={() => setIsCreateDialogOpen(true)} size="small">
+              <IconButton color="primary" onClick={() => setIsCreateDialogOpen(true)}>
                 <AddIcon />
               </IconButton>
-
               {selectedFilter && (
-                <>
-                  <IconButton color="error" onClick={() => handleDeleteFilter(selectedFilter.id)} size="small">
-                    <DeleteIcon />
-                  </IconButton>
-                </>
+                <IconButton color="error" onClick={() => handleDeleteFilter(selectedFilter.id)}>
+                  <DeleteIcon />
+                </IconButton>
               )}
             </Box>
+            {selectedFilter && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 2 }}>
+                  Define your filter conditions below
+                </Typography>
+                <FilterBuilder
+                  filter={selectedFilter}
+                  onFilterChange={(name: string, query: string) => handleUpdateFilter(selectedFilter.id, name, query)}
+                />
+              </Box>
+            )}
           </CardContent>
         </Card>
-
-        {selectedFilter && (
-          <Card>
-            <CardHeader
-              title={filters.find((f) => f.id === selectedFilter?.id)?.name}
-              subheader="Define your filter conditions below"
-            />
-            <CardContent>
-              <Paper
-                variant="outlined"
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '2px dashed rgba(0, 0, 0, 0.12)',
-                }}
-              >
-                <FilterBuilder
-                  selectedFilter={selectedFilter}
-                  updateFilterHandler={handleUpdateFilter}
-                />
-              </Paper>
-            </CardContent>
-          </Card>
-        )}
-
-        <Dialog open={isCreateDialogOpen} onClose={() => setIsCreateDialogOpen(false)} maxWidth="xs" fullWidth>
-          <DialogTitle>Create New Filter</DialogTitle>
-          <DialogContent>
-            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
-              Give your new filter a name to get started
-            </Typography>
-            <TextField
-              autoFocus
-              fullWidth
-              value={newFilterName}
-              onChange={(e) => setNewFilterName(e.target.value)}
-              placeholder="Filter name..."
-              variant="outlined"
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateNewFilter} variant="contained">
-              Create Filter
-            </Button>
-          </DialogActions>
-        </Dialog>
       </Box>
+
+      <Dialog open={isCreateDialogOpen} onClose={() => setIsCreateDialogOpen(false)}>
+        <DialogTitle>Create New Filter</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Filter Name"
+            fullWidth
+            value={newFilterName}
+            onChange={(e) => setNewFilterName(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleCreateNewFilter} variant="contained" color="primary">
+            Create
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 };

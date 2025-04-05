@@ -14,6 +14,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from framegallery import crud, models
+from framegallery import schemas
 from framegallery.config import settings
 from framegallery.configuration.update_current_active_image_config_listener import (
     UpdateCurrentActiveImageConfigListener,
@@ -25,6 +26,7 @@ from framegallery.frame_connector.status import SlideshowStatus, Status
 from framegallery.importer2.importer import Importer
 from framegallery.repository.config_repository import ConfigKey, ConfigRepository
 from framegallery.repository.image_repository import ImageRepository
+from framegallery.routers import filters
 from framegallery.schemas import ConfigResponse, Image
 from framegallery.slideshow.slideshow import Slideshow
 
@@ -79,6 +81,8 @@ async def lifespan() -> AsyncGenerator[None, any]:
 
 
 app = FastAPI()
+app.include_router(filters.router)
+
 origins = [
     "http://localhost:3000",  # React dev server
     "http://127.0.0.1:3000",  # React dev server
@@ -114,8 +118,8 @@ async def status() -> Status:
     )
 
 
-@app.get("/api/available-images")
-async def available_images(db: Annotated[Session,  Depends(get_db)]) -> list[type[Image]]:
+@app.get("/api/available-images", response_model=list[schemas.Image])
+async def available_images(db: Annotated[Session,  Depends(get_db)]) -> list[models.Image]:
     """Get a list of all available images."""
     images = crud.get_images(db)
 
@@ -130,8 +134,6 @@ async def available_images(db: Annotated[Session,  Depends(get_db)]) -> list[typ
 """
 Retrieves a list of (nested) folders in the gallery path, that can be used for filtering in the UI.
 """
-
-
 @app.get("/api/albums")
 async def get_albums() -> dict:
     """Get a directory tree of gallery albums."""

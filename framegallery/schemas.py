@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, ConfigDict
 
 
@@ -38,6 +37,8 @@ class ConfigResponse(BaseModel):
 
 class Filter(BaseModel):
     """Pydantic model for image filters."""
+    
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     name: str
@@ -50,9 +51,9 @@ class FilterCreate(BaseModel):
     name: str
     query: str
 
-class FilterUpdate(BaseModel):
-    """Pydantic model for image filters."""
 
-    id: int
+class FilterUpdate(BaseModel):
+    """Pydantic model for updating image filters."""
+
     name: str
     query: str
