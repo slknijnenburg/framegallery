@@ -1,6 +1,5 @@
-import {Field, QueryBuilder, RuleGroupType} from 'react-querybuilder';
+import {Field, formatQuery, QueryBuilder, RuleGroupType} from 'react-querybuilder';
 import 'react-querybuilder/dist/query-builder.css';
-import React from 'react';
 import { useEffect, useState} from 'react';
 import {Stack} from '@mui/material';
 import Container from '@mui/material/Container';
@@ -67,6 +66,12 @@ const FilterBuilder = ({filter, onFilterChange}: FilterBuilderProps) => {
                         <Button variant="outlined" onClick={removeAllFilters}>
                             Remove all filters
                         </Button>
+                    </Stack>
+                    <Stack spacing={1}>
+                        <h2>JSON</h2>
+                        <pre>{formatQuery(query)}</pre>
+                        <h2>SQL</h2>
+                        <pre>{formatQuery(query, 'parameterized_named').sql}</pre>
                     </Stack>
                 </Stack>
             </FormControl>
