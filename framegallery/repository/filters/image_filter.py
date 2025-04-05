@@ -35,6 +35,29 @@ class FilenameFilter(ImageFilter):
         return Image.filename.like(f"%{self._filename}%")
 
 
+class AspectRatioWidthFilter(ImageFilter):
+    """Filter images by aspect ratio width."""
+
+    def __init__(self, aspect_ratio_width: float) -> None:
+        self._aspect_ratio_width = aspect_ratio_width
+
+    def get_expression(self) -> BinaryExpression:
+        """Return a SQL expression that filters images by aspect ratio width."""
+        return Image.aspect_width == self._aspect_ratio_width
+
+
+
+class AspectRatioHeightFilter(ImageFilter):
+    """Filter images by aspect ratio height."""
+
+    def __init__(self, aspect_ratio_height: float) -> None:
+        self._aspect_ratio_height = aspect_ratio_height
+
+    def get_expression(self) -> BinaryExpression:
+        """Return a SQL expression that filters images by aspect ratio height."""
+        return Image.aspect_height == self._aspect_ratio_height
+
+
 class AndFilter(ImageFilter):
     """Filter images by multiple filters, combined with AND."""
 
