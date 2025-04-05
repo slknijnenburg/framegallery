@@ -1,4 +1,5 @@
-from framegallery.repository.filters.image_filter import AndFilter, DirectoryFilter, FilenameFilter, OrFilter
+from framegallery.repository.filters.image_filter import (AndFilter, DirectoryFilter, FilenameFilter, OrFilter,
+    AspectRatioWidthFilter, AspectRatioHeightFilter)
 
 
 def test_directory_filter():
@@ -58,3 +59,35 @@ def test_combine_and_and_or_filters():
 
     # Assert the components of the SQL expression
     assert compiled_expression == "images.filename LIKE '%_001.jpg%' AND images.filepath LIKE '%2024-Kenya%' OR images.filename LIKE '%_002.jpg%' AND images.filepath LIKE '%2024-CostaRica%'"
+
+
+def test_aspect_ratio_width_filter():
+    width_filter = AspectRatioWidthFilter(16.0)
+    binary_operator = width_filter.get_expression()
+
+    compiled_expression = str(binary_operator.compile(compile_kwargs={"literal_binds": True}))
+
+    # Assert the components of the SQL expression
+    assert compiled_expression == "images.aspect_width = 16.0"
+
+
+def test_aspect_ratio_height_filter():
+    height_filter = AspectRatioHeightFilter(9.0)
+    binary_operator = height_filter.get_expression()
+
+    compiled_expression = str(binary_operator.compile(compile_kwargs={"literal_binds": True}))
+
+    # Assert the components of the SQL expression
+    assert compiled_expression == "images.aspect_height = 9.0"
+
+
+def test_combine_aspect_ratio_filters():
+    width_filter = AspectRatioWidthFilter(16.0)
+    height_filter = AspectRatioHeightFilter(9.0)
+    and_filter = AndFilter([width_filter, height_filter])
+    binary_operator = and_filter.get_expression()
+
+    compiled_expression = str(binary_operator.compile(compile_kwargs={"literal_binds": True}))
+
+    # Assert the components of the SQL expression
+    assert compiled_expression == "images.aspect_width = 16.0 AND images.aspect_height = 9.0"
