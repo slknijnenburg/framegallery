@@ -1,5 +1,5 @@
 export interface Filter {
-  id: string;
+  id: number;
   name: string;
-  query?: string;
+  query: string;
 }

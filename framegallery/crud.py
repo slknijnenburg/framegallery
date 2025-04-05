@@ -38,6 +38,6 @@ def delete_images_not_in_processed_items_list(
 
 def get_images(
     db: Session, skip: int = 0, limit: int | None = None
-) -> list[type[Image]]:
+) -> list[Image]:
     """Get all images from the database."""
     return db.query(Image).order_by(Image.id.asc()).offset(skip).limit(limit).all()

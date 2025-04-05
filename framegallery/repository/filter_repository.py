@@ -1,5 +1,4 @@
-
-from sqlalchemy import Sequence, delete, select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from framegallery.models import Filter
@@ -11,11 +10,11 @@ class FilterRepository:
     def __init__(self, db: Session) -> None:
         self._db = db
 
-    def get_filters(self, skip: int = 0, limit: int = 100) -> Sequence[Filter] | None:
+    def get_filters(self, skip: int = 0, limit: int = 100) -> list[Filter]:
         """Get all filters from the database."""
         stmt = select(Filter).order_by(Filter.name).offset(skip).limit(limit)
-
-        return self._db.execute(stmt).scalars().all()
+        result = self._db.execute(stmt).scalars().all()
+        return list(result) if result is not None else []
 
     def get_filter_by_name(self, name: str) -> Filter | None:
         """Get a filter by its name."""
