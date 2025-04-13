@@ -26,7 +26,7 @@ from framegallery.frame_connector.status import SlideshowStatus, Status
 from framegallery.importer2.importer import Importer
 from framegallery.repository.config_repository import ConfigKey, ConfigRepository
 from framegallery.repository.image_repository import ImageRepository
-from framegallery.routers import filters
+from framegallery.routers import filters_router, config_router
 from framegallery.schemas import ConfigResponse, Image
 from framegallery.slideshow.slideshow import Slideshow
 
@@ -81,7 +81,6 @@ async def lifespan() -> AsyncGenerator[None, any]:
 
 
 app = FastAPI()
-app.include_router(filters.router)
 
 origins = [
     "http://localhost:3000",  # React dev server
@@ -226,6 +225,10 @@ async def get_settings(db: Annotated[Session, Depends(get_db)]) -> ConfigRespons
 
     return ConfigResponse(**config)
 
+
+# Include routers for modular API endpoints
+app.include_router(filters_router)
+app.include_router(config_router)
 
 # Defines a route handler for `/*` essentially.
 # NOTE: this needs to be the last route defined b/c it's a catch all route

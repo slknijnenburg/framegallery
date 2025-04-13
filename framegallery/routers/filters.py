@@ -7,7 +7,7 @@ from framegallery.dependencies import get_filter_repository
 from framegallery.repository.filter_repository import FilterRepository
 
 router = APIRouter(
-    prefix="/filters",
+    prefix="/api/filters",
     tags=["filters"],
     dependencies=[],
     responses={404: {"description": "Not found"}},
