@@ -13,8 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from framegallery import crud, models
-from framegallery import schemas
+from framegallery import crud, models, schemas
 from framegallery.config import settings
 from framegallery.configuration.update_current_active_image_config_listener import (
     UpdateCurrentActiveImageConfigListener,
@@ -26,7 +25,7 @@ from framegallery.frame_connector.status import SlideshowStatus, Status
 from framegallery.importer2.importer import Importer
 from framegallery.repository.config_repository import ConfigKey, ConfigRepository
 from framegallery.repository.image_repository import ImageRepository
-from framegallery.routers import filters_router, config_router
+from framegallery.routers import config_router, filters_router
 from framegallery.schemas import ConfigResponse, Image
 from framegallery.slideshow.slideshow import Slideshow
 
@@ -224,6 +223,13 @@ async def get_settings(db: Annotated[Session, Depends(get_db)]) -> ConfigRespons
     }
 
     return ConfigResponse(**config)
+
+
+@app.post("/api/images/next")
+async def next_image(slideshow: Annotated[Slideshow, Depends(get_slideshow_instance)]) -> Image:
+    """Advance to the next image in the slideshow."""
+    new_image = await slideshow.update_slideshow()
+    return new_image
 
 
 # Include routers for modular API endpoints

@@ -1,18 +1,18 @@
-import React, { StrictMode, useEffect, useState } from 'react';
+import React, {StrictMode, useEffect, useState} from 'react';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import StatusBar, { StatusBarProps } from './components/StatusBar';
+import StatusBar, {StatusBarProps} from './components/StatusBar';
 import axios from 'axios';
 import ImageGrid from './components/ImageGrid';
 import Image from './models/Image';
 import Filters from './pages/Filters';
-import { AppBar, Stack, Toolbar } from '@mui/material';
-import { Album, findAlbumById } from './models/Album';
-import { RichTreeView, TreeItem2 } from '@mui/x-tree-view';
-import { BrowserRouter as Router, Link as RouterLink, Outlet, Route, Routes } from 'react-router-dom';
+import {AppBar, Stack, Toolbar} from '@mui/material';
+import {Album, findAlbumById} from './models/Album';
+import {RichTreeView, TreeItem2} from '@mui/x-tree-view';
+import {BrowserRouter as Router, Link as RouterLink, Outlet, Route, Routes} from 'react-router-dom';
 import Button from '@mui/material/Button';
-import { SettingsProvider, useSettings } from './SettingsContext';
+import {SettingsProvider, useSettings} from './SettingsContext';
 import FrameDisplayPreview from './components/FrameDisplayPreview';
 
 export const API_BASE_URL = 'http://localhost:7999';
@@ -93,6 +93,18 @@ function Home() {
     fetchStatus();
   }, []); // The empty dependency array ensures the effect runs only once
 
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (settings?.current_active_image) {
+      setPreviewImageUrl(API_BASE_URL + '/' + settings.current_active_image.filepath);
+    }
+  }, [settings]);
+
+  const handleImageChange = (newImage: Image) => {
+    setPreviewImageUrl(API_BASE_URL + '/' + newImage.filepath);
+  };
+
   return (
     <Stack direction={'column'}>
       <Container maxWidth="xl">
@@ -111,7 +123,9 @@ function Home() {
         </Container>
       </Container>
       <Container>
-        <FrameDisplayPreview imageUrl={API_BASE_URL + '/' + settings?.current_active_image.filepath} />
+        {previewImageUrl && (
+          <FrameDisplayPreview imageUrl={previewImageUrl} onNext={handleImageChange} />
+        )}
       </Container>
     </Stack>
   );
