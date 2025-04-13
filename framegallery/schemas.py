@@ -52,6 +52,12 @@ class FilterCreate(BaseModel):
     query: str
 
 
+class ConfigValue(BaseModel):
+    """Pydantic model for config values."""
+
+    value: str | None
+
+
 class FilterUpdate(BaseModel):
     """Pydantic model for updating image filters."""
 

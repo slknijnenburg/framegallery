@@ -13,7 +13,7 @@ export interface FilterUpdate {
 
 export const filterService = {
   async getFilters() {
-    const response = await fetch(`${API_BASE_URL}/filters/`);
+    const response = await fetch(`${API_BASE_URL}/api/filters/`);
     if (!response.ok) {
       throw new Error('Failed to fetch filters');
     }
@@ -21,7 +21,7 @@ export const filterService = {
   },
 
   async getFilter(id: number) {
-    const response = await fetch(`${API_BASE_URL}/filters/${id}`);
+    const response = await fetch(`${API_BASE_URL}/api/filters/${id}`);
     if (!response.ok) {
       throw new Error('Failed to fetch filter');
     }
@@ -29,7 +29,7 @@ export const filterService = {
   },
 
   async createFilter(filter: FilterCreate): Promise<Filter> {
-    const response = await fetch(`${API_BASE_URL}/filters/`, {
+    const response = await fetch(`${API_BASE_URL}/api/filters/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -43,7 +43,7 @@ export const filterService = {
   },
 
   async updateFilter(id: number, filter: FilterUpdate): Promise<Filter> {
-    const response = await fetch(`${API_BASE_URL}/filters/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/api/filters/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -57,7 +57,7 @@ export const filterService = {
   },
 
   async deleteFilter(id: number): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/filters/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/api/filters/${id}`, {
       method: 'DELETE',
     });
     if (!response.ok) {

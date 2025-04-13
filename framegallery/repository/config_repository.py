@@ -15,7 +15,7 @@ class ConfigKey(Enum):
     SLIDESHOW_INTERVAL = "slideshow_interval"
     CURRENT_ACTIVE_IMAGE = "current_active_image"
     CURRENT_ACTIVE_IMAGE_SINCE = "current_active_image_since"
-
+    ACTIVE_FILTER = "active_filter"
 
 class ConfigRepository:
     """Manages the configuration in the database."""
