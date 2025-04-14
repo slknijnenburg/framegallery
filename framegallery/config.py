@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     tv_port: int = 8002
     gallery_path: str = "./images"
     db_url: str = "sqlite:///./data/framegallery.db"
-    filesystem_refresh_interval: int = 30
+    filesystem_refresh_interval: int = 600
     slideshow_interval: int = 180
     log_level: str = "DEBUG"
 
