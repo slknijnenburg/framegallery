@@ -13,6 +13,7 @@ import {BrowserRouter as Router, Link as RouterLink, Outlet, Route, Routes} from
 import Button from '@mui/material/Button';
 import {SettingsProvider, useSettings} from './SettingsContext';
 import FrameDisplayPreview from './components/FrameDisplayPreview';
+import SettingsStatus from './components/SettingsStatus';
 
 export const API_BASE_URL = 'http://localhost:7999';
 
@@ -86,6 +87,9 @@ function Home() {
 
   return (
     <Stack direction={'column'}>
+      <Container maxWidth="md" sx={{ mt: 4 }}>
+        <SettingsStatus />
+      </Container>
       <Container maxWidth="xl">
         <Box sx={{ my: 4 }}>
           <Typography variant="h4" sx={{ mb: 2 }} align={'center'}>
