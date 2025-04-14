@@ -219,10 +219,13 @@ async def get_settings(db: Annotated[Session, Depends(get_db)]) -> ConfigRespons
     config_repo = ConfigRepository(db)
     active_image_id = config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE, default_value=None).value
     active_image = crud.get_image_by_id(db, int(active_image_id))
+    if active_image:
+        active_image = Image.model_validate(active_image)
+
     config = {
         "slideshow_enabled": config_repo.get_or(ConfigKey.SLIDESHOW_ENABLED, default_value=True).value,
         "slideshow_interval": settings.slideshow_interval,
-        "current_active_image": Image.model_validate(active_image),
+        "current_active_image": active_image,
         "current_active_image_since":
             config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, default_value=None).value,
     }

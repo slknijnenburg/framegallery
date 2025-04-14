@@ -31,13 +31,13 @@ class ConfigResponse(BaseModel):
 
     slideshow_enabled: bool
     slideshow_interval: int
-    current_active_image: Image
+    current_active_image: Image | None
     current_active_image_since: str | None
 
 
 class Filter(BaseModel):
     """Pydantic model for image filters."""
-    
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
