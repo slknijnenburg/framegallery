@@ -32,6 +32,7 @@ from framegallery.slideshow.slideshow import Slideshow
 models.Base.metadata.create_all(bind=engine)
 
 logging.basicConfig(level=logging.getLevelName(settings.log_level))
+logger = logging.getLogger(__name__)
 
 # Create Frame TV Connector
 frame_connector = FrameConnector(settings.tv_ip_address, settings.tv_port)
@@ -41,9 +42,11 @@ background_tasks = set()
 # Background task to run the filesystem sync
 async def run_importer_periodically(db: Session) -> None:
     """Run the importer periodically to synchronize the filesystem with the database."""
+    logger.info("Inside run_importer_periodically")
+
     importer = Importer(settings.gallery_path, db)
     while True:
-        logging.debug("Running importer")
+        logging.info("Running importer now")
         await importer.synchronize_files()
         await asyncio.sleep(settings.filesystem_refresh_interval)
 
@@ -57,12 +60,14 @@ async def update_slideshow_periodically(slideshow: Slideshow) -> None:
 
 
 @asynccontextmanager
-async def lifespan() -> AsyncGenerator[None, any]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, any]:
+    logger.info("Inside lifespan")
     """Run tasks on startup and shutdown."""
     await frame_connector.get_active_item_details()
 
     # Create a database session and run the importer periodically
     db = next(get_db())
+    logger.info("Scheduling the filesystem importer task")
     image_importer = asyncio.create_task(run_importer_periodically(db))
     background_tasks.add(image_importer)
     image_importer.add_done_callback(background_tasks.discard)
@@ -79,7 +84,7 @@ async def lifespan() -> AsyncGenerator[None, any]:
     yield
 
 
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 
 origins = [
     "http://localhost:3000",  # React dev server

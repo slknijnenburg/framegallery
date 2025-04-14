@@ -26,7 +26,7 @@ class Importer:
         self.image_path = image_path
         self._db = db
 
-    def get_imagelist_on_disk(self) -> list[str]:
+    def get_imagelist_on_disk(self) -> list[Path]:
         """Get a list of all images on disk."""
         files = sorted(
             [
@@ -110,7 +110,8 @@ class Importer:
 
         processed_images = []
 
-        for image in image_list:
+        for image_path in image_list:
+            image = str(image_path)
             image_exists = self.check_if_local_image_exists_in_db(image)
             if image_exists:
                 processed_images.append(image_exists)
