@@ -22,5 +22,5 @@ class UpdateCurrentActiveImageConfigListener:
         logger.debug("Updating current active image in config to %s", active_image.id)
         self._config_repository.set(ConfigKey.CURRENT_ACTIVE_IMAGE, active_image.id)
         self._config_repository.set(
-            ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, datetime.datetime.now(tz=datetime.UTC).isoformat()
+            ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
         )
