@@ -26,16 +26,6 @@ class Image(BaseModel):
     aspect_height: int
 
 
-class ConfigResponse(BaseModel):
-    """Pydantic model for the response of the /config endpoint."""
-
-    slideshow_enabled: bool
-    slideshow_interval: int
-    current_active_image: Image | None
-    current_active_image_since: str | None
-    active_filter_name: str | None
-
-
 class Filter(BaseModel):
     """Pydantic model for image filters."""
 
@@ -44,6 +34,16 @@ class Filter(BaseModel):
     id: int
     name: str
     query: str
+
+
+class ConfigResponse(BaseModel):
+    """Pydantic model for the response of the /config endpoint."""
+
+    slideshow_enabled: bool
+    slideshow_interval: int
+    current_active_image: Image | None
+    current_active_image_since: str | None
+    active_filter: Filter | None
 
 
 class FilterCreate(BaseModel):

@@ -28,7 +28,7 @@ from framegallery.repository.filter_repository import FilterRepository
 from framegallery.repository.config_repository import ConfigKey, ConfigRepository
 from framegallery.repository.image_repository import ImageRepository
 from framegallery.routers import config_router, filters_router
-from framegallery.schemas import ConfigResponse, Image
+from framegallery.schemas import ConfigResponse, Image, Filter
 from framegallery.slideshow.slideshow import Slideshow
 
 logger = setup_logging(log_level=settings.log_level)
@@ -230,10 +230,12 @@ async def get_settings(
     if active_image:
         active_image = Image.model_validate(active_image)
 
-    active_filter = config_repo.get_or(
+    active_filter_id = config_repo.get_or(
             ConfigKey.ACTIVE_FILTER, default_value=None
         ).value
-    active_filter_name = filter_repository.get_filter(int(active_filter))
+    active_filter = filter_repository.get_filter(int(active_filter_id))
+    if active_filter:
+        active_filter = Filter.model_validate(active_filter)
 
     config = {
         "slideshow_enabled": config_repo.get_or(ConfigKey.SLIDESHOW_ENABLED, default_value=True).value,
@@ -241,7 +243,7 @@ async def get_settings(
         "current_active_image": active_image,
         "current_active_image_since":
             config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, default_value=None).value,
-        "active_filter_name": active_filter_name.name if active_filter_name else None
+        "active_filter": active_filter
     }
 
     return ConfigResponse(**config)
@@ -266,10 +268,10 @@ async def react_app(req: Request,
                     filter_repository: Annotated[FilterRepository, Depends(get_filter_repository)]
                     ) -> templates.TemplateResponse:
     """Render the React app."""
-    active_filter = config_repo.get_or(
+    active_filter_id = config_repo.get_or(
             ConfigKey.ACTIVE_FILTER, default_value=None
         ).value
-    active_filter_name = filter_repository.get_filter(int(active_filter))
+    active_filter = filter_repository.get_filter(int(active_filter_id))
 
     config = {
         "slideshow_enabled": config_repo.get_or(
@@ -282,7 +284,7 @@ async def react_app(req: Request,
         "current_active_image_since": config_repo.get_or(
             ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, default_value=None
         ).value,
-        "activeFilterName": active_filter_name.name if active_filter_name else None,
+        "active_filter": active_filter
     }
 
     return templates.TemplateResponse("index.html", {"request": req, "config": config})
