@@ -125,7 +125,7 @@ class FrameConnector:
 
         return data
 
-    async def _on_active_image_updated(self, active_image: Image) -> None:
+    async def _on_active_image_updated(self, _, active_image: Image) -> None:
         logging.info("Updating active image on TV: %s", active_image.filepath)
 
         # Upload the image to the TV
