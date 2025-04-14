@@ -44,7 +44,7 @@ export default function ArtItemCard({ item }: ArtItemCardProps) {
       <CardMedia
         component="img"
         sx={{ height: 140 }}
-        image={`${API_BASE_URL}${item.thumbnail_path}`}
+        image={`${API_BASE_URL}/${item.thumbnail_path}`}
         title={item.filename}
       />
       <CardContent>

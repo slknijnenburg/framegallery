@@ -2,7 +2,6 @@ import React, {StrictMode, useEffect, useState} from 'react';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import StatusBar, {StatusBarProps} from './components/StatusBar';
 import axios from 'axios';
 import ImageGrid from './components/ImageGrid';
 import Image from './models/Image';
@@ -73,26 +72,6 @@ function Root() {
 function Home() {
   const { settings } = useSettings();
 
-  const [status, setStatus] = useState<StatusBarProps>({
-    tv_on: false,
-    art_mode_supported: false,
-    art_mode_active: false,
-    api_version: '',
-  });
-  useEffect(() => {
-    const fetchStatus = async () => {
-      const url = `${API_BASE_URL}/api/status`;
-
-      try {
-        const response = await axios.get(url);
-        setStatus(response.data);
-      } catch (error) {
-        console.error(error);
-      }
-    };
-    fetchStatus();
-  }, []); // The empty dependency array ensures the effect runs only once
-
   const [previewImageUrl, setPreviewImageUrl] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -113,14 +92,6 @@ function Home() {
             The Frame Art Gallery Manager
           </Typography>
         </Box>
-        <Container sx={{ mb: 10 }}>
-          <StatusBar
-            tv_on={status.tv_on}
-            api_version={status.api_version}
-            art_mode_active={status.art_mode_active}
-            art_mode_supported={status.art_mode_supported}
-          />
-        </Container>
       </Container>
       <Container>
         {previewImageUrl && (
@@ -132,30 +103,9 @@ function Home() {
 }
 
 function Browser() {
-  const [status, setStatus] = useState<StatusBarProps>({
-    tv_on: false,
-    art_mode_supported: false,
-    art_mode_active: false,
-    api_version: '',
-  });
-
   const [items, setItems] = useState<Image[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
-
-  useEffect(() => {
-    const fetchStatus = async () => {
-      const url = `${API_BASE_URL}/api/status`;
-
-      try {
-        const response = await axios.get(url);
-        setStatus(response.data);
-      } catch (error) {
-        console.error(error);
-      }
-    };
-    fetchStatus();
-  }, []); // The empty dependency array ensures the effect runs only once
 
   useEffect(() => {
     const fetchItems = async () => {
@@ -206,14 +156,6 @@ function Browser() {
           The Frame Art Gallery Manager
         </Typography>
       </Box>
-      <Container sx={{ mb: 10 }}>
-        <StatusBar
-          tv_on={status.tv_on}
-          api_version={status.api_version}
-          art_mode_active={status.art_mode_active}
-          art_mode_supported={status.art_mode_supported}
-        />
-      </Container>
       <Stack direction="row" spacing={2} justifyContent="center" alignItems="flex-start">
         <Stack direction="column" spacing={1} justifyContent="flex-start" alignItems="flex-start">
           <Typography variant="h5" component="h2" sx={{ mb: 2 }}>

@@ -19,11 +19,12 @@ from framegallery.configuration.update_current_active_image_config_listener impo
     UpdateCurrentActiveImageConfigListener,
 )
 from framegallery.database import engine, get_db
-from framegallery.dependencies import get_config_repository, get_slideshow_instance
+from framegallery.dependencies import get_config_repository, get_filter_repository, get_slideshow_instance
 from framegallery.frame_connector.frame_connector import FrameConnector, api_version
 from framegallery.frame_connector.status import SlideshowStatus, Status
 from framegallery.importer2.importer import Importer
 from framegallery.logging_config import setup_logging
+from framegallery.repository.filter_repository import FilterRepository
 from framegallery.repository.config_repository import ConfigKey, ConfigRepository
 from framegallery.repository.image_repository import ImageRepository
 from framegallery.routers import config_router, filters_router
@@ -218,7 +219,10 @@ async def disable_slideshow(db: Annotated[Session,  Depends(get_db)]) -> dict:
 
 
 @app.get("/api/settings")
-async def get_settings(db: Annotated[Session, Depends(get_db)]) -> ConfigResponse:
+async def get_settings(
+    db: Annotated[Session, Depends(get_db)],
+    filter_repository: Annotated[FilterRepository, Depends(get_filter_repository)]
+    ) -> ConfigResponse:
     """Get the current settings."""
     config_repo = ConfigRepository(db)
     active_image_id = config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE, default_value=None).value
@@ -226,12 +230,18 @@ async def get_settings(db: Annotated[Session, Depends(get_db)]) -> ConfigRespons
     if active_image:
         active_image = Image.model_validate(active_image)
 
+    active_filter = config_repo.get_or(
+            ConfigKey.ACTIVE_FILTER, default_value=None
+        ).value
+    active_filter_name = filter_repository.get_filter(int(active_filter))
+
     config = {
         "slideshow_enabled": config_repo.get_or(ConfigKey.SLIDESHOW_ENABLED, default_value=True).value,
         "slideshow_interval": settings.slideshow_interval,
         "current_active_image": active_image,
         "current_active_image_since":
             config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, default_value=None).value,
+        "active_filter_name": active_filter_name.name if active_filter_name else None
     }
 
     return ConfigResponse(**config)
@@ -252,9 +262,15 @@ app.include_router(config_router)
 # NOTE: this needs to be the last route defined b/c it's a catch all route
 @app.get("/{rest_of_path:path}", response_model=None)
 async def react_app(req: Request,
-                    config_repo: Annotated[ConfigRepository, Depends(get_config_repository)]
+                    config_repo: Annotated[ConfigRepository, Depends(get_config_repository)],
+                    filter_repository: Annotated[FilterRepository, Depends(get_filter_repository)]
                     ) -> templates.TemplateResponse:
     """Render the React app."""
+    active_filter = config_repo.get_or(
+            ConfigKey.ACTIVE_FILTER, default_value=None
+        ).value
+    active_filter_name = filter_repository.get_filter(int(active_filter))
+
     config = {
         "slideshow_enabled": config_repo.get_or(
             ConfigKey.SLIDESHOW_ENABLED, default_value=True
@@ -266,6 +282,7 @@ async def react_app(req: Request,
         "current_active_image_since": config_repo.get_or(
             ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, default_value=None
         ).value,
+        "activeFilterName": active_filter_name.name if active_filter_name else None,
     }
 
     return templates.TemplateResponse("index.html", {"request": req, "config": config})
