@@ -23,16 +23,16 @@ from framegallery.dependencies import get_config_repository, get_slideshow_insta
 from framegallery.frame_connector.frame_connector import FrameConnector, api_version
 from framegallery.frame_connector.status import SlideshowStatus, Status
 from framegallery.importer2.importer import Importer
+from framegallery.logging_config import setup_logging
 from framegallery.repository.config_repository import ConfigKey, ConfigRepository
 from framegallery.repository.image_repository import ImageRepository
 from framegallery.routers import config_router, filters_router
 from framegallery.schemas import ConfigResponse, Image
 from framegallery.slideshow.slideshow import Slideshow
 
-models.Base.metadata.create_all(bind=engine)
+logger = setup_logging(log_level=settings.log_level)
 
-logging.basicConfig(level=logging.getLevelName(settings.log_level))
-logger = logging.getLogger(__name__)
+models.Base.metadata.create_all(bind=engine)
 
 # Create Frame TV Connector
 frame_connector = FrameConnector(settings.tv_ip_address, settings.tv_port)
@@ -42,7 +42,7 @@ background_tasks = set()
 # Background task to run the filesystem sync
 async def run_importer_periodically(db: Session) -> None:
     """Run the importer periodically to synchronize the filesystem with the database."""
-    logger.info("Inside run_importer_periodically")
+    logging.info("Inside run_importer_periodically")
 
     importer = Importer(settings.gallery_path, db)
     while True:
@@ -61,7 +61,7 @@ async def update_slideshow_periodically(slideshow: Slideshow) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, any]:
-    logger.info("Inside lifespan")
+    logger.info("logger - Inside lifespan")
     """Run tasks on startup and shutdown."""
     await frame_connector.get_active_item_details()
 
@@ -74,16 +74,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, any]:
 
     image_repository = ImageRepository(db)
     slideshow = get_slideshow_instance(image_repository)
+    logger.info("Scheduling the slideshow updater")
     slideshow_updater = asyncio.create_task(update_slideshow_periodically(slideshow))
     background_tasks.add(slideshow_updater)
     slideshow_updater.add_done_callback(background_tasks.discard)
 
     config_repository = ConfigRepository(db)
-    UpdateCurrentActiveImageConfigListener(config_repository)
+    # Store the listener in the app state so that it doesn't get garbage collected
+    app.state.update_active_image_in_config_listener = UpdateCurrentActiveImageConfigListener(config_repository)
 
     yield
 
 
+logger.info("logger - Before FastAPI launch")
+logging.info("logging - Before FastAPI launch")
 app = FastAPI(lifespan=lifespan)
 
 origins = [

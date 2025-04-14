@@ -1,4 +1,5 @@
 import logging
+logger = logging.getLogger("framegallery")
 
 from blinker import signal
 
@@ -20,6 +21,7 @@ class Slideshow:
         if image is None:
             raise NoImagesError
 
+        logger.debug("Updating slideshow with image: %s", image.filepath)
         await self.set_slideshow_active_image(image)
         return image
 
@@ -32,4 +34,4 @@ class Slideshow:
         active_image_updated = signal("active_image_updated")
         await active_image_updated.send_async(self, active_image=self._active_image)
 
-        logging.info("Active image: %s", {self._active_image.filepath})
+        logger.info("Active image: %s", self._active_image.filepath)
