@@ -74,7 +74,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, any]:
     image_importer.add_done_callback(background_tasks.discard)
 
     image_repository = ImageRepository(db)
-    slideshow = get_slideshow_instance(image_repository)
+    config_repository = ConfigRepository(db)
+    filter_repository = FilterRepository(db)
+    slideshow = get_slideshow_instance(image_repository, config_repository, filter_repository)
     logger.info("Scheduling the slideshow updater")
     slideshow_updater = asyncio.create_task(update_slideshow_periodically(slideshow))
     background_tasks.add(slideshow_updater)
