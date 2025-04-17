@@ -1,22 +1,33 @@
 import logging
+
+from framegallery.repository.config_repository import ConfigKey, ConfigRepository
+from framegallery.repository.filter_repository import FilterRepository
+from framegallery.repository.filters.query_builder import QueryBuilder
 logger = logging.getLogger("framegallery")
 
 from blinker import signal
 
-from framegallery.models import Image
+from framegallery.models import Image, Filter
 from framegallery.repository.image_repository import ImageRepository, NoImagesError
 
 
 class Slideshow:
     """A class that manages the active image in the slideshow."""
 
-    def __init__(self, image_repository: ImageRepository) -> None:
+    def __init__(self, image_repository: ImageRepository, config_repository: ConfigRepository, filter_repository: FilterRepository) -> None:
         self._active_image = None
         self._image_repository = image_repository
+        self._config_repository = config_repository
+        self._filter_repository = filter_repository
 
     async def update_slideshow(self) -> Image:
         """Update the slideshow with a new image that matches the active filter."""
-        image = self._image_repository.get_image_matching_filter(None)
+        active_filter = self._get_active_filter()
+
+        logger.debug("Active filter: %s", active_filter.query) if active_filter is not None else logger.debug("No active filter")
+        query_builder = QueryBuilder(active_filter.query) if active_filter is not None else None
+        query_expression = query_builder.build() if query_builder is not None else None
+        image = self._image_repository.get_image_matching_filter(query_expression)
 
         if image is None:
             raise NoImagesError
@@ -24,6 +35,13 @@ class Slideshow:
         logger.debug("Updating slideshow with image: %s", image.filepath)
         await self.set_slideshow_active_image(image)
         return image
+
+    def _get_active_filter(self) -> Filter | None:
+        active_filter_id = self._config_repository.get(ConfigKey.ACTIVE_FILTER)
+        if active_filter_id is None:
+            return None
+
+        return self._filter_repository.get_filter(int(active_filter_id.value))
 
     async def set_slideshow_active_image(self, image: Image) -> None:
         """
