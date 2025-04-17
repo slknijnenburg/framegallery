@@ -1,34 +1,37 @@
-import React, { useEffect, useState } from 'react';
+import React, {StrictMode, useEffect, useState} from 'react';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import StatusBar, { StatusBarProps } from './components/StatusBar';
 import axios from 'axios';
 import ImageGrid from './components/ImageGrid';
 import Image from './models/Image';
-import { AppBar, Stack, Toolbar } from '@mui/material';
-import { Album, findAlbumById } from './models/Album';
-import { RichTreeView, TreeItem2 } from '@mui/x-tree-view';
-import { BrowserRouter as Router, Link as RouterLink, Outlet, Route, Routes } from 'react-router-dom';
+import Filters from './pages/Filters';
+import {AppBar, Stack, Toolbar} from '@mui/material';
+import {Album, findAlbumById} from './models/Album';
+import {RichTreeView, TreeItem2} from '@mui/x-tree-view';
+import {BrowserRouter as Router, Link as RouterLink, Outlet, Route, Routes} from 'react-router-dom';
 import Button from '@mui/material/Button';
-import { SettingsProvider, useSettings } from './SettingsContext';
+import {SettingsProvider, useSettings} from './SettingsContext';
 import FrameDisplayPreview from './components/FrameDisplayPreview';
+import SettingsStatus from './components/SettingsStatus';
 
 export const API_BASE_URL = 'http://localhost:7999';
 
 export default function App() {
   return (
-    <SettingsProvider>
-      <Router>
-        <Routes>
-          <Route path="/" element={<Root />}>
-            <Route index element={<Home />} />
-            <Route path="/browser" element={<Browser />} />
-            <Route path="/filters" element={<Filters />} />
-          </Route>
-        </Routes>
-      </Router>
-    </SettingsProvider>
+    <StrictMode>
+      <SettingsProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<Root />}>
+              <Route index element={<Home />} />
+              <Route path="/browser" element={<Browser />} />
+              <Route path="/filters" element={<FiltersOverview />} />
+            </Route>
+          </Routes>
+        </Router>
+      </SettingsProvider>
+    </StrictMode>
   );
 }
 
@@ -70,75 +73,43 @@ function Root() {
 function Home() {
   const { settings } = useSettings();
 
-  const [status, setStatus] = useState<StatusBarProps>({
-    tv_on: false,
-    art_mode_supported: false,
-    art_mode_active: false,
-    api_version: '',
-  });
-  useEffect(() => {
-    const fetchStatus = async () => {
-      const url = `${API_BASE_URL}/api/status`;
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | undefined>(undefined);
 
-      try {
-        const response = await axios.get(url);
-        setStatus(response.data);
-      } catch (error) {
-        console.error(error);
-      }
-    };
-    fetchStatus();
-  }, []); // The empty dependency array ensures the effect runs only once
+  useEffect(() => {
+    if (settings?.current_active_image) {
+      setPreviewImageUrl(API_BASE_URL + '/' + settings.current_active_image.filepath);
+    }
+  }, [settings]);
+
+  const handleImageChange = (newImage: Image) => {
+    setPreviewImageUrl(API_BASE_URL + '/' + newImage.filepath);
+  };
 
   return (
     <Stack direction={'column'}>
+      <Container maxWidth="md" sx={{ mt: 4 }}>
+        <SettingsStatus />
+      </Container>
       <Container maxWidth="xl">
         <Box sx={{ my: 4 }}>
           <Typography variant="h4" sx={{ mb: 2 }} align={'center'}>
             The Frame Art Gallery Manager
           </Typography>
         </Box>
-        <Container sx={{ mb: 10 }}>
-          <StatusBar
-            tv_on={status.tv_on}
-            api_version={status.api_version}
-            art_mode_active={status.art_mode_active}
-            art_mode_supported={status.art_mode_supported}
-          />
-        </Container>
       </Container>
       <Container>
-        <FrameDisplayPreview imageUrl={API_BASE_URL + '/' + settings?.current_active_image.filepath} />
+        {previewImageUrl && (
+          <FrameDisplayPreview imageUrl={previewImageUrl} onNext={handleImageChange} />
+        )}
       </Container>
     </Stack>
   );
 }
 
 function Browser() {
-  const [status, setStatus] = useState<StatusBarProps>({
-    tv_on: false,
-    art_mode_supported: false,
-    art_mode_active: false,
-    api_version: '',
-  });
-
   const [items, setItems] = useState<Image[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
-
-  useEffect(() => {
-    const fetchStatus = async () => {
-      const url = `${API_BASE_URL}/api/status`;
-
-      try {
-        const response = await axios.get(url);
-        setStatus(response.data);
-      } catch (error) {
-        console.error(error);
-      }
-    };
-    fetchStatus();
-  }, []); // The empty dependency array ensures the effect runs only once
 
   useEffect(() => {
     const fetchItems = async () => {
@@ -180,7 +151,7 @@ function Browser() {
     setSelectedAlbum(newAlbum);
   };
 
-  const filteredImages = items.filter((item: Image): Boolean => item.filepath.includes(selectedAlbum?.name ?? ''));
+  const filteredImages = items.filter((item: Image): boolean => item.filepath.includes(selectedAlbum?.name ?? ''));
 
   return (
     <Container maxWidth="xl">
@@ -189,14 +160,6 @@ function Browser() {
           The Frame Art Gallery Manager
         </Typography>
       </Box>
-      <Container sx={{ mb: 10 }}>
-        <StatusBar
-          tv_on={status.tv_on}
-          api_version={status.api_version}
-          art_mode_active={status.art_mode_active}
-          art_mode_supported={status.art_mode_supported}
-        />
-      </Container>
       <Stack direction="row" spacing={2} justifyContent="center" alignItems="flex-start">
         <Stack direction="column" spacing={1} justifyContent="flex-start" alignItems="flex-start">
           <Typography variant="h5" component="h2" sx={{ mb: 2 }}>
@@ -224,6 +187,6 @@ function Browser() {
   );
 }
 
-function Filters() {
-  return <h1>This is where the filter management will be</h1>;
+function FiltersOverview() {
+  return <Filters />;
 }
