@@ -1,7 +1,7 @@
 import json
 from typing import Any, Dict, List, Union
 
-from sqlalchemy import BinaryExpression
+from sqlalchemy.sql.elements import ColumnElement
 
 from framegallery.repository.filters.image_filter import (
     AndFilter,
@@ -25,7 +25,7 @@ class QueryBuilder:
         """
         self._query_dict = json.loads(query_json)
 
-    def build(self) -> BinaryExpression:
+    def build(self) -> ColumnElement[bool]:
         """Convert the query into a SQLAlchemy expression.
         
         Returns:
@@ -33,7 +33,7 @@ class QueryBuilder:
         """
         return self._process_group(self._query_dict)
 
-    def _process_group(self, group: Dict[str, Any]) -> BinaryExpression:
+    def _process_group(self, group: Dict[str, Any]) -> ColumnElement[bool]:
         """Process a query group and convert it to a SQLAlchemy expression.
         
         Args:
@@ -80,10 +80,11 @@ class QueryBuilder:
         value = rule["value"]
 
         # Map fields to appropriate filters
+        operator = rule["operator"]
         if field == "filename":
-            return FilenameFilter(str(value))
+            return FilenameFilter(value, operator)
         elif field == "directory":
-            return DirectoryFilter(str(value))
+            return DirectoryFilter(value, operator)
         elif field == "aspect_ratio_width":
             return AspectRatioWidthFilter(float(value))
         elif field == "aspect_ratio_height":
@@ -104,7 +105,7 @@ class QueryBuilder:
         return "rules" in rule
 
     @staticmethod
-    def _wrap_expression(expression: BinaryExpression) -> ImageFilter:
+    def _wrap_expression(expression: ColumnElement[bool]) -> ImageFilter:
         """Wrap a SQLAlchemy expression in an ImageFilter.
         
         Args:
@@ -114,7 +115,7 @@ class QueryBuilder:
             An ImageFilter that returns the given expression
         """
         class WrappedFilter(ImageFilter):
-            def get_expression(self) -> BinaryExpression:
+            def get_expression(self) -> ColumnElement[bool]:
                 return expression
 
         return WrappedFilter()

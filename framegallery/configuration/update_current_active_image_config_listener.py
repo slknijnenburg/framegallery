@@ -14,7 +14,6 @@ class UpdateCurrentActiveImageConfigListener:
     def __init__(self, config_repository: ConfigRepository) -> None:
         self._config_repository = config_repository
         self._active_image_updated_signal = signal("active_image_updated")
-        logger.debug("Attaching to %s signal", self._active_image_updated_signal)
         self._active_image_updated_signal.connect(self._on_active_image_updated)
 
     async def _on_active_image_updated(self, _, active_image: Image) -> None:
