@@ -1,6 +1,6 @@
 import {Field, formatQuery, QueryBuilder, RuleGroupType} from 'react-querybuilder';
 import 'react-querybuilder/dist/query-builder.css';
-import { useEffect, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {Stack} from '@mui/material';
 import Container from '@mui/material/Container';
 import FormControl from '@mui/material/FormControl';

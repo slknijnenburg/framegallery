@@ -15,7 +15,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import React, { ReactNode, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import FilterBuilder from '../components/Filters/FilterBuilder';
 import { Filter } from '../components/Filters/Filter';
 import { Add as AddIcon, Delete as DeleteIcon, Star as StarIcon, StarBorder as StarBorderIcon } from '@mui/icons-material';
@@ -75,7 +75,7 @@ const Filters = () => {
     }
   };
 
-  const handleFilterChange = (event: SelectChangeEvent<number>, child?: ReactNode) => {
+  const handleFilterChange = (event: SelectChangeEvent<number>) => {
     const filterId = event.target.value;
     const filter = filters.find((filter) => filter.id === filterId);
     if (filter) {
