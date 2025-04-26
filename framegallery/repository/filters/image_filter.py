@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
-from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy import and_, or_
+from sqlalchemy.sql.elements import ColumnElement
 
 from framegallery.models import Image
 
@@ -22,33 +22,30 @@ class DirectoryFilter(ImageFilter):
         self._operator = operator
 
     def get_expression(self) -> ColumnElement[bool]:
+        """Return a SQLAlchemy expression that filters images by directory."""
         op = self._operator
-        if op == '=':
-            return Image.filepath == self._value
-        elif op == '!=':
-            return Image.filepath != self._value
-        elif op == 'contains':
-            return Image.filepath.like(f"%{self._value}%")
-        elif op == 'beginsWith':
-            return Image.filepath.like(f"{self._value}%")
-        elif op == 'endsWith':
-            return Image.filepath.like(f"%{self._value}")
-        elif op == 'doesNotContain':
-            return ~Image.filepath.like(f"%{self._value}%")
-        elif op == 'doesNotBeginWith':
-            return ~Image.filepath.like(f"{self._value}%")
-        elif op == 'doesNotEndWith':
-            return ~Image.filepath.like(f"%{self._value}")
-        elif op == 'null':
-            return Image.filepath.is_(None)
-        elif op == 'notNull':
-            return Image.filepath.is_not(None)
-        elif op == 'in':
-            return Image.filepath.in_(self._value if isinstance(self._value, list) else [self._value])
-        elif op == 'notIn':
-            return ~Image.filepath.in_(self._value if isinstance(self._value, list) else [self._value])
-        else:
-            raise ValueError(f"Unsupported operator for DirectoryFilter: {op}")
+        value = self._value
+        if op in (
+            "=", "!=", "contains", "beginsWith", "endsWith", "doesNotContain",
+            "doesNotBeginWith", "doesNotEndWith", "null", "notNull", "in", "notIn",
+        ):
+            mapping = {
+                "=": lambda: Image.filepath == value,
+                "!=": lambda: Image.filepath != value,
+                "contains": lambda: Image.filepath.like(f"%{value}%"),
+                "beginsWith": lambda: Image.filepath.like(f"{value}%"),
+                "endsWith": lambda: Image.filepath.like(f"%{value}"),
+                "doesNotContain": lambda: ~Image.filepath.like(f"%{value}%"),
+                "doesNotBeginWith": lambda: ~Image.filepath.like(f"{value}%"),
+                "doesNotEndWith": lambda: ~Image.filepath.like(f"%{value}"),
+                "null": lambda: Image.filepath.is_(None),
+                "notNull": lambda: Image.filepath.is_not(None),
+                "in": lambda: Image.filepath.in_(value if isinstance(value, list) else [value]),
+                "notIn": lambda: ~Image.filepath.in_(value if isinstance(value, list) else [value]),
+            }
+            return mapping[op]()
+        msg = f"Unsupported operator for DirectoryFilter: {op}"
+        raise ValueError(msg)
 
 
 class FilenameFilter(ImageFilter):
@@ -59,33 +56,30 @@ class FilenameFilter(ImageFilter):
         self._operator = operator
 
     def get_expression(self) -> ColumnElement[bool]:
+        """Return a SQLAlchemy expression that filters images by filename."""
         op = self._operator
-        if op == '=':
-            return Image.filename == self._value
-        elif op == '!=':
-            return Image.filename != self._value
-        elif op == 'contains':
-            return Image.filename.like(f"%{self._value}%")
-        elif op == 'beginsWith':
-            return Image.filename.like(f"{self._value}%")
-        elif op == 'endsWith':
-            return Image.filename.like(f"%{self._value}")
-        elif op == 'doesNotContain':
-            return ~Image.filename.like(f"%{self._value}%")
-        elif op == 'doesNotBeginWith':
-            return ~Image.filename.like(f"{self._value}%")
-        elif op == 'doesNotEndWith':
-            return ~Image.filename.like(f"%{self._value}")
-        elif op == 'null':
-            return Image.filename.is_(None)
-        elif op == 'notNull':
-            return Image.filename.is_not(None)
-        elif op == 'in':
-            return Image.filename.in_(  self._value if isinstance(self._value, list) else [self._value])
-        elif op == 'notIn':
-            return ~Image.filename.in_(self._value if isinstance(self._value, list) else [self._value])
-        else:
-            raise ValueError(f"Unsupported operator for FilenameFilter: {op}")
+        value = self._value
+        if op in (
+            "=", "!=", "contains", "beginsWith", "endsWith", "doesNotContain",
+            "doesNotBeginWith", "doesNotEndWith", "null", "notNull", "in", "notIn",
+        ):
+            mapping = {
+                "=": lambda: Image.filename == value,
+                "!=": lambda: Image.filename != value,
+                "contains": lambda: Image.filename.like(f"%{value}%"),
+                "beginsWith": lambda: Image.filename.like(f"{value}%"),
+                "endsWith": lambda: Image.filename.like(f"%{value}"),
+                "doesNotContain": lambda: ~Image.filename.like(f"%{value}%"),
+                "doesNotBeginWith": lambda: ~Image.filename.like(f"{value}%"),
+                "doesNotEndWith": lambda: ~Image.filename.like(f"%{value}"),
+                "null": lambda: Image.filename.is_(None),
+                "notNull": lambda: Image.filename.is_not(None),
+                "in": lambda: Image.filename.in_(value if isinstance(value, list) else [value]),
+                "notIn": lambda: ~Image.filename.in_(value if isinstance(value, list) else [value]),
+            }
+            return mapping[op]()
+        msg = f"Unsupported operator for FilenameFilter: {op}"
+        raise ValueError(msg)
 
 
 

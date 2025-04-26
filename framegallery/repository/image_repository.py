@@ -1,4 +1,4 @@
-from sqlalchemy import BinaryExpression, func, select
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.orm import Session
 
 from framegallery.models import Image
@@ -17,7 +17,7 @@ class ImageRepository:
         return self._db.execute(stmt).scalar_one_or_none()
 
     def get_image_matching_filter(
-        self, where_expression: BinaryExpression | None
+        self, where_expression: ColumnElement[bool] | None
     ) -> Image | None:
         """Get a random image that matches the given filter provided via the where_expression."""
         if where_expression is None:

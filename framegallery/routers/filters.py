@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from framegallery import schemas, models
+from framegallery import models, schemas
 from framegallery.dependencies import get_filter_repository
 from framegallery.repository.filter_repository import FilterRepository
 

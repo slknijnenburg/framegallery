@@ -16,10 +16,10 @@ class UpdateCurrentActiveImageConfigListener:
         self._active_image_updated_signal = signal("active_image_updated")
         self._active_image_updated_signal.connect(self._on_active_image_updated)
 
-    async def _on_active_image_updated(self, _, active_image: Image) -> None:
+    async def _on_active_image_updated(self, _: object, active_image: Image) -> None:
         """Update the current active image configuration in the database."""
         logger.debug("Updating current active image in config to %s", active_image.id)
         self._config_repository.set(ConfigKey.CURRENT_ACTIVE_IMAGE, active_image.id)
         self._config_repository.set(
-            ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
+            ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, datetime.datetime.now(tz=datetime.UTC).isoformat()
         )

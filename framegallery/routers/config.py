@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 
 from framegallery import schemas
 from framegallery.dependencies import get_config_repository
-from framegallery.repository.config_repository import ConfigRepository, ConfigKey
+from framegallery.repository.config_repository import ConfigKey, ConfigRepository
 
 router = APIRouter(
     prefix="/api/config",

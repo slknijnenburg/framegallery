@@ -1,9 +1,15 @@
-from framegallery.repository.filters.image_filter import (AndFilter, DirectoryFilter, FilenameFilter, OrFilter,
-    AspectRatioWidthFilter, AspectRatioHeightFilter)
+from framegallery.repository.filters.image_filter import (
+    AndFilter,
+    AspectRatioHeightFilter,
+    AspectRatioWidthFilter,
+    DirectoryFilter,
+    FilenameFilter,
+    OrFilter,
+)
 
 
 def test_directory_filter():
-    dir_filter = DirectoryFilter('2024-Album', 'contains')
+    dir_filter = DirectoryFilter("2024-Album", "contains")
     binary_operator = dir_filter.get_expression()
 
     compiled_expression = str(binary_operator.compile(compile_kwargs={"literal_binds": True}))
@@ -13,7 +19,7 @@ def test_directory_filter():
 
 def test_file_filter():
     # Filter all first images from albums...
-    file_filter = FilenameFilter('_001.jpg', 'contains')
+    file_filter = FilenameFilter("_001.jpg", "contains")
     binary_operator = file_filter.get_expression()
 
     compiled_expression = str(binary_operator.compile(compile_kwargs={"literal_binds": True}))
@@ -22,8 +28,8 @@ def test_file_filter():
     assert compiled_expression == "images.filename LIKE '%_001.jpg%'"
 
 def test_and_filter():
-    file_filter = FilenameFilter('_001.jpg', 'contains')
-    dir_filter = DirectoryFilter('2024-Album', 'contains')
+    file_filter = FilenameFilter("_001.jpg", "contains")
+    dir_filter = DirectoryFilter("2024-Album", "contains")
     and_filter = AndFilter([file_filter, dir_filter])
     binary_operator = and_filter.get_expression()
 
@@ -33,8 +39,8 @@ def test_and_filter():
     assert compiled_expression == "images.filename LIKE '%_001.jpg%' AND images.filepath LIKE '%2024-Album%'"
 
 def test_or_filter():
-    file_filter = FilenameFilter('_001.jpg', 'contains')
-    dir_filter = DirectoryFilter('2024-Album', 'contains')
+    file_filter = FilenameFilter("_001.jpg", "contains")
+    dir_filter = DirectoryFilter("2024-Album", "contains")
     and_filter = AndFilter([file_filter, dir_filter])
     binary_operator = and_filter.get_expression()
 
@@ -44,6 +50,7 @@ def test_or_filter():
     assert compiled_expression == "images.filename LIKE '%_001.jpg%' AND images.filepath LIKE '%2024-Album%'"
 
 import pytest
+
 
 @pytest.mark.parametrize("FilterClass,field,operator,value,expected_sql", [
     (DirectoryFilter, "filepath", "=", "foo", "images.filepath = 'foo'"),
@@ -58,7 +65,7 @@ import pytest
     (DirectoryFilter, "filepath", "notNull", None, "images.filepath IS NOT NULL"),
     (DirectoryFilter, "filepath", "in", ["foo","bar"], "images.filepath IN ('foo', 'bar')"),
     (DirectoryFilter, "filepath", "notIn", ["foo","bar"], "(images.filepath NOT IN ('foo', 'bar'))"),
-    
+
     (FilenameFilter, "filename", "=", "foo.jpg", "images.filename = 'foo.jpg'"),
     (FilenameFilter, "filename", "!=", "foo.jpg", "images.filename != 'foo.jpg'"),
     (FilenameFilter, "filename", "contains", "foo.jpg", "images.filename LIKE '%foo.jpg%'"),
@@ -81,19 +88,19 @@ def test_filter_operators(FilterClass, field, operator, value, expected_sql):
     expr = filter_instance.get_expression()
     compiled = str(expr.compile(compile_kwargs={"literal_binds": True}))
     # Normalize parentheses for NOT IN and similar cases
-    if compiled.startswith('(') and compiled.endswith(')'):
+    if compiled.startswith("(") and compiled.endswith(")"):
         compiled = compiled[1:-1]
-    if expected_sql.startswith('(') and expected_sql.endswith(')'):
+    if expected_sql.startswith("(") and expected_sql.endswith(")"):
         expected_sql = expected_sql[1:-1]
     assert compiled == expected_sql
 
 def test_combine_and_and_or_filters():
-    file_filter = FilenameFilter('_001.jpg', 'contains')
-    dir_filter = DirectoryFilter('2024-Kenya', 'contains')
+    file_filter = FilenameFilter("_001.jpg", "contains")
+    dir_filter = DirectoryFilter("2024-Kenya", "contains")
     and_filter = AndFilter([file_filter, dir_filter])
 
-    file_filter = FilenameFilter('_002.jpg', 'contains')
-    dir_filter = DirectoryFilter('2024-CostaRica', 'contains')
+    file_filter = FilenameFilter("_002.jpg", "contains")
+    dir_filter = DirectoryFilter("2024-CostaRica", "contains")
     and_filter_2 = AndFilter([file_filter, dir_filter])
 
     or_filter = OrFilter([and_filter, and_filter_2])

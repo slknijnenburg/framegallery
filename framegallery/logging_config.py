@@ -1,17 +1,19 @@
 import logging
-import os
 import sys
+from pathlib import Path
 
-def setup_logging(log_level="INFO"):
-    log_dir = "./logs"
-    os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, "framegallery.log")
+
+def setup_logging(log_level: str = "INFO") -> logging.Logger:
+    """Set up logging for the application, including file and stream handlers."""
+    log_dir = Path("./logs")
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "framegallery.log"
 
     # Root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
 
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     # File Handler
     file_handler = logging.FileHandler(log_file)

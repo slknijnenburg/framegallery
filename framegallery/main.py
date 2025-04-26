@@ -24,11 +24,11 @@ from framegallery.frame_connector.frame_connector import FrameConnector, api_ver
 from framegallery.frame_connector.status import SlideshowStatus, Status
 from framegallery.importer2.importer import Importer
 from framegallery.logging_config import setup_logging
-from framegallery.repository.filter_repository import FilterRepository
 from framegallery.repository.config_repository import ConfigKey, ConfigRepository
+from framegallery.repository.filter_repository import FilterRepository
 from framegallery.repository.image_repository import ImageRepository
 from framegallery.routers import config_router, filters_router
-from framegallery.schemas import ConfigResponse, Image, Filter
+from framegallery.schemas import ConfigResponse, Filter, Image
 from framegallery.slideshow.slideshow import Slideshow
 
 logger = setup_logging(log_level=settings.log_level)
@@ -62,8 +62,8 @@ async def update_slideshow_periodically(slideshow: Slideshow) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, any]:
-    logger.info("logger - Inside lifespan")
     """Run tasks on startup and shutdown."""
+    logger.info("logger - Inside lifespan")
     await frame_connector.get_active_item_details()
 
     # Create a database session and run the importer periodically
@@ -254,8 +254,7 @@ async def get_settings(
 @app.post("/api/images/next")
 async def next_image(slideshow: Annotated[Slideshow, Depends(get_slideshow_instance)]) -> Image:
     """Advance to the next image in the slideshow."""
-    new_image = await slideshow.update_slideshow()
-    return new_image
+    return await slideshow.update_slideshow()
 
 
 # Include routers for modular API endpoints

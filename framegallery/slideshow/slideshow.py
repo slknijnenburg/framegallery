@@ -1,20 +1,24 @@
 import logging
 
+from blinker import signal
+
+from framegallery.models import Filter, Image
 from framegallery.repository.config_repository import ConfigKey, ConfigRepository
 from framegallery.repository.filter_repository import FilterRepository
 from framegallery.repository.filters.query_builder import QueryBuilder
-logger = logging.getLogger("framegallery")
-
-from blinker import signal
-
-from framegallery.models import Image, Filter
 from framegallery.repository.image_repository import ImageRepository, NoImagesError
 
+logger = logging.getLogger("framegallery")
 
 class Slideshow:
     """A class that manages the active image in the slideshow."""
 
-    def __init__(self, image_repository: ImageRepository, config_repository: ConfigRepository, filter_repository: FilterRepository) -> None:
+    def __init__(
+        self,
+        image_repository: ImageRepository,
+        config_repository: ConfigRepository,
+        filter_repository: FilterRepository
+    ) -> None:
         self._active_image = None
         self._image_repository = image_repository
         self._config_repository = config_repository
@@ -24,7 +28,11 @@ class Slideshow:
         """Update the slideshow with a new image that matches the active filter."""
         active_filter = self._get_active_filter()
 
-        logger.debug("Active filter: %s", active_filter.query) if active_filter is not None else logger.debug("No active filter")
+        if active_filter is None:
+            logger.debug("No active filter")
+        else:
+            logger.debug("Active filter: %s", active_filter.query)
+
         query_builder = QueryBuilder(active_filter.query) if active_filter is not None else None
         query_expression = query_builder.build() if query_builder is not None else None
         image = self._image_repository.get_image_matching_filter(query_expression)
