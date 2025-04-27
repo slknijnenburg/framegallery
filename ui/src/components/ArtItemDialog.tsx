@@ -14,7 +14,7 @@ import Image from '../models/Image';
 interface ArtItemDialogProps {
   open: boolean;
   image: Image;
-  onClose: Function;
+  onClose: () => void;
 }
 
 // Create an enum for a set of colors
@@ -63,7 +63,7 @@ export default function ArtItemDialog(props: ArtItemDialogProps) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     console.log(formData);
-    const formJson = Object.fromEntries((formData as any).entries());
+    const formJson = Object.fromEntries((formData as any).entries()); // eslint-disable-line @typescript-eslint/no-explicit-any
     console.log(formJson);
 
     let matteId = '';

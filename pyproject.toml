@@ -8,7 +8,7 @@ readme = "README.md"
 packages = [{include = "framegallery"}]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.11"
 samsungtvws = {git = "https://github.com/slknijnenburg/samsung-tv-ws-api.git", branch = "master"}
 fastapi = "^0.115.0"
 uvicorn = "^0.34.0"
@@ -26,12 +26,36 @@ blinker = "^1.8.2"
 icmplib = "^3.0.4"
 
 [tool.poetry.group.dev.dependencies]
-black = "^25.0.0"
-flake8 = "^7.1.1"
-isort = "^6.0.0"
-mypy = "^1.11.2"
 pytest = "^8.3.3"
+pyright = "^1.1.394"
+ruff = "^0.9.6"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+target-version="py311"
+# Allow lines to be as long as 120.
+line-length = 120
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "COM812", # Redundant if using Ruff formatter which we are.
+    "D104",   # Missing docstring in public package
+    "D106",   # Missing docstring in public method
+    "D107",   # Missing docstring in __init__
+    "D100",   # Missing docstring in public module
+    "D205",   # 1 blank line required between summary line and description
+    "D203",   # Incompatible together with D211
+    "D212",   # Incompatible together with D213
+    "EM101",  # I can read traces just fine
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"

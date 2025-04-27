@@ -1,127 +1,117 @@
 import asyncio
 import logging
 import os
-from typing import Optional, Tuple
-
+import sys
+from pathlib import Path
 
 from PIL import Image
-from PIL.ExifTags import TAGS, GPSTAGS, IFD
+from PIL.ExifTags import GPSTAGS, IFD, TAGS
 from pillow_heif import register_heif_opener  # HEIF support
-
 from sqlalchemy.orm import Session
 
 import framegallery.aspect_ratio
-import framegallery.crud as crud
-import framegallery.database as database
-import framegallery.models as models
+from framegallery import crud, database, models
 from framegallery.config import settings
 
 register_heif_opener()  # HEIF support
 
-"""
-Imports all images from the gallery folder to the SQLite database.
-Generates thumbnails on the fly for display in the UI.
-Calculates aspect ratio of the image.
-"""
-
-
 class Importer:
-    def __init__(self, image_path: str, db: Session):
+    """
+    Imports all images from the gallery folder to the SQLite database.
+    Generates thumbnails on the fly for display in the UI.
+    Calculates aspect ratio of the image.
+    """
+
+    def __init__(self, image_path: str, db: Session) -> None:
         self.image_path = image_path
         self._db = db
 
-    def get_imagelist_on_disk(self):
+    def get_imagelist_on_disk(self) -> list[Path]:
+        """Get a list of all images on disk."""
         files = sorted(
             [
-                os.path.join(root, f)
+                Path(root) / f
                 for root, dirs, files in os.walk(self.image_path)
                 for f in files
-                if (f.endswith(".jpg") or f.endswith(".png"))
+                if (f.endswith((".jpg", ".png")))
                 and not f.endswith(".thumbnail.jpg")
             ]
         )
 
-        logging.info("Found {} images in folder {}".format(len(files), self.image_path))
+        logging.info("Found %d images in folder %s", len(files), self.image_path)
 
         return files
 
     def check_if_local_image_exists_in_db(
         self, image_path: str
-    ) -> Optional[models.Image]:
+    ) -> models.Image | None:
+        """Check if an image exists in the database by its file path."""
         return crud.get_image_by_path(self._db, filepath=image_path)
 
-    """
-    Get image dimensions using PIL
-    """
 
     @staticmethod
-    def get_image_dimensions(img: Image) -> Tuple[int, int]:
+    def get_image_dimensions(img: Image) -> tuple[int, int]:
+        """Get the dimensions of an image using PIL."""
         try:
             width, height = img.size
-            return width, height
-        except Exception as e:
-            logging.error("Error reading image dimensions: {}".format(e))
+        except Exception:
+            logging.exception("Error reading image dimensions")
+            return 0, 0
+        return width, height
 
-    """
-    read image file, return file binary data and file type
-    """
-
-    def read_file(self, filename: str):
+    def read_file(self, filename: str) -> tuple[bytes, str]|tuple[None, None]:
+        """Read a file from disk and return the file data and type."""
         try:
-            with open(filename, "rb") as f:
+            with Path(filename).open("rb") as f:
                 file_data = f.read()
-            file_type = self.get_file_type(filename)
-            return file_data, file_type
-        except Exception as e:
-            logging.error("Error reading file: {}, {}".format(filename, e))
+                file_type = self.get_file_type(filename)
+                return file_data, file_type
+        except Exception:
+            logging.exception("Error reading file: %s", filename)
         return None, None
 
-    """
-    Try to figure out what kind of image file is, starting with the extension
-    """
-
     @staticmethod
-    def get_file_type(filename: str):
+    def get_file_type(filename: str) -> str | None:
+        """Try to figure out what kind of image file is, starting with the extension."""
         try:
-            file_type = os.path.splitext(filename)[1][1:].lower()
-            file_type = file_type.lower() if file_type else None
-            return file_type
-        except Exception as e:
-            logging.error("Error reading file: {}, {}".format(filename, e))
+            file_type = Path(filename).suffix.lower()
+            return file_type.lower() if file_type else None
+        except Exception:
+            logging.exception("Error reading file: %s.", filename)
         return None
 
     @staticmethod
-    def print_exif(img: Image):
+    def print_exif(img: Image) -> None:
+        """Print EXIF data from an image."""
         exif = img.getexif()
 
-        print(">>>>>>>>>>>>>>>>>>", "Base tags", "<<<<<<<<<<<<<<<<<<<<")
+        logging.debug(">>>>>>>>>>>>>>>>>> EXIF Base tags <<<<<<<<<<<<<<<<<<<<")
         for k, v in exif.items():
             tag = TAGS.get(k, k)
-            print(tag, v)
+            logging.debug("%s: %s", tag, v)
 
         for ifd_id in IFD:
-            print(">>>>>>>>>", ifd_id.name, "<<<<<<<<<<")
+            logging.debug(">>>>>>>>> %s <<<<<<<<<<", ifd_id.name)
             try:
                 ifd = exif.get_ifd(ifd_id)
 
-                if ifd_id == IFD.GPSInfo:
-                    resolve = GPSTAGS
-                else:
-                    resolve = TAGS
+                resolve = GPSTAGS if ifd_id == IFD.GPSInfo else TAGS
 
                 for k, v in ifd.items():
                     tag = resolve.get(k, k)
-                    print(tag, v)
+                    logging.debug("%s: %s", tag, v)
             except KeyError:
                 pass
 
-    async def synchronize_files(self):
+    async def synchronize_files(self) -> None:
+        """Read all files from disk and synchronize them with the database."""
         # First, let's read all files currently on disk and ensure they are present in the DB/
         image_list = self.get_imagelist_on_disk()
 
         processed_images = []
 
-        for image in image_list:
+        for image_path in image_list:
+            image = str(image_path)
             image_exists = self.check_if_local_image_exists_in_db(image)
             if image_exists:
                 processed_images.append(image_exists)
@@ -136,7 +126,7 @@ class Importer:
 
             img = models.Image(
                 filepath=image,
-                filename=os.path.basename(image),
+                filename=Path(image).name,
                 filetype=self.get_file_type(image),
                 width=width,
                 height=height,
@@ -147,18 +137,19 @@ class Importer:
             self._db.add(img)
             self._db.commit()
             processed_images.append(img)
-            logging.debug("Added image {} to the database".format(img.id))
+            logging.debug("Added image %s to the database", img.id)
 
-        logging.debug("Processed {} images".format(len(processed_images)))
+        logging.debug("Processed %d images", len(processed_images))
 
         # Delete all Images that have not been processed
         delete_count = crud.delete_images_not_in_processed_items_list(
             self._db, [i.filepath for i in processed_images]
         )
-        logging.debug("Deleted {} images from the database".format(delete_count))
+        logging.debug("Deleted %d images from the database", delete_count)
 
     @staticmethod
     def resize_image(pil_image: Image, image_path: str) -> str:
+        """Resize an image to a thumbnail and save it to disk. Return the thumbnail path."""
         thumbnail = pil_image.copy()
         thumbnail.thumbnail((200, 200))
         thumbnail_path = image_path.replace(".jpg", ".thumbnail.jpg")
@@ -166,7 +157,8 @@ class Importer:
 
         return thumbnail_path
 
-    async def main(self):
+    async def main(self) -> None:
+        """Start the importer."""
         await self.synchronize_files()
 
 
@@ -179,4 +171,4 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.INFO)  # or logging.DEBUG to see messages
         asyncio.run(importer.main())
     except (KeyboardInterrupt, SystemExit):
-        exit(1)
+        sys.exit(1)

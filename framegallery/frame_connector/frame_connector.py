@@ -6,7 +6,7 @@ update the active image on the Frame TV when the signal is emitted.
 import asyncio
 import logging
 import os
-from typing import Tuple
+from pathlib import Path
 
 import websockets
 from blinker import signal
@@ -20,18 +20,25 @@ api_version = "4.3.4.0"
 class TvNotConnectedError(Exception):
     """Exception raised when the TV is not connected."""
 
-    pass
+class TvConnectionTimeoutError(TvNotConnectedError):
+    """Exception raised when the TV connection times out."""
 
 
 class FrameConnector:
-    def __init__(self, ip_address: str, port: int):
+    """A class that connects to the Frame TV and updates the active image on the TV."""
+
+    IDEAL_ASPECT_RATIO_HEIGHT = 9
+    IDEAL_ASPECT_RATIO_WIDTH = 16
+
+    def __init__(self, ip_address: str, port: int) -> None:
         self._tv = None
         self._ip_address = ip_address
         self._port = port
         self._pid = os.getpid()
         self._token_file = (
-            os.path.dirname(os.path.realpath(__file__)) + f"/tv-token-{self._pid}.txt"
+            Path(__file__).parent / f"tv-token-{self._pid}.txt"
         )
+        self._background_tasks = set()
 
         self._latest_content_id = None
         self._tv_is_online = False
@@ -42,7 +49,8 @@ class FrameConnector:
         # Check if the TV is available on the network. If it is, the connection sequence will be started.
         self._start_reconnection_pinger()
 
-    async def open(self):
+    async def open(self) -> None:
+        """Open a connection to the TV and start listening to the slideshow update events."""
         if not self._tv_is_online:
             return
 
@@ -52,23 +60,29 @@ class FrameConnector:
 
             self._tv.set_callback(trigger="go_to_standby", callback=self.go_to_standby)
         except TimeoutError as e:
-            logging.error(f"Timeout error connecting to TV: {e}")
-            raise TvNotConnectedError("Timeout error connecting to TV", e)
+            logging.exception("Timeout error connecting to TV.")
+            raise TvConnectionTimeoutError from e
 
         self._connected = True
         self._active_image_updated_signal.connect(self._on_active_image_updated)
 
-    async def close(self):
+    async def close(self) -> None:
+        """Close the connection to the TV, and (re)start the reconnection pinger."""
         await self._tv.close()
         self._connected = False
         self._active_image_updated_signal.disconnect(self._on_active_image_updated)
         self._start_reconnection_pinger()
 
-    def _start_reconnection_pinger(self):
+    def _start_reconnection_pinger(self) -> None:
+        """Start the reconnection timer."""
         logging.info("Starting reconnection timer")
-        asyncio.create_task(self._reconnect_ping())
+        pinger = asyncio.create_task(self._reconnect_ping())
+        self._background_tasks.add(pinger)
+        pinger.add_done_callback(self._background_tasks.discard)
 
-    async def _reconnect_ping(self):
+
+    async def _reconnect_ping(self) -> None:
+        """Ping the TV to check if it is online."""
         from icmplib import ping
 
         while True:
@@ -76,22 +90,23 @@ class FrameConnector:
                 response = ping(self._ip_address, count=1, timeout=2, privileged=False)
                 if not response.is_alive:
                     logging.debug(
-                        f"Ping to {self._ip_address} failed, retrying in 10 seconds"
+                        "Ping to %s failed, retrying in 10 seconds", self._ip_address
                     )
                     self._tv_is_online = False
                 else:
                     logging.info(
-                        f"Ping to {self._ip_address} successful, reconnecting to the TV"
+                        "Ping to %s successful, reconnecting to the TV.", self._ip_address
                     )
                     self._tv_is_online = True
                     await self.reconnect()
                     break
 
-            except Exception as e:
-                logging.error(f"Error during ping: {e}")
+            except Exception:
+                logging.exception("Error during ping.")
             await asyncio.sleep(10)
 
-    async def reconnect(self):
+    async def reconnect(self) -> None:
+        """Reconnect to the TV."""
         self._tv = SamsungTVAsyncArt(
             host=self._ip_address,
             port=self._port,
@@ -100,17 +115,18 @@ class FrameConnector:
         )
         await self.open()
 
-    async def get_active_item_details(self):
+    async def get_active_item_details(self) -> dict|None:
+        """Get the current active item details from the TV."""
         if not self._connected or not self._tv_is_online:
-            return
+            return None
 
         data = await self._tv.get_current()
-        logging.critical(f"Current active item: {data}")
+        logging.critical("Current active item: %s", data)
 
         return data
 
-    async def _on_active_image_updated(self, sender, active_image: Image):
-        logging.info(f"Updating active image on TV: {active_image.filepath}")
+    async def _on_active_image_updated(self, _: object, active_image: Image) -> None:
+        logging.info("Updating active image on TV: %s", active_image.filepath)
 
         # Upload the image to the TV
         try:
@@ -123,32 +139,30 @@ class FrameConnector:
 
             logging.debug("_on_active_image_updated: TV connected, uploading image")
             data = await self._upload_image(active_image)
-        except websockets.exceptions.ConnectionClosedError as e:
-            logging.error(
-                f"Connection to TV is closed, perhaps the TV is off? Error: {e}"
+        except websockets.exceptions.ConnectionClosedError:
+            logging.exception(
+                "Connection to TV is closed, perhaps the TV is off?"
             )
             await self.close()
             return
         except AssertionError:
-            logging.error("Upload failed, retrying after reconnecting")
+            logging.exception("Upload failed, retrying after reconnecting")
             try:
                 await self.reconnect()
-            except TvNotConnectedError as e:
-                logging.error(f"TV not connected, cannot update active image: {e}")
+            except TvNotConnectedError:
+                logging.exception("TV not connected, cannot update active image.")
                 return
             return
-        except Exception as e:
+        except Exception:
             # log as much info about the error as possible
 
             import traceback
 
-            logging.error(
-                f"Error uploading image to TV: {e} with traceback {traceback.format_exc()}"
+            logging.exception(
+                "Error uploading image to TV, traceback: %s", traceback.format_exc()
             )
             await self.close()
             return
-
-        assert data
 
         # Make uploaded image active
         await self._activate_image(data["content_id"])
@@ -159,20 +173,21 @@ class FrameConnector:
 
         self._latest_content_id = data["content_id"]
 
-    async def _upload_image(self, image: Image):
-        logging.info(f"Uploading image {image.filepath} to TV")
+    async def _upload_image(self, image: Image) -> dict|None:
+        """Upload image to TV and return the uploaded file details as provided by the television."""
+        logging.info("Uploading image %s to TV", image.filepath)
 
         file_data, file_type = self._read_file(image.filepath)
 
-        if image.aspect_width == 16 and image.aspect_height == 9:
-            matte = "none"
-        else:
-            matte = "shadowbox_black"
+        matte = "none" if (image.aspect_width == self.IDEAL_ASPECT_RATIO_WIDTH
+                           and image.aspect_height == self.IDEAL_ASPECT_RATIO_HEIGHT) \
+            else "shadowbox_black"
 
         logging.info(
-            "Going to upload {} with file_type {} and filesize: {}".format(
-                image.filepath, file_type, len(file_data)
-            )
+            "Going to upload %s with file_type %s and filesize: %d",
+            image.filepath,
+            file_type,
+            len(file_data),
         )
         data = await self._tv.upload(
             file_data,
@@ -182,57 +197,50 @@ class FrameConnector:
             portrait_matte="none",
         )
 
-        logging.info("Received uploaded data details: {}".format(data))
+        logging.info("Received uploaded data details: %s", data)
 
         if not data:
             logging.error("Upload failed, lets retry after reconnecting.")
             try:
                 await self.open()
-            except TvNotConnectedError as e:
-                logging.error(f"TV not connected, cannot update active image: {e}")
+            except TvNotConnectedError:
+                logging.exception("TV not connected, cannot update active image.")
                 return None
             return None
 
         return data
 
-    """
-    read image file, return file binary data and file type
-    """
-
     @staticmethod
-    def _read_file(image_path: str) -> Tuple[bytes, str]:
+    def _read_file(image_path: str) -> tuple[bytes, str]|tuple[None, None]:
+        """Read image file, return file binary data and file type."""
         try:
-            with open(image_path, "rb") as f:
+            with Path(image_path).open("rb") as f:
                 file_data = f.read()
-            file_type = FrameConnector._get_file_type(image_path)
-            return file_data, file_type
-        except Exception as e:
-            logging.error("Error reading file: {}, {}".format(image_path, e))
-            raise e
-
-    """
-    Try to figure out what kind of image file is, starting with the extension
-    """
+                file_type = FrameConnector._get_file_type(image_path)
+                return file_data, file_type
+        except Exception:
+            logging.exception("Error reading file: %s", image_path)
+            raise
 
     @staticmethod
-    def _get_file_type(image_path) -> str:
+    def _get_file_type(image_path: str) -> str:
+        """Try to figure out what kind of image file is, starting with the extension."""
         try:
-            file_type = os.path.splitext(image_path)[1][1:].lower()
-            file_type = file_type.lower() if file_type else None
-            return file_type
-        except Exception as e:
-            logging.error("Error reading file: {}, {}".format(image_path, e))
-            raise e
+            file_type = Path(image_path).suffix
+            return file_type.lower() if file_type else None
+        except Exception:
+            logging.exception("Error reading file: %s", image_path)
+            raise
 
-    async def _activate_image(self, content_id: str):
-        logging.info(f"Activating image {content_id}")
+    async def _activate_image(self, content_id: str) -> None:
+        logging.info("Activating image %s",  content_id)
         await self._tv.select_image(content_id, "MY-C0002")
 
-    async def _delete_image(self, content_id: str):
+    async def _delete_image(self, content_id: str) -> None:
         await self._tv.delete(content_id)
 
-    # Background task to start and keep WebSocket connection alive
-    async def tv_keepalive(self):
+    async def tv_keepalive(self) -> None:
+        """Keep WebSocket connection alive."""
         while True:
             if not self._tv.connection:
                 logging.warning("Should be reconnecting to TV")
@@ -240,6 +248,7 @@ class FrameConnector:
                 logging.warning("No need to reconnect to TV")
             await asyncio.sleep(10)  # Adjust interval as needed
 
-    async def go_to_standby(self, trigger, data):
-        logging.info("TV is going going to standby")
+    async def go_to_standby(self) -> None:
+        """Close the connector when the TV goes to standby."""
+        logging.info("TV is going to standby")
         await self.close()
