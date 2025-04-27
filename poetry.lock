@@ -1296,6 +1296,7 @@ version = "2.9.1"
 description = "Settings management using Pydantic"
 optional = false
 python-versions = ">=3.9"
+groups = ["main"]
 files = [
     {file = "pydantic_settings-2.9.1-py3-none-any.whl", hash = "sha256:59b4f431b1defb26fe620c71a7d3968a710d719f5f4cdbbdb7926edeb770f6ef"},
     {file = "pydantic_settings-2.9.1.tar.gz", hash = "sha256:c509bf79d27563add44e8446233359004ed85066cd096d8b510f715e6ef5d268"},
