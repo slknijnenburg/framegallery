@@ -232,10 +232,12 @@ async def get_settings(
     if active_image:
         active_image = Image.model_validate(active_image)
 
+    active_filter = None
     active_filter_id = config_repo.get_or(
             ConfigKey.ACTIVE_FILTER, default_value=None
         ).value
-    active_filter = filter_repository.get_filter(int(active_filter_id))
+    if active_filter_id is not None:
+        active_filter = filter_repository.get_filter(int(active_filter_id))
     if active_filter:
         active_filter = Filter.model_validate(active_filter)
 

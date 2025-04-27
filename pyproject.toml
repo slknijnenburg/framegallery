@@ -8,7 +8,7 @@ readme = "README.md"
 packages = [{include = "framegallery"}]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.11"
 samsungtvws = {git = "https://github.com/slknijnenburg/samsung-tv-ws-api.git", branch = "master"}
 fastapi = "^0.115.0"
 uvicorn = "^0.34.0"
