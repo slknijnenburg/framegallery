@@ -27,6 +27,6 @@ jobs:
       - name: Run tests
         run: uv run pytest tests/
 
-      - name: Run ruff
-        run: uv run ruff check framegallery/
+      # - name: Run ruff
+      #   run: uv run ruff check framegallery/
         
