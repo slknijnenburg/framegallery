@@ -12,17 +12,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install poetry
-        run: pipx install poetry
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          # Install a specific version of uv.
+          version: "0.6.6"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: 'poetry'
+        run: uv python install
 
-      - name: Install dependencies
-        run: poetry install
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
 
       - name: Run tests
-        run: poetry run pytest
+        run: uv run pytest tests/
+
+      # - name: Run ruff
+      #   run: uv run ruff check framegallery/
+        
