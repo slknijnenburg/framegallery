@@ -53,6 +53,9 @@ ignore = [
     "EM101",  # I can read traces just fine
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
