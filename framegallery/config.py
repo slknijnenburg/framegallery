@@ -1,6 +1,6 @@
-import logging
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from framegallery.logging_config import setup_logging
 
 
 class Settings(BaseSettings):
@@ -20,4 +20,5 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-logging.warning("Settings at boot: %s", settings.model_dump())
+logger = setup_logging(log_level=settings.log_level)
+logger.warning("Settings at boot: %s", settings.model_dump())

@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import os
 import sys
 from pathlib import Path
@@ -12,7 +11,9 @@ from sqlalchemy.orm import Session
 import framegallery.aspect_ratio
 from framegallery import crud, database, models
 from framegallery.config import settings
+from framegallery.logging_config import setup_logging
 
+logger = setup_logging(log_level=settings.log_level)
 register_heif_opener()  # HEIF support
 
 class Importer:
@@ -38,7 +39,7 @@ class Importer:
             ]
         )
 
-        logging.info("Found %d images in folder %s", len(files), self.image_path)
+        logger.info("Found %d images in folder %s", len(files), self.image_path)
 
         return files
 
@@ -55,7 +56,7 @@ class Importer:
         try:
             width, height = img.size
         except Exception:
-            logging.exception("Error reading image dimensions")
+            logger.exception("Error reading image dimensions")
             return 0, 0
         return width, height
 
@@ -67,7 +68,7 @@ class Importer:
                 file_type = self.get_file_type(filename)
                 return file_data, file_type
         except Exception:
-            logging.exception("Error reading file: %s", filename)
+            logger.exception("Error reading file: %s", filename)
         return None, None
 
     @staticmethod
@@ -77,7 +78,7 @@ class Importer:
             file_type = Path(filename).suffix.lower()
             return file_type.lower() if file_type else None
         except Exception:
-            logging.exception("Error reading file: %s.", filename)
+            logger.exception("Error reading file: %s.", filename)
         return None
 
     @staticmethod
@@ -85,13 +86,13 @@ class Importer:
         """Print EXIF data from an image."""
         exif = img.getexif()
 
-        logging.debug(">>>>>>>>>>>>>>>>>> EXIF Base tags <<<<<<<<<<<<<<<<<<<<")
+        logger.debug(">>>>>>>>>>>>>>>>>> EXIF Base tags <<<<<<<<<<<<<<<<<<<<")
         for k, v in exif.items():
             tag = TAGS.get(k, k)
-            logging.debug("%s: %s", tag, v)
+            logger.debug("%s: %s", tag, v)
 
         for ifd_id in IFD:
-            logging.debug(">>>>>>>>> %s <<<<<<<<<<", ifd_id.name)
+            logger.debug(">>>>>>>>> %s <<<<<<<<<<", ifd_id.name)
             try:
                 ifd = exif.get_ifd(ifd_id)
 
@@ -99,7 +100,7 @@ class Importer:
 
                 for k, v in ifd.items():
                     tag = resolve.get(k, k)
-                    logging.debug("%s: %s", tag, v)
+                    logger.debug("%s: %s", tag, v)
             except KeyError:
                 pass
 
@@ -137,15 +138,15 @@ class Importer:
             self._db.add(img)
             self._db.commit()
             processed_images.append(img)
-            logging.debug("Added image %s to the database", img.id)
+            logger.debug("Added image %s to the database", img.id)
 
-        logging.debug("Processed %d images", len(processed_images))
+        logger.debug("Processed %d images", len(processed_images))
 
         # Delete all Images that have not been processed
         delete_count = crud.delete_images_not_in_processed_items_list(
             self._db, [i.filepath for i in processed_images]
         )
-        logging.debug("Deleted %d images from the database", delete_count)
+        logger.debug("Deleted %d images from the database", delete_count)
 
     @staticmethod
     def resize_image(pil_image: Image, image_path: str) -> str:
@@ -168,7 +169,7 @@ if __name__ == "__main__":
         db = database.SessionLocal()
 
         importer = Importer(settings.gallery_path, db)
-        logging.basicConfig(level=logging.INFO)  # or logging.DEBUG to see messages
+        logger.info("Starting importer")
         asyncio.run(importer.main())
     except (KeyboardInterrupt, SystemExit):
         sys.exit(1)

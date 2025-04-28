@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -43,11 +42,11 @@ background_tasks = set()
 # Background task to run the filesystem sync
 async def run_importer_periodically(db: Session) -> None:
     """Run the importer periodically to synchronize the filesystem with the database."""
-    logging.info("Inside run_importer_periodically")
+    logger.info("Inside run_importer_periodically")
 
     importer = Importer(settings.gallery_path, db)
     while True:
-        logging.info("Running importer now")
+        logger.info("Running importer now")
         await importer.synchronize_files()
         await asyncio.sleep(settings.filesystem_refresh_interval)
 
@@ -55,7 +54,7 @@ async def run_importer_periodically(db: Session) -> None:
 async def update_slideshow_periodically(slideshow: Slideshow) -> None:
     """Update the slideshow periodically."""
     while True:
-        logging.debug("Updating slideshow")
+        logger.debug("Updating slideshow")
         await slideshow.update_slideshow()
         await asyncio.sleep(settings.slideshow_interval)
 
@@ -90,7 +89,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, any]:
 
 
 logger.info("logger - Before FastAPI launch")
-logging.info("logging - Before FastAPI launch")
+logger.info("logging - Before FastAPI launch")
 app = FastAPI(lifespan=lifespan)
 
 origins = [
