@@ -113,7 +113,7 @@ describe('FilterBuilder', () => {
         // Check if the mock function was called with the correct name and *any* query object/string
         // (since the exact structure might be complex or change)
         await waitFor(() => {
-            expect(mockOnFilterChange).toHaveBeenCalledWith('Empty Filter', expect.any(Object));
+            expect(mockOnFilterChange).toHaveBeenCalledWith('Empty Filter', expect.any(String)); // Expect a string now
         });
     });
 

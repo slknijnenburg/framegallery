@@ -52,7 +52,7 @@ describe('SettingsStatus Component', () => {
   test('renders loading state', () => {
     mockUseSettings.mockReturnValue({ settings: null, loading: true, error: null, updateSetting: mockUpdateSetting });
     render(<SettingsStatus />);
-    expect(screen.getByText('Loading settings...')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
 
   test('renders error state', () => {
@@ -66,17 +66,13 @@ describe('SettingsStatus Component', () => {
     mockUseSettings.mockReturnValue({ settings: mockSettings, loading: false, error: null, updateSetting: mockUpdateSetting });
     render(<SettingsStatus />);
 
-    expect(screen.getByText(/Slideshow:/)).toBeInTheDocument();
-    expect(screen.getByText(`Enabled (${mockSettings.slideshow_interval}s)`)).toBeInTheDocument();
+    expect(screen.getByText(`${mockSettings.slideshow_interval} s`)).toBeInTheDocument();
+    expect(screen.getByText('On')).toBeInTheDocument(); 
+    expect(screen.getByTestId('CheckCircleIcon')).toBeInTheDocument(); 
 
-    expect(screen.getByText(/Active Image:/)).toBeInTheDocument();
     expect(screen.getByText(mockSettings.current_active_image.filename)).toBeInTheDocument();
 
-    expect(screen.getByText(/Active Image Since:/)).toBeInTheDocument();
-    expect(screen.getByText(/10\/27\/2023/)).toBeInTheDocument(); 
-    expect(screen.getByText(/:00:00/)).toBeInTheDocument(); 
-
-    expect(screen.getByText(/Active Filter:/)).toBeInTheDocument();
+    // Check Active Filter (Check visible elements)
     expect(screen.getByText(mockSettings.active_filter!.name)).toBeInTheDocument(); 
   });
 
@@ -85,15 +81,22 @@ describe('SettingsStatus Component', () => {
         mockUseSettings.mockReturnValue({ settings: disabledSettings, loading: false, error: null, updateSetting: mockUpdateSetting });
         render(<SettingsStatus />);
 
-        expect(screen.getByText(/Slideshow:/)).toBeInTheDocument();
-        expect(screen.getByText('Disabled')).toBeInTheDocument();
+        expect(screen.getByText('Off')).toBeInTheDocument(); 
+        expect(screen.getByTestId('CancelIcon')).toBeInTheDocument(); 
    });
 
     test('renders "None" when active filter is null', () => {
         mockUseSettings.mockReturnValue({ settings: mockSettingsNoFilter, loading: false, error: null, updateSetting: mockUpdateSetting });
         render(<SettingsStatus />);
 
-        expect(screen.getByText(/Active Filter:/)).toBeInTheDocument();
-        expect(screen.getByText('None')).toBeInTheDocument();
+        // Find the icon associated with the active filter
+        const filterIcon = screen.getByTestId('FilterListIcon');
+        // Navigate to the parent Stack element
+        const parentStack = filterIcon.parentElement;
+        // Find the Typography element within that Stack (should be the sibling)
+        const textElement = parentStack?.querySelector('p'); // Finds the <p> tag
+
+        // Assert that this specific element contains 'None'
+        expect(textElement).toHaveTextContent('None');
     });
 });

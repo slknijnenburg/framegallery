@@ -57,7 +57,7 @@ export default tseslint.config(
 
   // Config for CommonJS files (like config files, mocks)
   {
-    files: ["jest.config.js", "tests/__mocks__/fileMock.js"],
+    files: ["jest.config.cjs", "tests/__mocks__/fileMock.js"],
     languageOptions: {
       sourceType: "commonjs",
       globals: {
