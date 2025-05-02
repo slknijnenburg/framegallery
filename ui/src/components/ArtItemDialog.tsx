@@ -51,20 +51,16 @@ export default function ArtItemDialog(props: ArtItemDialogProps) {
   const [matteStyle, setMatteStyle] = useState<string>(landscapeMatteStyle);
 
   const handleMatteStyleChange = (event: SelectChangeEvent) => {
-    console.log('New matte style = ', event.target.value);
     setMatteStyle(event.target.value);
   };
   const handleMatteColorChange = (event: SelectChangeEvent) => {
-    console.log('New color = ', event.target.value);
     setMatteColor(event.target.value);
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    console.log(formData);
     const formJson = Object.fromEntries((formData as any).entries()); // eslint-disable-line @typescript-eslint/no-explicit-any
-    console.log(formJson);
 
     let matteId = '';
     if (formJson['art-item-matte-landscape'] === 'none') {
@@ -72,8 +68,6 @@ export default function ArtItemDialog(props: ArtItemDialogProps) {
     } else {
       matteId = `${formJson['art-item-matte-landscape']}_${formJson['art-item-matte-landscape-color']}`;
     }
-
-    console.log('Matte ID = ', matteId);
 
     // Send the new matte ID to the backend
     try {

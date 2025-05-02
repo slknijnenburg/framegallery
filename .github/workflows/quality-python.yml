@@ -1,7 +1,9 @@
-name: quality-actions
+name: Python quality checks
 on:
-  - pull_request
-  - workflow_dispatch
+  pull_request:
+    paths:
+      - 'framegallery/**'
+  workflow_dispatch: 
 
 jobs:
   build:
@@ -25,8 +27,8 @@ jobs:
         run: uv sync --locked --all-extras --dev
 
       - name: Run tests
-        run: uv run pytest tests/
+        run: uv run pytest framegallery/tests/
 
-      # - name: Run ruff
-      #   run: uv run ruff check framegallery/
+      - name: Run ruff
+        run: uv run ruff check framegallery/
         
