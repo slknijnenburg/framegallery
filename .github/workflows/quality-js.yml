@@ -1,6 +1,6 @@
-name: quality-actions
+name: JS quality checks
 on:
-  push:
+  pull_request:
     paths:
       - 'ui/**'
 
@@ -17,3 +17,8 @@ jobs:
     - name: Run ESLint
       working-directory: ./ui
       run: npm run lint
+
+    - name: Run Jest
+      working-directory: ./ui
+      run: npm test
+      
