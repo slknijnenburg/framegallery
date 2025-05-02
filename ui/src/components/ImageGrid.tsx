@@ -14,6 +14,10 @@ function ImageGrid({ items }: ImageGridProps) {
   const [loading, setLoading] = useState(false);
   const [allImagesDisplayed, setAllImagesDisplayed] = useState(false);
 
+  useEffect(() => {
+    setAllImagesDisplayed(visibleCount >= items.length);
+  }, [items.length, visibleCount]);
+
   const loadMore = useCallback(() => {
     setLoading(true);
     setVisibleCount((visibleCount) => {
@@ -42,8 +46,9 @@ function ImageGrid({ items }: ImageGridProps) {
 
   useEffect(() => {
     window.addEventListener('scroll', handleScroll);
+    setAllImagesDisplayed(visibleCount >= items.length);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [handleScroll]);
+  }, [handleScroll, items.length, visibleCount]);
 
   return (
     <>
