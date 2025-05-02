@@ -1,17 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { API_BASE_URL } from './App';
-import Image from './models/Image';
-
-// Define the shape of your settings
-import { Filter } from './components/Filters/Filter';
-
-interface Settings {
-  slideshow_enabled: boolean;
-  slideshow_interval: number;
-  current_active_image: Image;
-  current_active_image_since: string | null;
-  active_filter: Filter | null;
-}
+import { Settings } from './models/Settings';
 
 // Define the context value type
 interface SettingsContextValue {

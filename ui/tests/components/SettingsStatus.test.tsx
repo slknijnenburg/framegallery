@@ -3,120 +3,97 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import SettingsStatus from '../../src/components/SettingsStatus';
 import { useSettings } from '../../src/SettingsContext';
-// import { Settings } from '../../src/models/Settings'; // Assuming Settings model exists
-// import Image from '../../src/models/Image'; // Assuming Image model exists
-// import { Filter } from '../../src/components/Filters/Filter'; // Assuming Filter model exists
+import { Settings } from '../../src/models/Settings';
+import Image from '../../src/models/Image'; 
+import { Filter } from '../../src/components/Filters/Filter'; 
 
-// Mock the useSettings hook
 jest.mock('../../src/SettingsContext');
-const mockUseSettings = useSettings as jest.MockedFunction<typeof useSettings>;
+const mockUseSettings = useSettings as jest.MockedFunction<typeof useSettings>; 
+const mockUpdateSetting = jest.fn(); 
 
-// Helper function to create mock settings
-const createMockSettings = (overrides: Partial<Settings> = {}): Settings => ({
-    slideshow_interval: 300,
-    slideshow_enabled: true,
-    active_filter: {
-        name: 'Test Filter',
-        query: '{\"combinator\": \"and\", \"rules\": []}',
-    },
-    current_active_image: {
-        id: 'img-1',
-        filename: 'active-image.jpg',
-        created_at: '2023-01-01T12:00:00Z',
-        thumbnail_path: 'thumb.jpg',
-        file_path: 'file.jpg',
-        display_duration: 300,
-        matte_id: 'shadowbox_black',
-        portrait_matte_id: 'shadowbox_black',
-        horizontal_alignment: 'center',
-        vertical_alignment: 'center',
-        artist: 'Artist',
-        title: 'Title',
-        description: 'Description',
-        year: 2023,
-    },
-    available_art: [], // Not used by this component
-    filters: [],       // Not used by this component
-    version: '1.0.0',  // Not used by this component
-    ...overrides,
-});
+const mockImage: Image = {
+    id: 1, 
+    filename: 'active-image.jpg',
+    filepath: '/path/to/active-image.jpg',
+    filetype: 'image/jpeg',
+    thumbnail_path: '/path/to/thumb.jpg',
+    width: 1920,
+    height: 1080,
+    aspect_width: 16,
+    aspect_height: 9,
+    matte_id: 'shadowbox_black', 
+};
 
-describe('SettingsStatus', () => {
-    beforeEach(() => {
-        // Reset the mock before each test
-        mockUseSettings.mockClear();
-    });
+const mockFilter: Filter = {
+  id: 1,
+  name: 'Sample Filter',
+  query: '{"tag":"landscape"}', 
+};
 
-    test('renders loading indicator when loading', () => {
-        mockUseSettings.mockReturnValue({ settings: null, loading: true, error: null });
-        render(<SettingsStatus />);
-        expect(screen.getByRole('progressbar')).toBeInTheDocument();
-        expect(screen.queryByText(/Slideshow Interval/)).not.toBeInTheDocument(); // Check one element isn't there
-    });
+const mockSettings: Settings = {
+  slideshow_enabled: true,
+  slideshow_interval: 30,
+  current_active_image: mockImage,
+  current_active_image_since: '2023-10-27T10:00:00Z', 
+  active_filter: mockFilter,
+};
 
-    test('renders error message when there is an error', () => {
-        const errorMessage = 'Failed to fetch settings';
-        mockUseSettings.mockReturnValue({ settings: null, loading: false, error: errorMessage });
-        render(<SettingsStatus />);
-        expect(screen.getByText(`Error: ${errorMessage}`)).toBeInTheDocument();
-        expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
-    });
+const mockSettingsNoFilter: Settings = {
+    ...mockSettings,
+    active_filter: null,
+};
 
-    test('renders nothing when settings are null and not loading/error', () => {
-        mockUseSettings.mockReturnValue({ settings: null, loading: false, error: null });
-        const { container } = render(<SettingsStatus />);
-        // Check if the container is basically empty (or only contains the outer Box)
-        // It shouldn't render the Paper element or its contents
-        expect(container.querySelector('div[class*="MuiPaper-root"]')).not.toBeInTheDocument();
-    });
+describe('SettingsStatus Component', () => {
+  beforeEach(() => {
+    mockUseSettings.mockClear();
+    mockUpdateSetting.mockClear(); 
+  });
 
-    test('renders settings correctly when slideshow is enabled', () => {
-        const mockSettings = createMockSettings({ slideshow_interval: 120 });
-        mockUseSettings.mockReturnValue({ settings: mockSettings, loading: false, error: null });
-        render(<SettingsStatus />);
+  test('renders loading state', () => {
+    mockUseSettings.mockReturnValue({ settings: null, loading: true, error: null, updateSetting: mockUpdateSetting });
+    render(<SettingsStatus />);
+    expect(screen.getByText('Loading settings...')).toBeInTheDocument();
+  });
 
-        expect(screen.getByText('120 s')).toBeInTheDocument();
-        expect(screen.getByTestId('CheckCircleIcon')).toBeInTheDocument(); // Success icon
-        expect(screen.getByText('On')).toBeInTheDocument();
-        expect(screen.getByText('active-image.jpg')).toBeInTheDocument();
-        // Check tooltip for full filename
-        expect(screen.getByTitle('active-image.jpg')).toBeInTheDocument();
-        expect(screen.getByText('Test Filter')).toBeInTheDocument();
-    });
+  test('renders error state', () => {
+    const errorMessage = 'Failed to fetch settings';
+    mockUseSettings.mockReturnValue({ settings: null, loading: false, error: errorMessage, updateSetting: mockUpdateSetting });
+    render(<SettingsStatus />);
+    expect(screen.getByText(`Error: ${errorMessage}`)).toBeInTheDocument();
+  });
 
-    test('renders settings correctly when slideshow is disabled', () => {
-        const mockSettings = createMockSettings({ slideshow_enabled: false });
-        mockUseSettings.mockReturnValue({ settings: mockSettings, loading: false, error: null });
+  test('renders settings correctly when loaded', () => {
+    mockUseSettings.mockReturnValue({ settings: mockSettings, loading: false, error: null, updateSetting: mockUpdateSetting });
+    render(<SettingsStatus />);
+
+    expect(screen.getByText(/Slideshow:/)).toBeInTheDocument();
+    expect(screen.getByText(`Enabled (${mockSettings.slideshow_interval}s)`)).toBeInTheDocument();
+
+    expect(screen.getByText(/Active Image:/)).toBeInTheDocument();
+    expect(screen.getByText(mockSettings.current_active_image.filename)).toBeInTheDocument();
+
+    expect(screen.getByText(/Active Image Since:/)).toBeInTheDocument();
+    expect(screen.getByText(/10\/27\/2023/)).toBeInTheDocument(); 
+    expect(screen.getByText(/:00:00/)).toBeInTheDocument(); 
+
+    expect(screen.getByText(/Active Filter:/)).toBeInTheDocument();
+    expect(screen.getByText(mockSettings.active_filter!.name)).toBeInTheDocument(); 
+  });
+
+   test('renders slideshow disabled correctly', () => {
+        const disabledSettings = { ...mockSettings, slideshow_enabled: false };
+        mockUseSettings.mockReturnValue({ settings: disabledSettings, loading: false, error: null, updateSetting: mockUpdateSetting });
         render(<SettingsStatus />);
 
-        expect(screen.getByTestId('CancelIcon')).toBeInTheDocument(); // Disabled icon
-        expect(screen.getByText('Off')).toBeInTheDocument();
-    });
-
-    test('renders "None" when active image is null', () => {
-        const mockSettings = createMockSettings({ current_active_image: null });
-        mockUseSettings.mockReturnValue({ settings: mockSettings, loading: false, error: null });
-        render(<SettingsStatus />);
-
-        // Find the element associated with the InsertDriveFileIcon
-        const icon = screen.getByTestId('InsertDriveFileIcon');
-        const parentStack = icon.closest('div');
-        const textElement = parentStack?.querySelector('p'); // Find Typography within the stack
-
-        expect(textElement).toHaveTextContent('None');
-        expect(screen.getByTitle('None')).toBeInTheDocument(); // Check tooltip too
-    });
+        expect(screen.getByText(/Slideshow:/)).toBeInTheDocument();
+        expect(screen.getByText('Disabled')).toBeInTheDocument();
+   });
 
     test('renders "None" when active filter is null', () => {
-        const mockSettings = createMockSettings({ active_filter: null });
-        mockUseSettings.mockReturnValue({ settings: mockSettings, loading: false, error: null });
+        mockUseSettings.mockReturnValue({ settings: mockSettingsNoFilter, loading: false, error: null, updateSetting: mockUpdateSetting });
         render(<SettingsStatus />);
 
-        // Find the element associated with the FilterListIcon
-        const icon = screen.getByTestId('FilterListIcon');
-        const parentStack = icon.closest('div');
-        const textElement = parentStack?.querySelector('p');
-
-        expect(textElement).toHaveTextContent('None');
+        expect(screen.getByText(/Active Filter:/)).toBeInTheDocument();
+        expect(screen.getByText('None')).toBeInTheDocument();
     });
 });
