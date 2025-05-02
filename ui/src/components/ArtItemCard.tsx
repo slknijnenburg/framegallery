@@ -16,7 +16,6 @@ import { API_BASE_URL } from '../App';
 
 export interface ArtItemCardProps {
   item: Image;
-  onSelect?: (item: Image) => void;
 }
 
 export default function ArtItemCard({ item }: ArtItemCardProps) {
