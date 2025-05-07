@@ -7,7 +7,7 @@ interface SettingsContextValue {
   settings: Settings | null;
   loading: boolean;
   error: string | null;
-  updateSetting: (key: string, value: any) => Promise<boolean>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  updateSetting: (key: string, value: any) => Promise<boolean>;
 }
 
 // Create the context with a default value
@@ -55,7 +55,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   }, []);
 
   // Method to update a specific setting
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateSetting = async (key: string, value: any): Promise<boolean> => {
     try {
       const response = await fetch('/api/settings', {

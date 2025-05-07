@@ -8,7 +8,7 @@ import Image from './models/Image';
 import Filters from './pages/Filters';
 import {AppBar, Stack, Toolbar} from '@mui/material';
 import {Album, findAlbumById} from './models/Album';
-import {RichTreeView, TreeItem2} from '@mui/x-tree-view';
+import {RichTreeView, TreeItem} from '@mui/x-tree-view';
 import {BrowserRouter as Router, Link as RouterLink, Outlet, Route, Routes} from 'react-router-dom';
 import Button from '@mui/material/Button';
 import {SettingsProvider, useSettings} from './SettingsContext';
@@ -140,7 +140,7 @@ function Browser() {
     fetchItems();
   }, []);
 
-  const selectAlbum = function (event: React.SyntheticEvent, itemIds: string | null): void {
+  const selectAlbum = function (event: React.SyntheticEvent | null, itemIds: string | null): void {
     console.log('Selected album was ', selectedAlbum);
     console.log('New album is ', itemIds);
     console.log(albums);
@@ -168,7 +168,7 @@ function Browser() {
           <Box sx={{ minWidth: 200 }}>
             <RichTreeView
               items={albums}
-              slots={{ item: TreeItem2 }}
+              slots={{ item: TreeItem }}
               defaultExpandedItems={['/']}
               multiSelect={false}
               onSelectedItemsChange={selectAlbum}

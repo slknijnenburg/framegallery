@@ -7,7 +7,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import { InputLabel, MenuItem, Select, SelectChangeEvent, Stack } from '@mui/material';
-import Grid from '@mui/material/Grid2';
+import Grid from '@mui/material/Grid';
 import axios from 'axios';
 import Image from '../models/Image';
 
@@ -60,7 +60,7 @@ export default function ArtItemDialog(props: ArtItemDialogProps) {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const formJson = Object.fromEntries((formData as any).entries()); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const formJson = Object.fromEntries((formData as any).entries());
 
     let matteId = '';
     if (formJson['art-item-matte-landscape'] === 'none') {
