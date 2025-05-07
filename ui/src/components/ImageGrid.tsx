@@ -1,4 +1,4 @@
-import Grid from '@mui/material/Grid2';
+import Grid from '@mui/material/Grid';
 import React, { useCallback, useState, useEffect } from 'react';
 import ArtItemCard from './ArtItemCard';
 import Image from '../models/Image';

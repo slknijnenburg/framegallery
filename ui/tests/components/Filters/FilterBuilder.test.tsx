@@ -31,18 +31,21 @@ const defaultQueryString = JSON.stringify({ id: 'root', combinator: 'and', rules
 describe('FilterBuilder', () => {
     const mockOnFilterChange = jest.fn();
     let consoleErrorSpy: jest.SpyInstance;
+    let originalConsoleError: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
     beforeEach(() => {
         mockOnFilterChange.mockClear();
-        consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation((message) => {
+        originalConsoleError = console.error; // Store original console.error
+        consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation((message, ...args) => {
              if (!message?.includes('Warning: Each child in a list should have a unique "key" prop.')) {
-                 console.error(message);
+                 originalConsoleError(message, args); // Call the original console.error
              }
         });
     });
 
     afterEach(() => {
         consoleErrorSpy.mockRestore();
+        console.error = originalConsoleError; // Restore original console.error
     });
 
     test('renders QueryBuilder and control buttons', () => {
