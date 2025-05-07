@@ -60,8 +60,10 @@ export default function ArtItemDialog(props: ArtItemDialogProps) {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const formJson = Object.fromEntries((formData as any).entries());
-
+    const formJson = Object.fromEntries(formData.entries()) as {
+      'art-item-matte-landscape': string;
+      'art-item-matte-landscape-color': string;
+    };
     let matteId = '';
     if (formJson['art-item-matte-landscape'] === 'none') {
       matteId = 'none';
