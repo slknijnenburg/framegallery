@@ -67,6 +67,8 @@ class FilterUpdate(BaseModel):
 
 
 class CropData(BaseModel):
+    """Pydantic model for crop input data."""
+
     x: float = Field(..., ge=0, le=100, description="The x coordinate of the crop area as a percentage.")
     y: float = Field(..., ge=0, le=100, description="The y coordinate of the crop area as a percentage.")
     width: float = Field(..., gt=0, le=100, description="The width of the crop area as a percentage.")

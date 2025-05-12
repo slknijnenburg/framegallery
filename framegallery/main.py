@@ -35,9 +35,6 @@ logger = setup_logging(log_level=settings.log_level)
 
 models.Base.metadata.create_all(bind=engine)
 
-# Create Frame TV Connector
-frame_connector = FrameConnector(settings.tv_ip_address, settings.tv_port)
-
 background_tasks = set()
 
 # Background task to run the filesystem sync
@@ -64,6 +61,12 @@ async def update_slideshow_periodically(slideshow: Slideshow) -> None:
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, any]:
     """Run tasks on startup and shutdown."""
     logger.info("logger - Inside lifespan")
+
+    # Initialize FrameConnector within lifespan
+    frame_connector = FrameConnector(settings.tv_ip_address, settings.tv_port)
+    app.state.frame_connector = frame_connector # Store in app state
+
+    # Call startup logic for the connector
     await frame_connector.get_active_item_details()
 
     # Create a database session and run the importer periodically

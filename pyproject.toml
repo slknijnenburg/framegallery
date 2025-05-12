@@ -2,6 +2,9 @@
 target-version="py311"
 # Allow lines to be as long as 120.
 line-length = 120
+exclude = [
+    "alembic",
+]
 
 [tool.ruff.lint]
 select = ["ALL"]
