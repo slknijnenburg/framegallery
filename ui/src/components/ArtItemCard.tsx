@@ -4,6 +4,7 @@ import CardContent from '@mui/material/CardContent';
 import CardMedia from '@mui/material/CardMedia';
 import Typography from '@mui/material/Typography';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import CropIcon from '@mui/icons-material/Crop';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SettingsIcon from '@mui/icons-material/Settings';
 import axios from 'axios';
@@ -13,6 +14,7 @@ import React from 'react';
 import { useState } from 'react';
 import Image from '../models/Image';
 import { API_BASE_URL } from '../App';
+import CropDialog from './CropDialog/CropDialog';
 
 export interface ArtItemCardProps {
   item: Image;
@@ -29,7 +31,7 @@ export default function ArtItemCard({ item }: ArtItemCardProps) {
   };
 
   const [dialogOpened, setDialogOpened] = useState(false);
-
+  const [cropDialogOpened, setCropDialogOpened] = useState(false);
   // console.log("ArtItemCard matte_id = ", item.matte_id);
 
   const openDialog = (): void => {
@@ -39,6 +41,12 @@ export default function ArtItemCard({ item }: ArtItemCardProps) {
     setDialogOpened(false);
   };
 
+  const openCropDialog = (): void => {
+    setCropDialogOpened(true);
+  };
+  const closeCropDialog = (): void => {
+    setCropDialogOpened(false);
+  };
   return (
     <Card sx={{ maxWidth: 345 }}>
       <CardMedia
@@ -64,7 +72,15 @@ export default function ArtItemCard({ item }: ArtItemCardProps) {
         <IconButton aria-label={`Settings for ${item.filename}`} onClick={openDialog}>
           <SettingsIcon />
         </IconButton>
+        <IconButton
+          aria-label={`crop ${item.filename || 'image'}`}
+          onClick={openCropDialog}
+        >
+          <CropIcon />
+        </IconButton>
+        
         <ArtItemDialog open={dialogOpened} image={item} onClose={closeDialog} />
+        <CropDialog open={cropDialogOpened} image={item} onClose={closeCropDialog} />
       </CardActions>
     </Card>
   );
