@@ -1,4 +1,5 @@
-from sqlalchemy import Index, Integer, String
+
+from sqlalchemy import Float,Index, Integer, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -23,6 +24,10 @@ class Image(Base):
     height: Mapped[int] = mapped_column(Integer, nullable=True)
     aspect_width: Mapped[int] = mapped_column(Integer, nullable=True)
     aspect_height: Mapped[int] = mapped_column(Integer, nullable=True)
+    crop_x: Mapped[float | None] = mapped_column(Float, nullable=True)
+    crop_y: Mapped[float | None] = mapped_column(Float, nullable=True)
+    crop_width: Mapped[float | None] = mapped_column(Float, nullable=True)
+    crop_height: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
 class Config(Base):

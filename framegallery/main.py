@@ -27,6 +27,7 @@ from framegallery.repository.config_repository import ConfigKey, ConfigRepositor
 from framegallery.repository.filter_repository import FilterRepository
 from framegallery.repository.image_repository import ImageRepository
 from framegallery.routers import config_router, filters_router
+from framegallery.routers.images import router as images_router
 from framegallery.schemas import ConfigResponse, Filter, Image
 from framegallery.slideshow.slideshow import Slideshow
 
@@ -261,6 +262,7 @@ async def next_image(slideshow: Annotated[Slideshow, Depends(get_slideshow_insta
 # Include routers for modular API endpoints
 app.include_router(filters_router)
 app.include_router(config_router)
+app.include_router(images_router)
 
 # Defines a route handler for `/*` essentially.
 # NOTE: this needs to be the last route defined b/c it's a catch all route
