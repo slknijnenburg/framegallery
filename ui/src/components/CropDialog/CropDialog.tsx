@@ -78,14 +78,12 @@ const CropDialog2: React.FC<CropDialog2Props> = ({ open, image, onClose }) => {
       <DialogTitle>Crop Image</DialogTitle>
       <DialogContent>
         <DialogContentText>Select a 16:9 crop for the image</DialogContentText>
-        {/* <Box> */}
-          <ReactCrop 
-            crop={crop}
-            onChange={setCrop}
-            aspect={FIXED_ASPECT_RATIO}>
-              <img src={`${API_BASE_URL}/${image.filepath}`} />
-            </ReactCrop>
-        {/* </Box> */}
+        <ReactCrop 
+          crop={crop}
+          onChange={setCrop}
+          aspect={FIXED_ASPECT_RATIO}>
+            <img src={`${API_BASE_URL}/${image.filepath}`} />
+          </ReactCrop>
       </DialogContent>
       <DialogActions>
         <Button onClick={handleCancel}>Cancel</Button>
