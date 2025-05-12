@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import ReactCrop, { type Crop, centerCrop, makeAspectCrop } from 'react-image-crop';
+import ReactCrop, { type Crop, PercentCrop, PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import './CropDialog.css';
 import Image from '../../models/Image';
@@ -32,15 +32,15 @@ function centerAspectCrop(
   );
 }
 
-interface CropDialog2Props {
+interface CropDialogProps {
   open: boolean;
   image: Image;
   onClose: () => void;
 }
 
-const CropDialog2: React.FC<CropDialog2Props> = ({ open, image, onClose }) => {
-  const [crop, setCrop] = useState<Crop>();
-  const [completedCrop, setCompletedCrop] = useState<Crop>();
+const CropDialog: React.FC<CropDialogProps> = ({ open, image, onClose }) => {
+  const [crop, setCrop] = useState<[PixelCrop, PercentCrop]>();
+  const [completedCrop, setCompletedCrop] = useState<[PixelCrop, PercentCrop]>();
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -55,12 +55,41 @@ const CropDialog2: React.FC<CropDialog2Props> = ({ open, image, onClose }) => {
     };
   }, []);
 
-  const handleSaveCrop = () => {
-    if (completedCrop && image) {
-      console.log('Saving crop for image ID:', image.id, 'Crop data (percentage):', completedCrop);
-      onClose();
+  const handleSaveCrop = async () => {
+    const completedPercentCrop = completedCrop?.[1];
+    if (completedPercentCrop && image && completedPercentCrop.width && completedPercentCrop.height) {
+      const payload = {
+        x: completedPercentCrop.x,
+        y: completedPercentCrop.y,  
+        width: completedPercentCrop.width,
+        height: completedPercentCrop.height,
+      };
+      console.log('Saving crop for image ID:', image.id, 'Payload:', payload);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/images/${image.id}/crop`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('Crop saved successfully:', result);
+          onClose(); // Close dialog on success
+        } else {
+          const errorResult = await response.json();
+          console.error('Failed to save crop:', response.status, errorResult);
+          // Optionally, show an error message to the user here
+        }
+      } catch (error) {
+        console.error('Error saving crop:', error);
+        // Optionally, show an error message to the user here
+      }
     } else {
-      console.warn('Cannot save crop: No completed crop or image data.');
+      console.warn('Cannot save crop: No completed crop, image data, or width/height on crop.');
     }
   };
 
@@ -79,8 +108,17 @@ const CropDialog2: React.FC<CropDialog2Props> = ({ open, image, onClose }) => {
       <DialogContent>
         <DialogContentText>Select a 16:9 crop for the image</DialogContentText>
         <ReactCrop 
-          crop={crop}
-          onChange={setCrop}
+          crop={crop?.[0]}
+          onChange={(pixelCrop: PixelCrop, percentageCrop: PercentCrop) => {
+            console.log('Changed pixel crop:', pixelCrop)
+            console.log('Changed percentage crop:', percentageCrop)
+            setCrop([pixelCrop, percentageCrop]);
+          }}
+          onComplete={(pixelCrop: PixelCrop, percentageCrop: PercentCrop) => {
+            console.log('Completed pixel crop:', pixelCrop)
+            console.log('Completed percentage crop:', percentageCrop)
+            setCompletedCrop([pixelCrop, percentageCrop]);
+          }}
           aspect={FIXED_ASPECT_RATIO}>
             <img src={`${API_BASE_URL}/${image.filepath}`} />
           </ReactCrop>
@@ -93,4 +131,4 @@ const CropDialog2: React.FC<CropDialog2Props> = ({ open, image, onClose }) => {
   );
 };
 
-export default CropDialog2; 
+export default CropDialog; 
