@@ -18,7 +18,7 @@ def get_file_type(image_path: str) -> str | None:
         logger.exception("Error determining file type for: %s", image_path)
         raise
 
-def crop_image_data(file_data: bytes, crop_info: dict, image_format: str) -> bytes:
+def crop_image_data(file_data: bytes, crop_info: dict) -> bytes:
     """Crop image data based on percentage crop info."""
     try:
         img = PILImage.open(io.BytesIO(file_data))
@@ -53,51 +53,61 @@ def crop_image_data(file_data: bytes, crop_info: dict, image_format: str) -> byt
 
         # Save cropped image back to bytes
         buffer = io.BytesIO()
-        save_format = image_format.lstrip(".").upper()
-        if save_format == "JPG":
-            save_format = "JPEG"
-        supported_formats = ["JPEG", "PNG", "GIF", "BMP", "TIFF"]
-        if save_format not in supported_formats:
-            logger.warning("Unsupported save format '%s', defaulting to JPEG.", save_format)
-            save_format = "JPEG"
-
-        cropped_img.save(buffer, format=save_format)
+        cropped_img.save(buffer, format="JPEG")
         return buffer.getvalue()
     except Exception:
         logger.exception("Error cropping image data")
         return file_data
 
 def read_file_data(image: Image) -> tuple[bytes, str]:
-    """Read image file, optionally crop it, and return file binary data and file type."""
-    image_path = image.filepath
-    try:
-        with Path(image_path).open("rb") as f:
-            file_data = f.read()
-            file_type = get_file_type(image_path)
+    """Read image file data, crop if necessary, and return bytes and file type."""
+    image_path_str = image.filepath
+    if not image_path_str:
+        # Handle case where filepath might be None or empty on the Image object
+        err_msg = f"Image filepath is not set for image ID {image.id}."
+        logger.error(err_msg)
+        raise FileNotFoundError(err_msg)
 
-            if not file_type:
-                logger.warning("Could not determine file type for %s, skipping crop.", image_path)
-                return file_data, "image/jpeg"
+    image_path = Path(image_path_str)
 
-            # Construct crop_info from Image object
-            crop_info = None
-            if image.crop_width is not None and image.crop_height is not None and \
-               image.crop_x is not None and image.crop_y is not None:
-                crop_info = {
-                    "x": image.crop_x,
-                    "y": image.crop_y,
-                    "width": image.crop_width,
-                    "height": image.crop_height,
-                }
+    if not image_path.exists():
+        logger.error("Image file not found at path: %s for image ID %s", image_path_str, image.id)
+        # EM102 & TRY003: Assign formatted string to variable first
+        error_message = f"Image file not found at {image_path_str}"
+        raise FileNotFoundError(error_message)
 
-            if crop_info:
-                logger.info("Applying crop %s to %s", crop_info, image_path)
-                file_data = crop_image_data(file_data, crop_info, file_type)
+    crop_info = None
+    if (
+        image.crop_x is not None
+        and image.crop_y is not None
+        and image.crop_width is not None
+        and image.crop_height is not None
+    ):
+        crop_info = {
+            "x": image.crop_x,
+            "y": image.crop_y,
+            "width": image.crop_width,
+            "height": image.crop_height,
+        }
+        logger.info("Crop info found for image %s: %s", image.id, crop_info)
 
-            return file_data, file_type
-    except FileNotFoundError:
-        logger.exception("File not found: %s", image_path)
-        raise
-    except Exception:
-        logger.exception("Error reading or processing file: %s", image_path)
-        raise
+    with image_path.open("rb") as f:
+        file_data = f.read()
+
+    file_type_suffix = image_path.suffix.lower()
+
+    if crop_info:
+        try:
+            logger.info("Attempting to crop image %s (type: %s)", image.id, file_type_suffix)
+            file_data = crop_image_data(file_data, crop_info)
+            file_type_suffix = ".jpeg"
+            logger.info("Successfully cropped image %s, new type: %s", image.id, file_type_suffix)
+        except Exception:
+            logger.exception(
+                "Failed to crop image %s. Returning original image.", image.id
+            )
+            with image_path.open("rb") as f:
+                file_data = f.read()
+            file_type_suffix = image_path.suffix.lower()
+
+    return file_data, file_type_suffix
