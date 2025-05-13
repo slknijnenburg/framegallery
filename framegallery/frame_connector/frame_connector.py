@@ -6,6 +6,8 @@ update the active image on the Frame TV when the signal is emitted.
 import asyncio
 import os
 from pathlib import Path
+import io
+from PIL import Image as PILImage
 
 import websockets
 from blinker import signal
@@ -33,7 +35,7 @@ class FrameConnector:
     IDEAL_ASPECT_RATIO_WIDTH = 16
 
     def __init__(self, ip_address: str, port: int) -> None:
-        self._tv = None
+        self._tv: SamsungTVAsyncArt | None = None
         self._ip_address = ip_address
         self._port = port
         self._pid = os.getpid()
@@ -128,7 +130,7 @@ class FrameConnector:
         return data
 
     async def _on_active_image_updated(self, _: object, active_image: Image) -> None:
-        logger.info("Updating active image on TV: %s", active_image.filepath)
+        logger.info("Updating active image on TV (via slideshow signal): %s", active_image.filepath)
 
         # Upload the image to the TV
         try:
@@ -140,7 +142,18 @@ class FrameConnector:
                 return
 
             logger.debug("_on_active_image_updated: TV connected, uploading image")
-            data = await self._upload_image(active_image)
+            # Construct crop_info dictionary if data exists
+            crop_info = None
+            if active_image.crop_width is not None and active_image.crop_height is not None and active_image.crop_x is not None and active_image.crop_y is not None:
+                crop_info = {
+                    'x': active_image.crop_x,
+                    'y': active_image.crop_y,
+                    'width': active_image.crop_width,
+                    'height': active_image.crop_height,
+                }
+                logger.info(f"Using crop data for slideshow upload: {crop_info}")
+
+            data = await self._upload_image(active_image, crop_info=crop_info)
         except websockets.exceptions.ConnectionClosedError:
             logger.exception(
                 "Connection to TV is closed, perhaps the TV is off?"
@@ -175,11 +188,46 @@ class FrameConnector:
 
         self._latest_content_id = data["content_id"]
 
-    async def _upload_image(self, image: Image) -> dict|None:
+    async def activate_image(self, image: Image) -> None:
+        """Activate an image on the Frame TV, uploading if necessary."""
+        logger.info(f"Activating image: {image.filepath} via explicit request.")
+
+        # Check connection status first
+        if not self._connected or not self._tv_is_online:
+            logger.error("TV not connected, cannot activate image.")
+            return
+
+        # Always upload the image (potentially cropped) to get the latest content_id
+        logger.info("Uploading image %s to ensure it's available...", image.filepath)
+        # Construct crop_info dictionary if data exists
+        crop_info = None
+        if image.crop_width is not None and image.crop_height is not None and image.crop_x is not None and image.crop_y is not None:
+            crop_info = {
+                'x': image.crop_x,
+                'y': image.crop_y,
+                'width': image.crop_width,
+                'height': image.crop_height,
+            }
+            logger.info(f"Using crop data for upload: {crop_info}")
+
+        uploaded_data = await self._upload_image(image, crop_info=crop_info)
+        if not uploaded_data:
+            logger.error("Upload failed for image %s", image.filepath)
+            return
+
+        content_id = uploaded_data.get("content_id")
+
+        if content_id:
+            logger.info(f"Upload successful (content_id: {content_id}), activating image...")
+            await self._activate_image(content_id)
+        else:
+             logger.error("Upload completed but did not return a content_id.")
+
+    async def _upload_image(self, image: Image, crop_info: dict | None = None) -> dict|None:
         """Upload image to TV and return the uploaded file details as provided by the television."""
         logger.info("Uploading image %s to TV", image.filepath)
 
-        file_data, file_type = self._read_file(image.filepath)
+        file_data, file_type = self._read_file(image.filepath, crop_info)
 
         matte = "none" if (image.aspect_width == self.IDEAL_ASPECT_RATIO_WIDTH
                            and image.aspect_height == self.IDEAL_ASPECT_RATIO_HEIGHT) \
@@ -213,12 +261,76 @@ class FrameConnector:
         return data
 
     @staticmethod
-    def _read_file(image_path: str) -> tuple[bytes, str]|tuple[None, None]:
-        """Read image file, return file binary data and file type."""
+    def _crop_image_data(file_data: bytes, crop_info: dict, image_format: str) -> bytes:
+        """Crop image data based on percentage crop info."""
+        try:
+            img = PILImage.open(io.BytesIO(file_data))
+            img_width, img_height = img.size
+
+            # Calculate pixel coordinates from percentages
+            # Crop info is expected to have x, y, width, height as percentages (0-100)
+            x_pct = crop_info.get('x', 0)
+            y_pct = crop_info.get('y', 0)
+            width_pct = crop_info.get('width', 100)
+            height_pct = crop_info.get('height', 100)
+
+            left = int(img_width * x_pct / 100)
+            top = int(img_height * y_pct / 100)
+            right = left + int(img_width * width_pct / 100)
+            bottom = top + int(img_height * height_pct / 100)
+
+            # Ensure crop box is within image bounds and valid
+            left = max(0, left)
+            top = max(0, top)
+            right = min(img_width, right)
+            bottom = min(img_height, bottom)
+
+            if left >= right or top >= bottom:
+                logger.warning("Calculated invalid crop box, returning original image.")
+                return file_data
+
+            logger.info(
+                f"Cropping image: original=({img_width}x{img_height}), "
+                f"box=({left},{top},{right},{bottom})"
+            )
+            cropped_img = img.crop((left, top, right, bottom))
+
+            # Save cropped image back to bytes
+            buffer = io.BytesIO()
+            # Pillow format needs common names like JPEG, PNG. Convert suffix.
+            save_format = image_format.lstrip('.').upper()
+            if save_format == 'JPG':
+                save_format = 'JPEG'
+            # Ensure we support the format, default to JPEG if unknown
+            supported_formats = ['JPEG', 'PNG', 'GIF', 'BMP', 'TIFF']
+            if save_format not in supported_formats:
+                 logger.warning(f"Unsupported save format '{save_format}', defaulting to JPEG.")
+                 save_format = 'JPEG'
+
+            cropped_img.save(buffer, format=save_format)
+            return buffer.getvalue()
+        except Exception:
+            logger.exception("Error cropping image")
+            # Return original data if cropping fails
+            return file_data
+
+    @staticmethod
+    def _read_file(image_path: str, crop_info: dict | None = None) -> tuple[bytes, str]|tuple[None, None]:
+        """Read image file, optionally crop it, and return file binary data and file type."""
         try:
             with Path(image_path).open("rb") as f:
                 file_data = f.read()
                 file_type = FrameConnector._get_file_type(image_path)
+
+                if not file_type:
+                     logger.warning(f"Could not determine file type for {image_path}, skipping crop.")
+                     return file_data, "image/jpeg" # Default to jpeg?
+
+                # Crop the image data if crop_info is provided
+                if crop_info:
+                     logger.info(f"Applying crop {crop_info} to {image_path}")
+                     file_data = FrameConnector._crop_image_data(file_data, crop_info, file_type)
+
                 return file_data, file_type
         except Exception:
             logger.exception("Error reading file: %s", image_path)
