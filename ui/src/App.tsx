@@ -77,12 +77,12 @@ function Home() {
 
   useEffect(() => {
     if (settings?.current_active_image) {
-      setPreviewImageUrl(API_BASE_URL + '/' + settings.current_active_image.filepath);
+      setPreviewImageUrl(API_BASE_URL + '/api/images/' + settings.current_active_image.id + '/cropped');
     }
   }, [settings]);
 
   const handleImageChange = (newImage: Image) => {
-    setPreviewImageUrl(API_BASE_URL + '/' + newImage.filepath);
+    setPreviewImageUrl(API_BASE_URL + '/api/images/' + newImage.id + '/cropped');
   };
 
   return (

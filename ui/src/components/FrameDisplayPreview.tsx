@@ -6,15 +6,15 @@ import { API_BASE_URL } from '../App';
 import Image from '../models/Image'; 
 
 interface FrameDisplayPreviewProps {
-  imageId: number; 
+  imageUrl: string; 
   onNext?: (newImage: Image) => void; 
 }
 
 export default function FrameDisplayPreview(props: FrameDisplayPreviewProps) {
-  const { imageId, onNext } = props;
+  const { imageUrl, onNext } = props;
 
   // Construct the URL for the cropped image
-  const currentCroppedImageUrl = `${API_BASE_URL}/api/images/${imageId}/cropped`;
+  const currentCroppedImageUrl = imageUrl; // Assuming imageUrl is the direct URL for the preview
 
   const handleNextClick = async () => {
     try {
