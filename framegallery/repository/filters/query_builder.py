@@ -1,6 +1,7 @@
 import json
 from typing import Any
 
+from sqlalchemy import true
 from sqlalchemy.sql.elements import ColumnElement
 
 from .image_filter import (
@@ -85,7 +86,7 @@ class QueryBuilder:
 
         rules: list[dict[str, Any]] = group["rules"]
         if not rules:
-            raise EmptyGroupError
+            return true()  # Return true() if the group has no rules
 
         filters: list[ImageFilter] = []
         for rule in rules:
