@@ -3,7 +3,7 @@ import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +11,8 @@ from fastapi.requests import Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from sse_starlette import EventSourceResponse, ServerSentEvent
+import json
 
 from framegallery import crud, models, schemas
 from framegallery.config import settings
@@ -30,6 +32,7 @@ from framegallery.routers import config_router, filters_router
 from framegallery.routers.images import router as images_router
 from framegallery.schemas import ConfigResponse, Filter, Image
 from framegallery.slideshow.slideshow import Slideshow
+from framegallery.sse.slideshow_signal_listener import SlideshowSignalSSEListener
 
 logger = setup_logging(log_level=settings.log_level)
 
@@ -58,7 +61,7 @@ async def update_slideshow_periodically(slideshow: Slideshow) -> None:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, any]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
     """Run tasks on startup and shutdown."""
     logger.info("logger - Inside lifespan")
 
@@ -85,9 +88,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, any]:
     background_tasks.add(slideshow_updater)
     slideshow_updater.add_done_callback(background_tasks.discard)
 
+    # Create an event queue for slideshow updates
+    slideshow_event_queue = asyncio.Queue()
+    app.state.slideshow_event_queue = slideshow_event_queue
+
     config_repository = ConfigRepository(db)
     # Store the listener in the app state so that it doesn't get garbage collected
-    app.state.update_active_image_in_config_listener = UpdateCurrentActiveImageConfigListener(config_repository)
+    app.state.update_active_image_in_config_listener = UpdateCurrentActiveImageConfigListener(
+        config_repository
+    )
+
+    # Instantiate and store the new SSE signal listener
+    app.state.slideshow_signal_sse_listener = SlideshowSignalSSEListener(slideshow_event_queue)
 
     yield
 
@@ -218,9 +230,35 @@ async def enable_slideshow(db: Annotated[Session,  Depends(get_db)]) -> dict:
 async def disable_slideshow(db: Annotated[Session,  Depends(get_db)]) -> dict:
     """Disable the slideshow."""
     config_repo = ConfigRepository(db)
-    config_repo.set(ConfigKey.SLIDESHOW_ENABLED, value=False)
-
+    config_repo.set(ConfigKey.SLIDESHOW_ENABLED, "false")
     return {}
+
+
+@app.get("/api/slideshow/events")
+async def slideshow_events(request: Request) -> EventSourceResponse:
+    """SSE endpoint for slideshow updates."""
+    queue: asyncio.Queue = request.app.state.slideshow_event_queue
+
+    async def event_generator() -> AsyncGenerator[ServerSentEvent, None]:
+        try:
+            while True:
+                # Wait for an event from the queue
+                event_data = await queue.get()
+                logger.debug("SSE: Sending event: %s", event_data)
+                yield ServerSentEvent(data=json.dumps(event_data), event=event_data.get("event", "message"))
+                queue.task_done()
+        except asyncio.CancelledError:
+            # Handle client disconnection
+            logger.info("SSE: Client disconnected")
+            # It's important to reraise CancelledError or ensure the generator stops
+            raise
+        except Exception as e:
+            # Log other potential errors from the queue or SSE generation
+            logger.error("SSE: Error in event generator: %s", e, exc_info=True)
+            # Depending on the error, you might want to raise or just stop generation
+            raise # Reraising to ensure the connection closes on unexpected errors
+
+    return EventSourceResponse(event_generator())
 
 
 @app.get("/api/settings")
