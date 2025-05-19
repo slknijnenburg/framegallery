@@ -102,7 +102,7 @@ function Home() {
 
     eventSource.onerror = (error) => {
       console.error('EventSource failed:', error);
-      eventSource.close(); 
+      // eventSource.close(); // Commented out to allow default retry behavior
     };
 
     return () => {

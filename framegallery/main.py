@@ -105,12 +105,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
 
 
 logger.info("logger - Before FastAPI launch")
-logger.info("logging - Before FastAPI launch")
 app = FastAPI(lifespan=lifespan)
+logger.info("logging - Before FastAPI launch")
 
 origins = [
     "http://localhost:3000",  # React dev server
     "http://127.0.0.1:3000",  # React dev server
+    "http://localhost:5173",  # Common Vite dev server port
+    "http://127.0.0.1:5173",  # Common Vite dev server port
     "http://localhost:7999",  # ASGI server
     "http://127.0.0.1:7999",  # ASGI server
 ]
@@ -124,11 +126,11 @@ app.add_middleware(
 
 # Sets the templates directory to the `build` folder from `npm run build`
 # this is where you'll find the index.html file.
-templates = Jinja2Templates(directory="./ui/build")
+templates = Jinja2Templates(directory="./ui/dist")
 # Uncomment this when running from npm dev: templates = Jinja2Templates(directory="./ui/templates")
 
 # Mounts the `static` folder within the `build` folder to the `/static` route.
-app.mount("/static", StaticFiles(directory="./ui/build/static"), "static")
+app.mount("/assets", StaticFiles(directory="./ui/dist/assets"), "assets")
 app.mount("/images", StaticFiles(directory=settings.gallery_path), "images")
 
 
