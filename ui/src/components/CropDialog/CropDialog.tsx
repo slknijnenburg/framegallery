@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import ReactCrop, { type Crop, PercentCrop, PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
+import React, { useState, useEffect } from 'react';
+import ReactCrop, { type PercentCrop, type PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import './CropDialog.css';
 import Image from '../../models/Image';
@@ -12,25 +12,7 @@ import DialogContentText from '@mui/material/DialogContentText';
 // Define the fixed aspect ratio
 const FIXED_ASPECT_RATIO = 16 / 9;
 
-function centerAspectCrop(
-  mediaWidth: number,
-  mediaHeight: number,
-  aspect: number,
-): Crop {
-  return centerCrop(
-    makeAspectCrop(
-      {
-        unit: '%',
-        width: 90,
-      },
-      aspect,
-      mediaWidth,
-      mediaHeight,
-    ),
-    mediaWidth,
-    mediaHeight,
-  );
-}
+
 
 interface CropDialogProps {
   open: boolean;
@@ -53,7 +35,7 @@ const CropDialog: React.FC<CropDialogProps> = ({ open, image, onClose }) => {
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [onClose]);
 
   const handleSaveCrop = async () => {
     const completedPercentCrop = completedCrop?.[1];

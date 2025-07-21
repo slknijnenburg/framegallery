@@ -13,7 +13,7 @@ from samsungtvws.async_art import SamsungTVAsyncArt
 
 from framegallery.aspect_ratio import get_aspect_ratio
 from framegallery.config import settings
-from framegallery.image_manipulation import get_cropped_image_dimensions, get_file_type, read_file_data
+from framegallery.image_manipulation import get_cropped_image_dimensions, read_file_data
 from framegallery.logging_config import setup_logging
 from framegallery.models import Image
 
@@ -216,7 +216,7 @@ class FrameConnector:
 
 
         cropped_width, cropped_height = get_cropped_image_dimensions(image)
-        cropped_width_aspect_width, cropped_width_aspect_height = get_aspect_ratio(cropped_width, cropped_height)   
+        cropped_width_aspect_width, cropped_width_aspect_height = get_aspect_ratio(cropped_width, cropped_height)
 
         logger.info("Cropped image dimensions: %s:%s", cropped_width, cropped_height)
         logger.info("Cropped image aspect ratio: %s:%s", cropped_width_aspect_width, cropped_width_aspect_height)

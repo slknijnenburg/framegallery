@@ -79,17 +79,10 @@ describe('FrameDisplayPreview', () => {
         expect(mockOnNext).toHaveBeenCalledWith(mockNextImage);
     });
 
-    test('calls API but not onNext when callback is not provided', async () => {
+    test('does not render next button when onNext is not provided', () => {
         render(<FrameDisplayPreview imageUrl={mockImageUrl} />); // No onNext prop
 
-        fireEvent.click(screen.getByRole('button', { name: 'next image' }));
-
-        await waitFor(() => {
-            expect(mockedAxios.post).toHaveBeenCalledTimes(1);
-        });
-
-        expect(mockedAxios.post).toHaveBeenCalledWith('http://mock-api.com/api/images/next');
-        expect(mockOnNext).not.toHaveBeenCalled(); // Ensure the mock defined outside wasn't called
+        expect(screen.queryByRole('button', { name: 'next image' })).not.toBeInTheDocument();
     });
 
     test('handles API error and does not call onNext', async () => {
