@@ -5,6 +5,12 @@ import FilterBuilder from '../../../src/components/Filters/FilterBuilder';
 import { Filter } from '../../../src/components/Filters/Filter';
 import { RuleGroupType } from 'react-querybuilder';
 
+// Mock generateID to return predictable values for testing
+jest.mock('react-querybuilder', () => ({
+    ...jest.requireActual('react-querybuilder'),
+    generateID: () => 'test-id'
+}));
+
 // Mock filter data
 const emptyFilter: Filter = {
     id: 0, // Use number
@@ -26,7 +32,7 @@ const existingFilter: Filter = {
     query: JSON.stringify(initialFilterQuery),
 };
 
-const defaultQueryString = JSON.stringify({ id: 'root', combinator: 'and', rules: [] });
+const defaultQueryString = JSON.stringify({ id: 'test-id', combinator: 'and', rules: [] });
 
 describe('FilterBuilder', () => {
     const mockOnFilterChange = jest.fn();
@@ -37,8 +43,8 @@ describe('FilterBuilder', () => {
         mockOnFilterChange.mockClear();
         originalConsoleError = console.error; // Store original console.error
         consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation((message, ...args) => {
-             if (!message?.includes('Warning: Each child in a list should have a unique "key" prop.')) {
-                 originalConsoleError(message, args); // Call the original console.error
+             if (!message?.includes('Each child in a list should have a unique "key" prop.')) {
+                 originalConsoleError(message, ...args); // Call the original console.error
              }
         });
     });
