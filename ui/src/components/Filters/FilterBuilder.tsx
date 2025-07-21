@@ -1,4 +1,4 @@
-import {Field, formatQuery, QueryBuilder, RuleGroupType} from 'react-querybuilder';
+import {Field, formatQuery, QueryBuilder, RuleGroupType, generateID} from 'react-querybuilder';
 import 'react-querybuilder/dist/query-builder.css';
 import React, {useEffect, useState} from 'react';
 import {Stack} from '@mui/material';
@@ -85,7 +85,7 @@ interface FilterBuilderProps {
     onFilterChange: (name: string, query: string) => void;
 }
 
-const defaultFilter: RuleGroupType = {id: 'root', combinator: 'and', rules: []};
+const defaultFilter: RuleGroupType = {id: generateID(), combinator: 'and', rules: []};
 
 const FilterBuilder = ({filter, onFilterChange}: FilterBuilderProps) => {
     const [query, setQuery] = useState<RuleGroupType>(defaultFilter);
@@ -96,10 +96,17 @@ const FilterBuilder = ({filter, onFilterChange}: FilterBuilderProps) => {
             const jsonParsedFilter = JSON.parse(
                 filter.query || '{"id":"root","combinator":"and","rules":[]}',
             ) as RuleGroupType;
-            setQuery(jsonParsedFilter);
+            
+            // Ensure the parsed filter has an ID
+            const filterWithId = {
+                ...jsonParsedFilter,
+                id: jsonParsedFilter.id || generateID()
+            };
+            
+            setQuery(filterWithId);
             setFilterName(filter.name);
         } else {
-            setQuery(defaultFilter);
+            setQuery({...defaultFilter, id: generateID()});
             setFilterName('');
         }
     }, [filter]);
@@ -113,7 +120,7 @@ const FilterBuilder = ({filter, onFilterChange}: FilterBuilderProps) => {
     };
 
     const removeAllFilters = (): void => {
-        setQuery(defaultFilter);
+        setQuery({...defaultFilter, id: generateID()});
     };
 
     return (
@@ -124,6 +131,7 @@ const FilterBuilder = ({filter, onFilterChange}: FilterBuilderProps) => {
                         fields={fields}
                         query={query}
                         onQueryChange={handleQueryChange}
+                        idGenerator={generateID}
                     />
                     <Stack direction="row" spacing={2}>
                         <Button variant="contained" color="primary" onClick={handleSave}>

@@ -1,4 +1,5 @@
-from sqlalchemy import Index, Integer, String
+
+from sqlalchemy import Float, Index, Integer, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -23,7 +24,26 @@ class Image(Base):
     height: Mapped[int] = mapped_column(Integer, nullable=True)
     aspect_width: Mapped[int] = mapped_column(Integer, nullable=True)
     aspect_height: Mapped[int] = mapped_column(Integer, nullable=True)
+    crop_x: Mapped[float | None] = mapped_column(Float, nullable=True)
+    crop_y: Mapped[float | None] = mapped_column(Float, nullable=True)
+    crop_width: Mapped[float | None] = mapped_column(Float, nullable=True)
+    crop_height: Mapped[float | None] = mapped_column(Float, nullable=True)
 
+    def get_crop_info(self) -> dict | None:
+        """Get the crop info for the image."""
+        if (
+            self.crop_x is not None
+            and self.crop_y is not None
+            and self.crop_width is not None
+            and self.crop_height is not None
+        ):
+            return {
+                "x": self.crop_x,
+                "y": self.crop_y,
+                "width": self.crop_width,
+                "height": self.crop_height,
+            }
+        return None
 
 class Config(Base):
     """Configuration settings."""

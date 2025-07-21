@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ActiveArt(BaseModel):
@@ -64,3 +64,12 @@ class FilterUpdate(BaseModel):
 
     name: str
     query: str
+
+
+class CropData(BaseModel):
+    """Pydantic model for crop input data."""
+
+    x: float = Field(..., ge=0, le=100, description="The x coordinate of the crop area as a percentage.")
+    y: float = Field(..., ge=0, le=100, description="The y coordinate of the crop area as a percentage.")
+    width: float = Field(..., gt=0, le=100, description="The width of the crop area as a percentage.")
+    height: float = Field(..., gt=0, le=100, description="The height of the crop area as a percentage.")

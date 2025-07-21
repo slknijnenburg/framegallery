@@ -77,12 +77,41 @@ function Home() {
 
   useEffect(() => {
     if (settings?.current_active_image) {
-      setPreviewImageUrl(API_BASE_URL + '/' + settings.current_active_image.filepath);
+      setPreviewImageUrl(API_BASE_URL + '/api/images/' + settings.current_active_image.id + '/cropped');
     }
   }, [settings]);
 
+  useEffect(() => {
+    const eventSource = new EventSource(`${API_BASE_URL}/api/slideshow/events`);
+
+    eventSource.onmessage = (event) => {
+      console.log("SSE generic message:", event.data);
+    };
+
+    eventSource.addEventListener('slideshow_update', (event) => {
+      try {
+        const eventData = JSON.parse(event.data);
+        if (eventData.imageId) {
+          console.log("SSE slideshow_update received, imageId:", eventData.imageId);
+          setPreviewImageUrl(API_BASE_URL + '/api/images/' + eventData.imageId + '/cropped');
+        }
+      } catch (error) {
+        console.error("Error parsing SSE data:", error, event.data);
+      }
+    });
+
+    eventSource.onerror = (error) => {
+      console.error('EventSource failed:', error);
+      // eventSource.close(); // Commented out to allow default retry behavior
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, []);
+
   const handleImageChange = (newImage: Image) => {
-    setPreviewImageUrl(API_BASE_URL + '/' + newImage.filepath);
+    setPreviewImageUrl(API_BASE_URL + '/api/images/' + newImage.id + '/cropped');
   };
 
   return (
@@ -144,8 +173,6 @@ function Browser() {
     console.log('Selected album was ', selectedAlbum);
     console.log('New album is ', itemIds);
     console.log(albums);
-    // Find the album in the `albums` tree by iterating over each elements `children` property:
-
     const newAlbum = findAlbumById(albums, itemIds);
     console.log(newAlbum);
     setSelectedAlbum(newAlbum);

@@ -1,32 +1,68 @@
 # Samsung The Frame Gallery
 
-Python project to manage a Samsung The Frame TV as a digital frame and (photo) gallery.
+This project is a web application to manage photos for a Samsung The Frame television. It consists of a Python FastAPI backend and a React/TypeScript frontend.
 
-## Running from source
+## Getting Started
 
-### Requirements
+These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
 
-- Python 3.10 or higher
-- Poetry
-- NodeJS 20 or higher
+### Prerequisites
 
-Run the following commands to install the required dependencies:
+You need to have [uv](https://github.com/astral-sh/uv) installed. `uv` is an extremely fast Python package installer and resolver, written in Rust.
 
-```bash
-poetry install
-cd ui && npm install
-```
+### Installation
 
-### Running the project
+1.  **Clone the repository:**
 
-To run the project, you need to start the backend and the frontend separately:
+    ```bash
+    git clone https://github.com/slknijnenburg/framegallery.git
+    cd framegallery
+    ```
 
-```bash
-poetry run uvicorn framegallery.main:app --reload --port 7999
-cd ui && npm start
-```
+2.  **Backend Setup (in `/framegallery`):**
 
-### Running the project via Docker
+    Navigate to the backend directory:
+    ```bash
+    cd framegallery
+    ```
+
+    Create a virtual environment and install the dependencies:
+    ```bash
+    uv venv
+    uv sync
+    ```
+
+3.  **Frontend Setup (in `/ui`):**
+
+    Navigate to the frontend directory from the root:
+    ```bash
+    cd ui
+    ```
+
+    Install the dependencies using your preferred package manager (e.g., `npm`, `yarn`, or `pnpm`):
+    ```bash
+    npm install
+    ```
+
+### Running the application
+
+1.  **Run the backend server:**
+
+    From the `/framegallery` directory, activate the virtual environment and start the FastAPI server:
+    ```bash
+    uv run uvicorn --port 7999 --reload framegallery.main:app
+    ```
+    The backend will be running at `http://127.0.0.1:7999`.
+
+2.  **Run the frontend development server:**
+
+    From the `/ui` directory, start the Vite development server:
+    ```bash
+    npm run dev
+    ```
+    The frontend will be accessible at `http://localhost:3000` and will proxy API requests to the backend.
+
+### Running the application via Docker
 
 First build the image with:
 ```bash

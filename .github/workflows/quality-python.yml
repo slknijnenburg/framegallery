@@ -3,7 +3,9 @@ on:
   pull_request:
     paths:
       - 'framegallery/**'
-  workflow_dispatch: 
+      - 'tests/**'
+      - 'alembic/**'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -27,8 +29,8 @@ jobs:
         run: uv sync --locked --all-extras --dev
 
       - name: Run tests
-        run: uv run pytest framegallery/tests/
+        run: uv run pytest tests/
 
       - name: Run ruff
-        run: uv run ruff check framegallery/
+        run: uv run ruff check framegallery/ tests/
         

@@ -11,7 +11,9 @@ import websockets
 from blinker import signal
 from samsungtvws.async_art import SamsungTVAsyncArt
 
+from framegallery.aspect_ratio import get_aspect_ratio
 from framegallery.config import settings
+from framegallery.image_manipulation import get_cropped_image_dimensions, read_file_data
 from framegallery.logging_config import setup_logging
 from framegallery.models import Image
 
@@ -33,7 +35,7 @@ class FrameConnector:
     IDEAL_ASPECT_RATIO_WIDTH = 16
 
     def __init__(self, ip_address: str, port: int) -> None:
-        self._tv = None
+        self._tv: SamsungTVAsyncArt | None = None
         self._ip_address = ip_address
         self._port = port
         self._pid = os.getpid()
@@ -128,7 +130,7 @@ class FrameConnector:
         return data
 
     async def _on_active_image_updated(self, _: object, active_image: Image) -> None:
-        logger.info("Updating active image on TV: %s", active_image.filepath)
+        logger.info("Updating active image on TV (via slideshow signal): %s", active_image.filepath)
 
         # Upload the image to the TV
         try:
@@ -167,22 +169,60 @@ class FrameConnector:
             return
 
         # Make uploaded image active
-        await self._activate_image(data["content_id"])
+        if data and data.get("content_id"):
+            await self._activate_image(data["content_id"])
+            # Delete previously active image
+            if self._latest_content_id is not None:
+                await self._delete_image(self._latest_content_id)
+            self._latest_content_id = data["content_id"]
+        elif data:
+            logger.error("Slideshow image upload completed but did not return a content_id.")
+        else:
+            logger.error("Slideshow image upload failed, data is None.")
 
-        # Delete previously active image
-        if self._latest_content_id is not None:
-            await self._delete_image(self._latest_content_id)
+    async def activate_image(self, image: Image) -> None:
+        """Activate an image on the Frame TV, uploading if necessary."""
+        logger.info("Activating image: %s via explicit request.", image.filepath)
 
-        self._latest_content_id = data["content_id"]
+        # Check connection status first
+        if not self._connected or not self._tv_is_online:
+            logger.error("TV not connected, cannot activate image.")
+            return
+
+        # Always upload the image (potentially cropped) to get the latest content_id
+        logger.info("Uploading image %s to ensure it's available...", image.filepath)
+
+        uploaded_data = await self._upload_image(image)
+        if not uploaded_data:
+            logger.error("Upload failed for image %s", image.filepath)
+            return
+
+        content_id = uploaded_data.get("content_id")
+
+        if content_id:
+            logger.info("Upload successful (content_id: %s), activating image...", content_id)
+            await self._activate_image(content_id)
+        else:
+             logger.error("Upload completed but did not return a content_id.")
 
     async def _upload_image(self, image: Image) -> dict|None:
         """Upload image to TV and return the uploaded file details as provided by the television."""
         logger.info("Uploading image %s to TV", image.filepath)
 
-        file_data, file_type = self._read_file(image.filepath)
+        file_data, file_type = read_file_data(image)
+        if (file_type is None):
+            logger.error("File type not determined for image %s, canceling file upload", image.filepath)
+            return None
 
-        matte = "none" if (image.aspect_width == self.IDEAL_ASPECT_RATIO_WIDTH
-                           and image.aspect_height == self.IDEAL_ASPECT_RATIO_HEIGHT) \
+
+        cropped_width, cropped_height = get_cropped_image_dimensions(image)
+        cropped_width_aspect_width, cropped_width_aspect_height = get_aspect_ratio(cropped_width, cropped_height)
+
+        logger.info("Cropped image dimensions: %s:%s", cropped_width, cropped_height)
+        logger.info("Cropped image aspect ratio: %s:%s", cropped_width_aspect_width, cropped_width_aspect_height)
+
+        matte = "none" if (cropped_width_aspect_width == self.IDEAL_ASPECT_RATIO_WIDTH
+                           and cropped_width_aspect_height == self.IDEAL_ASPECT_RATIO_HEIGHT) \
             else "shadowbox_black"
 
         logger.info(
@@ -212,33 +252,12 @@ class FrameConnector:
 
         return data
 
-    @staticmethod
-    def _read_file(image_path: str) -> tuple[bytes, str]|tuple[None, None]:
-        """Read image file, return file binary data and file type."""
-        try:
-            with Path(image_path).open("rb") as f:
-                file_data = f.read()
-                file_type = FrameConnector._get_file_type(image_path)
-                return file_data, file_type
-        except Exception:
-            logger.exception("Error reading file: %s", image_path)
-            raise
-
-    @staticmethod
-    def _get_file_type(image_path: str) -> str:
-        """Try to figure out what kind of image file is, starting with the extension."""
-        try:
-            file_type = Path(image_path).suffix
-            return file_type.lower() if file_type else None
-        except Exception:
-            logger.exception("Error reading file: %s", image_path)
-            raise
-
     async def _activate_image(self, content_id: str) -> None:
         logger.info("Activating image %s",  content_id)
         await self._tv.select_image(content_id, "MY-C0002")
 
     async def _delete_image(self, content_id: str) -> None:
+        logger.info("Deleting image %s", content_id)
         await self._tv.delete(content_id)
 
     async def tv_keepalive(self) -> None:
