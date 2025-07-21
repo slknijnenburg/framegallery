@@ -260,7 +260,7 @@ async def slideshow_events(request: Request) -> EventSourceResponse:
             # Depending on the error, you might want to raise or just stop generation
             raise # Reraising to ensure the connection closes on unexpected errors
 
-    return EventSourceResponse(event_generator())
+    return EventSourceResponse(event_generator(), ping=100)
 
 
 @app.get("/api/settings")
