@@ -1,12 +1,19 @@
 services:
   framegallery:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    # Use pre-built image from GitHub Container Registry
+    # Comment out the next line and uncomment 'build' section to build locally
+    image: ghcr.io/slknijnenburg/framegallery:latest
+    
+    # Build locally (uncomment to use instead of pre-built image)
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    
     ports:
       - "7999:7999"
     volumes:
       - ./images:/app/images
       - ./data:/app/data
- #     - ./logs:/app/logs
+      - ./logs:/app/logs
     env_file: .env
+    restart: unless-stopped

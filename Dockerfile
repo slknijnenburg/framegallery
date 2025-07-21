@@ -28,7 +28,7 @@ RUN --mount=type=cache,target=/tmp/.cache/uv \
 FROM python:3.13-slim AS backend
 WORKDIR /app
 COPY --from=builder --chown=1000:1000 /app /app
-COPY --from=frontend-builder --chown=1000:1000 /app/build /app/ui/build
+COPY --from=frontend-builder --chown=1000:1000 /app/dist /app/ui/dist
 RUN mkdir -p /app/logs
 RUN chown 1000:1000 /app/logs && chmod -R u+w /app/logs
 USER 1000
