@@ -11,8 +11,9 @@ import websockets
 from blinker import signal
 from samsungtvws.async_art import SamsungTVAsyncArt
 
+from framegallery.aspect_ratio import get_aspect_ratio
 from framegallery.config import settings
-from framegallery.image_manipulation import read_file_data
+from framegallery.image_manipulation import get_cropped_image_dimensions, get_file_type, read_file_data
 from framegallery.logging_config import setup_logging
 from framegallery.models import Image
 
@@ -209,9 +210,19 @@ class FrameConnector:
         logger.info("Uploading image %s to TV", image.filepath)
 
         file_data, file_type = read_file_data(image)
+        if (file_type is None):
+            logger.error("File type not determined for image %s, canceling file upload", image.filepath)
+            return None
 
-        matte = "none" if (image.aspect_width == self.IDEAL_ASPECT_RATIO_WIDTH
-                           and image.aspect_height == self.IDEAL_ASPECT_RATIO_HEIGHT) \
+
+        cropped_width, cropped_height = get_cropped_image_dimensions(image)
+        cropped_width_aspect_width, cropped_width_aspect_height = get_aspect_ratio(cropped_width, cropped_height)   
+
+        logger.info("Cropped image dimensions: %s:%s", cropped_width, cropped_height)
+        logger.info("Cropped image aspect ratio: %s:%s", cropped_width_aspect_width, cropped_width_aspect_height)
+
+        matte = "none" if (cropped_width_aspect_width == self.IDEAL_ASPECT_RATIO_WIDTH
+                           and cropped_width_aspect_height == self.IDEAL_ASPECT_RATIO_HEIGHT) \
             else "shadowbox_black"
 
         logger.info(

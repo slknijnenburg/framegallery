@@ -29,6 +29,21 @@ class Image(Base):
     crop_width: Mapped[float | None] = mapped_column(Float, nullable=True)
     crop_height: Mapped[float | None] = mapped_column(Float, nullable=True)
 
+    def get_crop_info(self) -> dict | None:
+        """Get the crop info for the image."""
+        if (
+            self.crop_x is not None
+            and self.crop_y is not None
+            and self.crop_width is not None
+            and self.crop_height is not None
+        ):
+            return {
+                "x": self.crop_x,
+                "y": self.crop_y,
+                "width": self.crop_width,
+                "height": self.crop_height,
+            }
+        return None
 
 class Config(Base):
     """Configuration settings."""

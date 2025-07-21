@@ -18,6 +18,36 @@ def get_file_type(image_path: str) -> str | None:
         logger.exception("Error determining file type for: %s", image_path)
         raise
 
+def get_cropped_image_dimensions(image: Image) -> tuple[int, int]:
+    """Get the dimensions of the cropped image based on the original image dimensions and the crop info."""
+    try:
+        img_width, img_height = image.width, image.height
+        crop_info = image.get_crop_info()
+        if crop_info is None:
+            return img_width, img_height
+
+        # Calculate pixel coordinates from percentages
+        x_pct = crop_info.get("x", 0)
+        y_pct = crop_info.get("y", 0)
+        width_pct = crop_info.get("width", 100)
+        height_pct = crop_info.get("height", 100)
+
+        left = int(img_width * x_pct / 100)
+        top = int(img_height * y_pct / 100)
+        right = left + int(img_width * width_pct / 100)
+        bottom = top + int(img_height * height_pct / 100)
+
+        # Ensure crop box is within image bounds and valid
+        left = max(0, left)
+        top = max(0, top)
+        right = min(img_width, right)
+        bottom = min(img_height, bottom)
+
+        return right - left, bottom - top
+    except Exception:
+        logger.exception("Error getting cropped image dimensions for: %s", image)
+        raise
+
 def crop_image_data(file_data: bytes, crop_info: dict) -> bytes:
     """Crop image data based on percentage crop info."""
     try:
@@ -76,20 +106,7 @@ def read_file_data(image: Image) -> tuple[bytes, str]:
         error_message = f"Image file not found at {image_path_str}"
         raise FileNotFoundError(error_message)
 
-    crop_info = None
-    if (
-        image.crop_x is not None
-        and image.crop_y is not None
-        and image.crop_width is not None
-        and image.crop_height is not None
-    ):
-        crop_info = {
-            "x": image.crop_x,
-            "y": image.crop_y,
-            "width": image.crop_width,
-            "height": image.crop_height,
-        }
-        logger.info("Crop info found for image %s: %s", image.id, crop_info)
+    crop_info = image.get_crop_info()
 
     with image_path.open("rb") as f:
         file_data = f.read()

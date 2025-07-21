@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -12,7 +13,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sse_starlette import EventSourceResponse, ServerSentEvent
-import json
 
 from framegallery import crud, models, schemas
 from framegallery.config import settings
@@ -254,9 +254,9 @@ async def slideshow_events(request: Request) -> EventSourceResponse:
             logger.info("SSE: Client disconnected")
             # It's important to reraise CancelledError or ensure the generator stops
             raise
-        except Exception as e:
+        except Exception:
             # Log other potential errors from the queue or SSE generation
-            logger.error("SSE: Error in event generator: %s", e, exc_info=True)
+            logger.exception("SSE: Error in event generator")
             # Depending on the error, you might want to raise or just stop generation
             raise # Reraising to ensure the connection closes on unexpected errors
 
