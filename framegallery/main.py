@@ -4,15 +4,17 @@ import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sse_starlette import EventSourceResponse, ServerSentEvent
+from starlette.responses import Response
 
 from framegallery import crud, models, schemas
 from framegallery.config import settings
@@ -61,7 +63,7 @@ async def update_slideshow_periodically(slideshow: Slideshow) -> None:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Run tasks on startup and shutdown."""
     logger.info("logger - Inside lifespan")
 
@@ -124,14 +126,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Sets the templates directory to the `build` folder from `npm run build`
-# this is where you'll find the index.html file.
-templates = Jinja2Templates(directory="./ui/dist")
-# Uncomment this when running from npm dev: templates = Jinja2Templates(directory="./ui/templates")
+# Conditionally set up templates directory based on what's available
+ui_dist_path = Path("./ui/dist")
+ui_dist_assets_path = Path("./ui/dist/assets")
+ui_templates_path = Path("./ui/templates")
 
-# Mounts the `static` folder within the `build` folder to the `/static` route.
-app.mount("/assets", StaticFiles(directory="./ui/dist/assets"), "assets")
-app.mount("/images", StaticFiles(directory=settings.gallery_path), "images")
+if ui_dist_path.exists():
+    # Production mode - use built frontend
+    templates = Jinja2Templates(directory="./ui/dist")
+    logger.info("Using production templates from ./ui/dist")
+# Development/test mode - fallback to templates directory or create empty
+elif ui_templates_path.exists():
+    templates = Jinja2Templates(directory="./ui/templates")
+    logger.info("Using development templates from ./ui/templates")
+else:
+    # Create a minimal templates object for tests
+    templates = None
+    logger.warning("No templates directory found - template rendering disabled")
+
+# Conditionally mount static files only if directories exist
+if ui_dist_assets_path.exists():
+    app.mount("/assets", StaticFiles(directory="./ui/dist/assets"), "assets")
+    logger.info("Mounted /assets from ./ui/dist/assets")
+else:
+    logger.warning("./ui/dist/assets not found - /assets route not mounted")
+
+# Always try to mount images directory (should exist or be created by the application)
+if Path(settings.gallery_path).exists():
+    app.mount("/images", StaticFiles(directory=settings.gallery_path), "images")
+    logger.info("Mounted /images from %s", settings.gallery_path)
+else:
+    logger.warning("Gallery path %s not found - /images route not mounted", settings.gallery_path)
 
 
 @app.get("/api/status")
@@ -313,8 +338,15 @@ app.include_router(images_router)
 async def react_app(req: Request,
                     config_repo: Annotated[ConfigRepository, Depends(get_config_repository)],
                     filter_repository: Annotated[FilterRepository, Depends(get_filter_repository)]
-                    ) -> templates.TemplateResponse:
-    """Render the React app."""
+                    ) -> Response:
+    """Render the React app or return error if templates not available."""
+    # If templates are not available, return API-only error
+    if templates is None:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Frontend not available - templates not found"}
+        )
+
     active_filter_id = config_repo.get_or(
             ConfigKey.ACTIVE_FILTER, default_value=None
         ).value
