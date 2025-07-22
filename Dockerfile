@@ -13,9 +13,9 @@ ENV UV_PYTHON_DOWNLOADS=0
 # Change the working directory to the `app` directory
 WORKDIR /app
 RUN apt-get update && apt-get -y install git
-COPY ./pyproject.toml ./uv.lock ./poetry.lock ./alembic.ini ./alembic/ ./README.md  ./
-COPY alembic/ ./alembic
-COPY framegallery/ ./framegallery
+COPY pyproject.toml uv.lock alembic.ini ./
+COPY alembic/ ./alembic/
+COPY framegallery/ ./framegallery/
 
 # Sync the project
 RUN --mount=type=cache,target=/tmp/.cache/uv \

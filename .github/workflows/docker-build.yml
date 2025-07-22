@@ -4,13 +4,11 @@ on:
   push:
     branches:
       - main
-      - master
     tags:
       - 'v*'
   pull_request:
     branches:
       - main
-      - master
   workflow_dispatch:
 
 env:
@@ -54,6 +52,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
