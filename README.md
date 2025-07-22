@@ -64,25 +64,71 @@ You need to have [uv](https://github.com/astral-sh/uv) installed. `uv` is an ext
 
 ### Running the application via Docker
 
-First build the image with:
+#### Using Pre-built Images from GitHub Container Registry (Recommended)
+
+You can pull and run the latest pre-built image directly from GitHub Container Registry:
+
 ```bash
-docker build -f Dockerfile -t slknijnenburg/framegallery:latest . 
+# Pull the latest image
+docker pull ghcr.io/slknijnenburg/framegallery:latest
+
+# Create directories for data and images
+mkdir -p ./images ./data
+
+# Run the container
+docker run -d --name framegallery \
+  -p 7999:7999 \
+  -v $(pwd)/images:/app/images \
+  -v $(pwd)/data:/app/data \
+  --env-file .env \
+  ghcr.io/slknijnenburg/framegallery:latest
+```
+
+Or using Docker Compose:
+
+```bash
+# Update docker-compose.yml to use the pre-built image
+docker-compose up -d
+```
+
+#### Building Locally
+
+If you prefer to build the image locally:
+
+```bash
+docker build -f Dockerfile -t framegallery:local . 
 ```
 
 Then run it with:
 ```bash
-docker run -it --rm -p 127.0.0.1:7999:7999 -v $(pwd)/images:/app/images -v $(pwd)/data:/app/data slknijnenburg/framegallery:latest
+docker run -it --rm -p 127.0.0.1:7999:7999 -v $(pwd)/images:/app/images -v $(pwd)/data:/app/data framegallery:local
 ```
+
+#### Configuration
 
 On start-up, the app will import all images from the `images` directory and create a database in the `data` directory.
 It will also generate thumbnails for display in the browser for each image, so you'll need to ensure that the images folder is writeable by the container.
 
-In case changes were made to the database schema, migrations will need to be executed manually when running the updated container.
-This can be done with the following command:
+Create a `.env` file with your Samsung TV configuration:
+```bash
+TV_IP_ADDRESS=192.168.1.100
+TV_PORT=8002
+GALLERY_PATH=/app/images
+```
+
+#### Database Migrations
+
+In case changes were made to the database schema, migrations will need to be executed manually when running the updated container:
 
 ```bash
-docker run -it --rm -v $(pwd)/images:/app/images -v $(pwd)/data:/app/data slknijnenburg/framegallery:latest poetry run alembic upgrade head
+docker run -it --rm -v $(pwd)/images:/app/images -v $(pwd)/data:/app/data ghcr.io/slknijnenburg/framegallery:latest uv run alembic upgrade head
 ```
+
+#### Available Image Tags
+
+- `latest` - Latest stable release from the main branch
+- `main` - Latest development build from the main branch  
+- `v1.0.0` - Specific version tags (when available)
 
 #### Image configuration
 

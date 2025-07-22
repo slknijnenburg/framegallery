@@ -1,0 +1,59 @@
+# Git
+.git
+.gitignore
+
+# CI/CD
+.github
+Justfile
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Documentation
+README.md
+CLAUDE.md
+
+# Development files
+.env
+.env.local
+
+# Logs
+logs/
+*.log
+
+# Data directories that should be mounted
+data/
+images/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+.venv/
+.pytest_cache/
+
+# Node.js
+ui/node_modules/
+ui/dist/
+ui/build/
+ui/.env
+ui/coverage/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+.coverage
