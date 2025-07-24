@@ -296,7 +296,7 @@ async def get_settings(
     """Get the current settings."""
     config_repo = ConfigRepository(db)
     active_image_id = config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE, default_value=None).value
-    active_image = crud.get_image_by_id(db, int(active_image_id))
+    active_image = crud.get_image_by_id(db, int(active_image_id)) if active_image_id else None
     if active_image:
         active_image = Image.model_validate(active_image)
 
@@ -350,7 +350,7 @@ async def react_app(req: Request,
     active_filter_id = config_repo.get_or(
             ConfigKey.ACTIVE_FILTER, default_value=None
         ).value
-    active_filter = filter_repository.get_filter(int(active_filter_id))
+    active_filter = filter_repository.get_filter(int(active_filter_id)) if active_filter_id else None
 
     config = {
         "slideshow_enabled": config_repo.get_or(
