@@ -1,5 +1,6 @@
 """Database migration utilities for automatic schema updates."""
 import logging
+import os
 from pathlib import Path
 
 from sqlalchemy import create_engine, text
@@ -59,6 +60,9 @@ def run_migrations() -> bool:
         bool: True if migrations were successful, False otherwise
 
     """
+    import sys
+    import subprocess
+    
     try:
         logger.info("Starting database migration process")
 
@@ -67,20 +71,38 @@ def run_migrations() -> bool:
         if not db_exists:
             logger.info("Database will be created during migration")
 
-        # Get Alembic configuration
+        # Get Alembic configuration  
         alembic_cfg = get_alembic_config()
 
-        # Run migrations to the latest version
+        # Run migrations to the latest version using subprocess to avoid sys.exit()
         logger.info("Running migrations to head...")
-        try:
-            command.upgrade(alembic_cfg, "head")
-            logger.info("Alembic upgrade command completed")
-        except SystemExit as e:
-            logger.error("Alembic called sys.exit() with code: %s", e.code)
-            if e.code != 0:
-                return False
-            # If exit code is 0, it might be normal completion
-            logger.info("Alembic exited with code 0, treating as success")
+        
+        # Get the project root directory
+        project_root = Path(__file__).parent.parent
+        alembic_cfg_path = project_root / "alembic.ini"
+        
+        # Run alembic upgrade using subprocess to isolate sys.exit calls
+        result = subprocess.run([
+            sys.executable, "-m", "alembic", 
+            "-c", str(alembic_cfg_path),
+            "upgrade", "head"
+        ], 
+        capture_output=True, 
+        text=True,
+        cwd=str(project_root),
+        env={**dict(os.environ), "PYTHONPATH": str(project_root)}
+        )
+        
+        logger.info("Alembic subprocess completed with return code: %s", result.returncode)
+        
+        if result.stdout:
+            logger.info("Alembic stdout: %s", result.stdout.strip())
+        if result.stderr:
+            logger.warning("Alembic stderr: %s", result.stderr.strip())
+            
+        if result.returncode != 0:
+            logger.error("Alembic migration failed with return code: %s", result.returncode)
+            return False
 
         logger.info("Database migrations completed successfully")
     except Exception:
