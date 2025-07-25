@@ -17,6 +17,14 @@ class Settings(BaseSettings):
     slideshow_interval: int = 180
     log_level: str = "DEBUG"
 
+    @property
+    def database_path(self) -> str:
+        """Extract the database file path from the database URL."""
+        if self.db_url.startswith("sqlite:///"):
+            return self.db_url[10:]  # Remove "sqlite:///" prefix
+        msg = f"Unsupported database URL format: {self.db_url}"
+        raise ValueError(msg)
+
 
 settings = Settings()
 

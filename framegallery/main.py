@@ -21,12 +21,13 @@ from framegallery.config import settings
 from framegallery.configuration.update_current_active_image_config_listener import (
     UpdateCurrentActiveImageConfigListener,
 )
-from framegallery.database import engine, get_db
+from framegallery.database import get_db
 from framegallery.dependencies import get_config_repository, get_filter_repository, get_slideshow_instance
 from framegallery.frame_connector.frame_connector import FrameConnector, api_version
 from framegallery.frame_connector.status import SlideshowStatus, Status
 from framegallery.importer2.importer import Importer
 from framegallery.logging_config import setup_logging
+from framegallery.migrations import run_migrations
 from framegallery.repository.config_repository import ConfigKey, ConfigRepository
 from framegallery.repository.filter_repository import FilterRepository
 from framegallery.repository.image_repository import ImageRepository
@@ -37,8 +38,6 @@ from framegallery.slideshow.slideshow import Slideshow
 from framegallery.sse.slideshow_signal_listener import SlideshowSignalSSEListener
 
 logger = setup_logging(log_level=settings.log_level)
-
-models.Base.metadata.create_all(bind=engine)
 
 background_tasks = set()
 
@@ -62,10 +61,31 @@ async def update_slideshow_periodically(slideshow: Slideshow) -> None:
         await asyncio.sleep(settings.slideshow_interval)
 
 
+def _raise_migration_error() -> None:
+    """Raise migration error."""
+    msg = "Database migrations failed"
+    raise RuntimeError(msg)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Run tasks on startup and shutdown."""
     logger.info("logger - Inside lifespan")
+
+    # Run database migrations first
+    logger.info("Running database migrations...")
+    try:
+        migration_success = run_migrations()
+        if not migration_success:
+            logger.error("Database migrations failed - application startup aborted")
+            _raise_migration_error()
+        logger.info("Database migrations completed successfully")
+    except Exception as e:
+        logger.exception("Critical error during database migration")
+        msg = f"Database migration failed: {e}"
+        raise RuntimeError(msg) from e
+
+    logger.info("Proceeding with application initialization after migrations...")
 
     # Initialize FrameConnector within lifespan
     frame_connector = FrameConnector(settings.tv_ip_address, settings.tv_port)

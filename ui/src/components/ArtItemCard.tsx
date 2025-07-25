@@ -24,7 +24,7 @@ export default function ArtItemCard({ item }: ArtItemCardProps) {
   // Create function to POST to the API to make this art active, that will be called when the button is clicked
   const makeActiveArt = async () => {
     try {
-      await axios.post(`http://localhost:7999/api/active-art/${item.id}`);
+      await axios.post(`/api/active-art/${item.id}`);
     } catch (error) {
       console.error(error);
     }

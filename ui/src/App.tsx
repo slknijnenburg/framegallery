@@ -15,7 +15,7 @@ import {SettingsProvider, useSettings} from './SettingsContext';
 import FrameDisplayPreview from './components/FrameDisplayPreview';
 import SettingsStatus from './components/SettingsStatus';
 
-export const API_BASE_URL = 'http://localhost:7999';
+export const API_BASE_URL = '';
 
 export default function App() {
   return (
@@ -142,7 +142,7 @@ function Browser() {
 
   useEffect(() => {
     const fetchItems = async () => {
-      const url = 'http://localhost:7999/api/available-images';
+      const url = '/api/available-images';
 
       try {
         const response = await axios.get(url);
@@ -156,7 +156,7 @@ function Browser() {
 
   useEffect(() => {
     const fetchItems = async () => {
-      const url = 'http://localhost:7999/api/albums';
+      const url = '/api/albums';
 
       try {
         const response = await axios.get(url);

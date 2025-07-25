@@ -151,9 +151,13 @@ class Importer:
     @staticmethod
     def resize_image(pil_image: Image, image_path: str) -> str:
         """Resize an image to a thumbnail and save it to disk. Return the thumbnail path."""
+        thumbnail_path = image_path.replace(".jpg", ".thumbnail.jpg")
+        if Path(thumbnail_path).exists():
+            logger.debug("Thumbnail already exists for %s", image_path)
+            return thumbnail_path
+
         thumbnail = pil_image.copy()
         thumbnail.thumbnail((200, 200))
-        thumbnail_path = image_path.replace(".jpg", ".thumbnail.jpg")
         thumbnail.save(thumbnail_path)
 
         return thumbnail_path
@@ -165,7 +169,7 @@ class Importer:
 
 if __name__ == "__main__":
     try:
-        models.Base.metadata.create_all(bind=database.engine)
+        # Database migrations are now handled centrally in main.py
         db = database.SessionLocal()
 
         importer = Importer(settings.gallery_path, db)

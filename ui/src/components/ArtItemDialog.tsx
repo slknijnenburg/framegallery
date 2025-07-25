@@ -73,7 +73,7 @@ export default function ArtItemDialog(props: ArtItemDialogProps) {
 
     // Send the new matte ID to the backend
     try {
-      await axios.patch(`http://localhost:7999/api/available-art/${props.image.id}`, {
+      await axios.patch(`/api/available-art/${props.image.id}`, {
         matte_id: matteId,
         portrait_matte_id: matteId,
       });
