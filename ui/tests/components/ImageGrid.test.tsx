@@ -109,7 +109,7 @@ describe('ImageGrid', () => {
         const { unmount } = render(<ImageGrid items={mockItems} />);
 
         // Check if added on mount
-        expect(addSpy).toHaveBeenCalledWith('scroll', expect.any(Function)); 
+        expect(addSpy).toHaveBeenCalledWith('scroll', expect.any(Function));
 
         unmount();
 
@@ -121,6 +121,6 @@ describe('ImageGrid', () => {
     });
 
     // Note: Testing the actual scroll event triggering loadMore is complex
-    // and often requires mocking scroll properties. Testing the click 
+    // and often requires mocking scroll properties. Testing the click
     // handler covers the core loadMore logic.
 });

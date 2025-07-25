@@ -9,6 +9,7 @@ from framegallery.models import Image
 # It's good practice to get a logger specific to this module
 logger = logging.getLogger(__name__)
 
+
 def get_file_type(image_path: str) -> str | None:
     """Try to figure out what kind of image file is, starting with the extension."""
     try:
@@ -17,6 +18,7 @@ def get_file_type(image_path: str) -> str | None:
     except Exception:
         logger.exception("Error determining file type for: %s", image_path)
         raise
+
 
 def get_cropped_image_dimensions(image: Image) -> tuple[int, int]:
     """Get the dimensions of the cropped image based on the original image dimensions and the crop info."""
@@ -48,6 +50,7 @@ def get_cropped_image_dimensions(image: Image) -> tuple[int, int]:
         logger.exception("Error getting cropped image dimensions for: %s", image)
         raise
 
+
 def crop_image_data(file_data: bytes, crop_info: dict) -> bytes:
     """Crop image data based on percentage crop info."""
     try:
@@ -76,8 +79,7 @@ def crop_image_data(file_data: bytes, crop_info: dict) -> bytes:
             return file_data
 
         logger.info(
-            "Cropping image: original=(%sx%s), box=(%s,%s,%s,%s)",
-            img_width, img_height, left, top, right, bottom
+            "Cropping image: original=(%sx%s), box=(%s,%s,%s,%s)", img_width, img_height, left, top, right, bottom
         )
         cropped_img = img.crop((left, top, right, bottom))
 
@@ -88,6 +90,7 @@ def crop_image_data(file_data: bytes, crop_info: dict) -> bytes:
     except Exception:
         logger.exception("Error cropping image data")
         return file_data
+
 
 def read_file_data(image: Image) -> tuple[bytes, str]:
     """Read image file data, crop if necessary, and return bytes and file type."""
@@ -120,9 +123,7 @@ def read_file_data(image: Image) -> tuple[bytes, str]:
             file_type_suffix = ".jpeg"
             logger.info("Successfully cropped image %s, new type: %s", image.id, file_type_suffix)
         except Exception:
-            logger.exception(
-                "Failed to crop image %s. Returning original image.", image.id
-            )
+            logger.exception("Failed to crop image %s. Returning original image.", image.id)
             with image_path.open("rb") as f:
                 file_data = f.read()
             file_type_suffix = image_path.suffix.lower()

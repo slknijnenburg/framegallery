@@ -4,15 +4,15 @@ import '@testing-library/jest-dom';
 import SettingsStatus from '../../src/components/SettingsStatus';
 import { useSettings } from '../../src/SettingsContext';
 import { Settings } from '../../src/models/Settings';
-import Image from '../../src/models/Image'; 
-import { Filter } from '../../src/components/Filters/Filter'; 
+import Image from '../../src/models/Image';
+import { Filter } from '../../src/components/Filters/Filter';
 
 jest.mock('../../src/SettingsContext');
-const mockUseSettings = useSettings as jest.MockedFunction<typeof useSettings>; 
-const mockUpdateSetting = jest.fn(); 
+const mockUseSettings = useSettings as jest.MockedFunction<typeof useSettings>;
+const mockUpdateSetting = jest.fn();
 
 const mockImage: Image = {
-    id: 1, 
+    id: 1,
     filename: 'active-image.jpg',
     filepath: '/path/to/active-image.jpg',
     filetype: 'image/jpeg',
@@ -21,20 +21,20 @@ const mockImage: Image = {
     height: 1080,
     aspect_width: 16,
     aspect_height: 9,
-    matte_id: 'shadowbox_black', 
+    matte_id: 'shadowbox_black',
 };
 
 const mockFilter: Filter = {
   id: 1,
   name: 'Sample Filter',
-  query: '{"tag":"landscape"}', 
+  query: '{"tag":"landscape"}',
 };
 
 const mockSettings: Settings = {
   slideshow_enabled: true,
   slideshow_interval: 30,
   current_active_image: mockImage,
-  current_active_image_since: '2023-10-27T10:00:00Z', 
+  current_active_image_since: '2023-10-27T10:00:00Z',
   active_filter: mockFilter,
 };
 
@@ -46,7 +46,7 @@ const mockSettingsNoFilter: Settings = {
 describe('SettingsStatus Component', () => {
   beforeEach(() => {
     mockUseSettings.mockClear();
-    mockUpdateSetting.mockClear(); 
+    mockUpdateSetting.mockClear();
   });
 
   test('renders loading state', () => {
@@ -67,13 +67,13 @@ describe('SettingsStatus Component', () => {
     render(<SettingsStatus />);
 
     expect(screen.getByText(`${mockSettings.slideshow_interval} s`)).toBeInTheDocument();
-    expect(screen.getByText('On')).toBeInTheDocument(); 
-    expect(screen.getByTestId('CheckCircleIcon')).toBeInTheDocument(); 
+    expect(screen.getByText('On')).toBeInTheDocument();
+    expect(screen.getByTestId('CheckCircleIcon')).toBeInTheDocument();
 
     expect(screen.getByText(mockSettings.current_active_image.filename)).toBeInTheDocument();
 
     // Check Active Filter (Check visible elements)
-    expect(screen.getByText(mockSettings.active_filter!.name)).toBeInTheDocument(); 
+    expect(screen.getByText(mockSettings.active_filter!.name)).toBeInTheDocument();
   });
 
    test('renders slideshow disabled correctly', () => {
@@ -81,8 +81,8 @@ describe('SettingsStatus Component', () => {
         mockUseSettings.mockReturnValue({ settings: disabledSettings, loading: false, error: null, updateSetting: mockUpdateSetting });
         render(<SettingsStatus />);
 
-        expect(screen.getByText('Off')).toBeInTheDocument(); 
-        expect(screen.getByTestId('CancelIcon')).toBeInTheDocument(); 
+        expect(screen.getByText('Off')).toBeInTheDocument();
+        expect(screen.getByTestId('CancelIcon')).toBeInTheDocument();
    });
 
     test('renders "None" when active filter is null', () => {

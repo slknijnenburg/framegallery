@@ -2,7 +2,7 @@
 reset initial migration
 
 Revision ID: 37a5f869f63c
-Revises: 
+Revises:
 Create Date: 2024-12-27 23:10:29.728781
 
 """

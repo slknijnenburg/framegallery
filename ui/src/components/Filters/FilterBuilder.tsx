@@ -9,9 +9,9 @@ import {Filter} from './Filter';
 
 const fields: Field[] = [
     {
-        name: 'directory', 
-        label: 'Directory', 
-        valueEditorType: 'text', 
+        name: 'directory',
+        label: 'Directory',
+        valueEditorType: 'text',
         datatype: 'string',
         operators: [
             { name: '=', value: '=', label: '=' },
@@ -29,9 +29,9 @@ const fields: Field[] = [
         ]
     },
     {
-        name: 'file_name', 
-        label: 'File name', 
-        valueEditorType: 'text', 
+        name: 'file_name',
+        label: 'File name',
+        valueEditorType: 'text',
         datatype: 'string',
         operators: [
             { name: '=', value: '=', label: '=' },
@@ -49,8 +49,8 @@ const fields: Field[] = [
         ]
     },
     {
-        name: 'aspect_ratio_width', 
-        label: 'Aspect ratio width', 
+        name: 'aspect_ratio_width',
+        label: 'Aspect ratio width',
         datatype: 'number',
         operators: [
             { name: '=', value: '=', label: '=' },
@@ -64,8 +64,8 @@ const fields: Field[] = [
         ]
     },
     {
-        name: 'aspect_ratio_height', 
-        label: 'Aspect ratio height', 
+        name: 'aspect_ratio_height',
+        label: 'Aspect ratio height',
         datatype: 'number',
         operators: [
             { name: '=', value: '=', label: '=' },
@@ -76,7 +76,7 @@ const fields: Field[] = [
             { name: '<=', value: '<=', label: '<=' },
             { name: 'null', value: 'null', label: 'is null' },
             { name: 'notNull', value: 'notNull', label: 'is not null' },
-        ]   
+        ]
     },
 ];
 
@@ -96,13 +96,13 @@ const FilterBuilder = ({filter, onFilterChange}: FilterBuilderProps) => {
             const jsonParsedFilter = JSON.parse(
                 filter.query || '{"id":"root","combinator":"and","rules":[]}',
             ) as RuleGroupType;
-            
+
             // Ensure the parsed filter has an ID
             const filterWithId = {
                 ...jsonParsedFilter,
                 id: jsonParsedFilter.id || generateID()
             };
-            
+
             setQuery(filterWithId);
             setFilterName(filter.name);
         } else {

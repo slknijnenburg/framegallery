@@ -10,17 +10,20 @@ from framegallery.repository.image_repository import ImageRepository
 from framegallery.slideshow.slideshow import Slideshow
 
 
-def get_config_repository(db: Annotated[Session,  Depends(get_db)]) -> ConfigRepository:
+def get_config_repository(db: Annotated[Session, Depends(get_db)]) -> ConfigRepository:
     """Get the configuration repository."""
     return ConfigRepository(db)
 
-def get_image_repository(db: Annotated[Session,  Depends(get_db)]) -> ImageRepository:
+
+def get_image_repository(db: Annotated[Session, Depends(get_db)]) -> ImageRepository:
     """Get the image repository."""
     return ImageRepository(db)
 
-def get_filter_repository(db: Annotated[Session,  Depends(get_db)]) -> FilterRepository:
+
+def get_filter_repository(db: Annotated[Session, Depends(get_db)]) -> FilterRepository:
     """Get the filter repository."""
     return FilterRepository(db)
+
 
 def get_slideshow_instance(
     image_repository: Annotated[ImageRepository, Depends(get_image_repository)],

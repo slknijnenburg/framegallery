@@ -21,7 +21,7 @@ describe('ArtItemCard', () => {
 
   it('renders image filename and thumbnail', () => {
     render(<ArtItemCard item={mockImage} />);
-    
+
     expect(screen.getByText('test.jpg')).toBeInTheDocument();
     expect(screen.getByRole('img')).toHaveAttribute('src', `/${mockImage.thumbnail_path}`);
   });
@@ -29,14 +29,14 @@ describe('ArtItemCard', () => {
   it('has make active button that triggers API call', () => {
     const mockAxios = jest.spyOn(axios, 'post').mockResolvedValue({});
     render(<ArtItemCard item={mockImage} />);
-    
+
     fireEvent.click(screen.getByLabelText(`Make ${mockImage.filename} active`));
     expect(mockAxios).toHaveBeenCalledWith(`/api/active-art/${mockImage.id}`);
   });
 
   it('opens dialog when settings button is clicked', () => {
     render(<ArtItemCard item={mockImage} />);
-    
+
     fireEvent.click(screen.getByLabelText(`Settings for ${mockImage.filename}`));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });

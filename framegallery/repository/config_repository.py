@@ -17,6 +17,7 @@ class ConfigKey(Enum):
     CURRENT_ACTIVE_IMAGE_SINCE = "current_active_image_since"
     ACTIVE_FILTER = "active_filter"
 
+
 class ConfigRepository:
     """Manages the configuration in the database."""
 
@@ -29,7 +30,7 @@ class ConfigRepository:
 
         return self._db.execute(stmt).scalar_one_or_none()
 
-    def get_or(self, key: ConfigKey, default_value: Any | None = None) -> Config: # noqa: ANN401
+    def get_or(self, key: ConfigKey, default_value: Any | None = None) -> Config:  # noqa: ANN401
         """Get a configuration value by its key or return the default value."""
         value_from_db = self.get(key)
         if value_from_db is None:

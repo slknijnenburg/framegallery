@@ -41,6 +41,7 @@ logger = setup_logging(log_level=settings.log_level)
 
 background_tasks = set()
 
+
 # Background task to run the filesystem sync
 async def run_importer_periodically(db: Session) -> None:
     """Run the importer periodically to synchronize the filesystem with the database."""
@@ -89,7 +90,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Initialize FrameConnector within lifespan
     frame_connector = FrameConnector(settings.tv_ip_address, settings.tv_port)
-    app.state.frame_connector = frame_connector # Store in app state
+    app.state.frame_connector = frame_connector  # Store in app state
 
     # Call startup logic for the connector
     await frame_connector.get_active_item_details()
@@ -116,9 +117,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     config_repository = ConfigRepository(db)
     # Store the listener in the app state so that it doesn't get garbage collected
-    app.state.update_active_image_in_config_listener = UpdateCurrentActiveImageConfigListener(
-        config_repository
-    )
+    app.state.update_active_image_in_config_listener = UpdateCurrentActiveImageConfigListener(config_repository)
 
     # Instantiate and store the new SSE signal listener
     app.state.slideshow_signal_sse_listener = SlideshowSignalSSEListener(slideshow_event_queue)
@@ -191,14 +190,12 @@ async def status() -> Status:
 
 
 @app.get("/api/available-images", response_model=list[schemas.Image])
-async def available_images(db: Annotated[Session,  Depends(get_db)]) -> list[models.Image]:
+async def available_images(db: Annotated[Session, Depends(get_db)]) -> list[models.Image]:
     """Get a list of all available images."""
     images = crud.get_images(db)
 
     for image in images:
-        image.thumbnail_path = image.thumbnail_path.replace(
-            settings.gallery_path, "/images"
-        )
+        image.thumbnail_path = image.thumbnail_path.replace(settings.gallery_path, "/images")
 
     return images
 
@@ -206,9 +203,12 @@ async def available_images(db: Annotated[Session,  Depends(get_db)]) -> list[mod
 """
 Retrieves a list of (nested) folders in the gallery path, that can be used for filtering in the UI.
 """
+
+
 @app.get("/api/albums")
 async def get_albums() -> dict:
     """Get a directory tree of gallery albums."""
+
     def build_tree(path: str) -> dict:
         """Build a directory tree of gallery albums."""
         tree = {"id": "/", "name": "/", "label": "/", "children": []}
@@ -241,9 +241,13 @@ async def get_albums() -> dict:
 
     return build_tree(settings.gallery_path)
 
+
 @app.post("/api/active-art/{image_id}")
-async def select_art(image_id: int, db: Annotated[Session, Depends(get_db)],
-                     slideshow: Annotated[Slideshow, Depends(get_slideshow_instance)]) -> Image:
+async def select_art(
+    image_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    slideshow: Annotated[Slideshow, Depends(get_slideshow_instance)],
+) -> Image:
     """Set the active item."""
     image = crud.get_image_by_id(db, image_id)
     if not image:
@@ -255,17 +259,15 @@ async def select_art(image_id: int, db: Annotated[Session, Depends(get_db)],
 
 
 @app.get("/api/slideshow")
-async def get_slideshow_status(db: Annotated[Session,  Depends(get_db)]) -> SlideshowStatus:
+async def get_slideshow_status(db: Annotated[Session, Depends(get_db)]) -> SlideshowStatus:
     """Get the current slideshow status."""
     config_repo = ConfigRepository(db)
     slideshow_status = config_repo.get_or(ConfigKey.SLIDESHOW_ENABLED, default_value=True)
-    return SlideshowStatus(
-        enabled=slideshow_status.value == "true", interval=settings.slideshow_interval
-    )
+    return SlideshowStatus(enabled=slideshow_status.value == "true", interval=settings.slideshow_interval)
 
 
 @app.post("/api/slideshow/enable")
-async def enable_slideshow(db: Annotated[Session,  Depends(get_db)]) -> dict:
+async def enable_slideshow(db: Annotated[Session, Depends(get_db)]) -> dict:
     """Enable the slideshow."""
     config_repo = ConfigRepository(db)
     config_repo.set(ConfigKey.SLIDESHOW_ENABLED, value=True)
@@ -274,7 +276,7 @@ async def enable_slideshow(db: Annotated[Session,  Depends(get_db)]) -> dict:
 
 
 @app.post("/api/slideshow/disable")
-async def disable_slideshow(db: Annotated[Session,  Depends(get_db)]) -> dict:
+async def disable_slideshow(db: Annotated[Session, Depends(get_db)]) -> dict:
     """Disable the slideshow."""
     config_repo = ConfigRepository(db)
     config_repo.set(ConfigKey.SLIDESHOW_ENABLED, "false")
@@ -303,7 +305,7 @@ async def slideshow_events(request: Request) -> EventSourceResponse:
             # Log other potential errors from the queue or SSE generation
             logger.exception("SSE: Error in event generator")
             # Depending on the error, you might want to raise or just stop generation
-            raise # Reraising to ensure the connection closes on unexpected errors
+            raise  # Reraising to ensure the connection closes on unexpected errors
 
     return EventSourceResponse(event_generator(), ping=100)
 
@@ -311,8 +313,8 @@ async def slideshow_events(request: Request) -> EventSourceResponse:
 @app.get("/api/settings")
 async def get_settings(
     db: Annotated[Session, Depends(get_db)],
-    filter_repository: Annotated[FilterRepository, Depends(get_filter_repository)]
-    ) -> ConfigResponse:
+    filter_repository: Annotated[FilterRepository, Depends(get_filter_repository)],
+) -> ConfigResponse:
     """Get the current settings."""
     config_repo = ConfigRepository(db)
     active_image_id = config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE, default_value=None).value
@@ -321,9 +323,7 @@ async def get_settings(
         active_image = Image.model_validate(active_image)
 
     active_filter = None
-    active_filter_id = config_repo.get_or(
-            ConfigKey.ACTIVE_FILTER, default_value=None
-        ).value
+    active_filter_id = config_repo.get_or(ConfigKey.ACTIVE_FILTER, default_value=None).value
     if active_filter_id is not None:
         active_filter = filter_repository.get_filter(int(active_filter_id))
     if active_filter:
@@ -333,9 +333,10 @@ async def get_settings(
         "slideshow_enabled": config_repo.get_or(ConfigKey.SLIDESHOW_ENABLED, default_value=True).value,
         "slideshow_interval": settings.slideshow_interval,
         "current_active_image": active_image,
-        "current_active_image_since":
-            config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, default_value=None).value,
-        "active_filter": active_filter
+        "current_active_image_since": config_repo.get_or(
+            ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, default_value=None
+        ).value,
+        "active_filter": active_filter,
     }
 
     return ConfigResponse(**config)
@@ -352,38 +353,31 @@ app.include_router(filters_router)
 app.include_router(config_router)
 app.include_router(images_router)
 
+
 # Defines a route handler for `/*` essentially.
 # NOTE: this needs to be the last route defined b/c it's a catch all route
 @app.get("/{rest_of_path:path}", response_model=None)
-async def react_app(req: Request,
-                    config_repo: Annotated[ConfigRepository, Depends(get_config_repository)],
-                    filter_repository: Annotated[FilterRepository, Depends(get_filter_repository)]
-                    ) -> Response:
+async def react_app(
+    req: Request,
+    config_repo: Annotated[ConfigRepository, Depends(get_config_repository)],
+    filter_repository: Annotated[FilterRepository, Depends(get_filter_repository)],
+) -> Response:
     """Render the React app or return error if templates not available."""
     # If templates are not available, return API-only error
     if templates is None:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "Frontend not available - templates not found"}
-        )
+        return JSONResponse(status_code=503, content={"error": "Frontend not available - templates not found"})
 
-    active_filter_id = config_repo.get_or(
-            ConfigKey.ACTIVE_FILTER, default_value=None
-        ).value
+    active_filter_id = config_repo.get_or(ConfigKey.ACTIVE_FILTER, default_value=None).value
     active_filter = filter_repository.get_filter(int(active_filter_id)) if active_filter_id else None
 
     config = {
-        "slideshow_enabled": config_repo.get_or(
-            ConfigKey.SLIDESHOW_ENABLED, default_value=True
-        ).value,
+        "slideshow_enabled": config_repo.get_or(ConfigKey.SLIDESHOW_ENABLED, default_value=True).value,
         "slideshow_interval": settings.slideshow_interval,
-        "current_active_image": config_repo.get_or(
-            ConfigKey.CURRENT_ACTIVE_IMAGE, default_value=None
-        ).value,
+        "current_active_image": config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE, default_value=None).value,
         "current_active_image_since": config_repo.get_or(
             ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, default_value=None
         ).value,
-        "active_filter": active_filter
+        "active_filter": active_filter,
     }
 
     return templates.TemplateResponse("index.html", {"request": req, "config": config})

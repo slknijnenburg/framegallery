@@ -10,6 +10,7 @@ from framegallery.repository.image_repository import ImageRepository, NoImagesEr
 
 logger = logging.getLogger("framegallery")
 
+
 class Slideshow:
     """A class that manages the active image in the slideshow."""
 
@@ -17,7 +18,7 @@ class Slideshow:
         self,
         image_repository: ImageRepository,
         config_repository: ConfigRepository,
-        filter_repository: FilterRepository
+        filter_repository: FilterRepository,
     ) -> None:
         self._active_image = None
         self._image_repository = image_repository

@@ -16,7 +16,7 @@ router = APIRouter(
 
 @router.get("/active_filter", response_model=schemas.ConfigValue)
 def get_active_filter(
-    config_repository: Annotated[ConfigRepository, Depends(get_config_repository)]
+    config_repository: Annotated[ConfigRepository, Depends(get_config_repository)],
 ) -> schemas.ConfigValue:
     """Get the currently active filter."""
     config = config_repository.get(ConfigKey.ACTIVE_FILTER)
@@ -25,8 +25,7 @@ def get_active_filter(
 
 @router.post("/active_filter", response_model=schemas.ConfigValue)
 def set_active_filter(
-    config_value: schemas.ConfigValue,
-    config_repository: Annotated[ConfigRepository, Depends(get_config_repository)]
+    config_value: schemas.ConfigValue, config_repository: Annotated[ConfigRepository, Depends(get_config_repository)]
 ) -> schemas.ConfigValue:
     """Set the currently active filter."""
     if config_value.value is None:
