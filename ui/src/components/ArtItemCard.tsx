@@ -78,7 +78,7 @@ export default function ArtItemCard({ item }: ArtItemCardProps) {
         >
           <CropIcon />
         </IconButton>
-        
+
         <ArtItemDialog open={dialogOpened} image={item} onClose={closeDialog} />
         <CropDialog open={cropDialogOpened} image={item} onClose={closeCropDialog} />
       </CardActions>

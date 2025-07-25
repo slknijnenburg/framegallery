@@ -26,8 +26,18 @@ class DirectoryFilter(ImageFilter):
         op = self._operator
         value = self._value
         if op in (
-            "=", "!=", "contains", "beginsWith", "endsWith", "doesNotContain",
-            "doesNotBeginWith", "doesNotEndWith", "null", "notNull", "in", "notIn",
+            "=",
+            "!=",
+            "contains",
+            "beginsWith",
+            "endsWith",
+            "doesNotContain",
+            "doesNotBeginWith",
+            "doesNotEndWith",
+            "null",
+            "notNull",
+            "in",
+            "notIn",
         ):
             mapping = {
                 "=": lambda: Image.filepath == value,
@@ -60,8 +70,18 @@ class FilenameFilter(ImageFilter):
         op = self._operator
         value = self._value
         if op in (
-            "=", "!=", "contains", "beginsWith", "endsWith", "doesNotContain",
-            "doesNotBeginWith", "doesNotEndWith", "null", "notNull", "in", "notIn",
+            "=",
+            "!=",
+            "contains",
+            "beginsWith",
+            "endsWith",
+            "doesNotContain",
+            "doesNotBeginWith",
+            "doesNotEndWith",
+            "null",
+            "notNull",
+            "in",
+            "notIn",
         ):
             mapping = {
                 "=": lambda: Image.filename == value,
@@ -82,7 +102,6 @@ class FilenameFilter(ImageFilter):
         raise ValueError(msg)
 
 
-
 class AspectRatioWidthFilter(ImageFilter):
     """Filter images by aspect ratio width."""
 
@@ -92,7 +111,6 @@ class AspectRatioWidthFilter(ImageFilter):
     def get_expression(self) -> ColumnElement[bool]:
         """Return a SQLAlchemy expression that filters images by aspect ratio width."""
         return Image.aspect_width == self._aspect_ratio_width
-
 
 
 class AspectRatioHeightFilter(ImageFilter):
@@ -139,7 +157,7 @@ class OrFilter(ImageFilter):
         return self._or_filters(self._filters)
 
     @staticmethod
-    def _or_filters(filters: list[ImageFilter]) ->  ColumnElement[bool]:
+    def _or_filters(filters: list[ImageFilter]) -> ColumnElement[bool]:
         """Return a SQL expression that filters images by multiple filters, combined with OR."""
         if len(filters) == 0:
             raise NoFiltersError
@@ -148,6 +166,7 @@ class OrFilter(ImageFilter):
             return filters[0].get_expression()
 
         return or_(*[image_filter.get_expression() for image_filter in filters])
+
 
 class NoFiltersError(ValueError):
     """Raised when there are no filters provided."""

@@ -96,7 +96,7 @@ docker-compose up -d
 If you prefer to build the image locally:
 
 ```bash
-docker build -f Dockerfile -t framegallery:local . 
+docker build -f Dockerfile -t framegallery:local .
 ```
 
 Then run it with:
@@ -127,7 +127,7 @@ docker run -it --rm -v $(pwd)/images:/app/images -v $(pwd)/data:/app/data ghcr.i
 #### Available Image Tags
 
 - `latest` - Latest stable release from the main branch
-- `main` - Latest development build from the main branch  
+- `main` - Latest development build from the main branch
 - `v1.0.0` - Specific version tags (when available)
 
 #### Image configuration

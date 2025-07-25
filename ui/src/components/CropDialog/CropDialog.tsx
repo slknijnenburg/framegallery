@@ -42,7 +42,7 @@ const CropDialog: React.FC<CropDialogProps> = ({ open, image, onClose }) => {
     if (completedPercentCrop && image && completedPercentCrop.width && completedPercentCrop.height) {
       const payload = {
         x: completedPercentCrop.x,
-        y: completedPercentCrop.y,  
+        y: completedPercentCrop.y,
         width: completedPercentCrop.width,
         height: completedPercentCrop.height,
       };
@@ -89,7 +89,7 @@ const CropDialog: React.FC<CropDialogProps> = ({ open, image, onClose }) => {
       <DialogTitle>Crop Image</DialogTitle>
       <DialogContent>
         <DialogContentText>Select a 16:9 crop for the image</DialogContentText>
-        <ReactCrop 
+        <ReactCrop
           crop={crop?.[0]}
           onChange={(pixelCrop: PixelCrop, percentageCrop: PercentCrop) => {
             console.log('Changed pixel crop:', pixelCrop)
@@ -113,4 +113,4 @@ const CropDialog: React.FC<CropDialogProps> = ({ open, image, onClose }) => {
   );
 };
 
-export default CropDialog; 
+export default CropDialog;

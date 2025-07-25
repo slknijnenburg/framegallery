@@ -1,4 +1,5 @@
 """Database migration utilities for automatic schema updates."""
+
 import logging
 import os
 from pathlib import Path
@@ -79,15 +80,21 @@ def run_migrations() -> bool:
 
         # Run alembic upgrade using subprocess to isolate sys.exit calls
         # Note: Using subprocess with sys.executable is safe as it's the current Python interpreter
-        result = subprocess.run([  # noqa: S603
-            sys.executable, "-m", "alembic",
-            "-c", str(alembic_cfg_path),
-            "upgrade", "head"
-        ],
-        capture_output=True,
-        text=True,
-        cwd=str(project_root),
-        env={**dict(os.environ), "PYTHONPATH": str(project_root)}, check=False
+        result = subprocess.run(  # noqa: S603
+            [
+                sys.executable,
+                "-m",
+                "alembic",
+                "-c",
+                str(alembic_cfg_path),
+                "upgrade",
+                "head",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(project_root),
+            env={**dict(os.environ), "PYTHONPATH": str(project_root)},
+            check=False,
         )
 
         logger.info("Alembic subprocess completed with return code: %s", result.returncode)

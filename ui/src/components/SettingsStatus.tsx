@@ -24,7 +24,7 @@ const SettingsStatus: React.FC = () => {
     <Box maxWidth="lg" mx="auto" width="100%">
       <Paper elevation={2} sx={{ px: 2, py: 0.5, mb: 2, borderRadius: 2, display: 'flex', alignItems: 'center', minHeight: 44, background: 'rgba(255,255,255,0.95)' }}>
         <Stack direction="row" spacing={2} alignItems="center" width="100%" sx={{ flexWrap: 'nowrap', overflow: 'hidden' }}>
-          
+
           {/* Slideshow interval */}
           <Stack direction="row" spacing={0.5} alignItems="center" minWidth={0}>
             <Tooltip title="Slideshow Interval">

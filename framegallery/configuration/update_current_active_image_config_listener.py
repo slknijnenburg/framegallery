@@ -8,6 +8,7 @@ from framegallery.repository.config_repository import ConfigKey, ConfigRepositor
 
 logger = logging.getLogger("framegallery")
 
+
 class UpdateCurrentActiveImageConfigListener:
     """Update the current active image configuration when the active image changes."""
 

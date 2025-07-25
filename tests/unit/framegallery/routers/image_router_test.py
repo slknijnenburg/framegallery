@@ -18,6 +18,7 @@ def client() -> TestClient:
     """Create a test client."""
     return TestClient(app)
 
+
 @pytest.fixture
 def mock_db_session() -> MagicMock:
     """Create a mock database session."""
@@ -28,17 +29,19 @@ def mock_db_session() -> MagicMock:
     db.refresh = MagicMock()
     return db
 
+
 @pytest.fixture(autouse=True)
 def override_get_db(mock_db_session: MagicMock) -> Generator[None, None, None]:
     """Replace the actual get_db with one that returns our mock session."""
+
     def _override_get_db() -> Generator[MagicMock, None, None]:
         try:
             yield mock_db_session
         finally:
-            pass # No cleanup needed for mock
+            pass  # No cleanup needed for mock
 
     app.dependency_overrides[get_db] = _override_get_db
-    yield # Allow tests to run
+    yield  # Allow tests to run
     # Clean up the override after tests
     app.dependency_overrides.pop(get_db, None)
 

@@ -1,4 +1,3 @@
-
 from sqlalchemy import Float, Index, Integer, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -44,6 +43,7 @@ class Image(Base):
                 "height": self.crop_height,
             }
         return None
+
 
 class Config(Base):
     """Configuration settings."""

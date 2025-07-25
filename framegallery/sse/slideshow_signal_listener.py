@@ -21,6 +21,4 @@ class SlideshowSignalSSEListener:
         if self._event_queue:
             event_data = {"event": "slideshow_update", "imageId": active_image.id}
             await self._event_queue.put(event_data)
-            logger.info(
-                "SlideshowSignalSSEListener: Put event on queue: %s", event_data
-            )
+            logger.info("SlideshowSignalSSEListener: Put event on queue: %s", event_data)

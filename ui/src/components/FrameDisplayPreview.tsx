@@ -2,12 +2,12 @@ import React from 'react';
 import { Box, IconButton, Paper } from '@mui/material';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import axios from 'axios';
-import { API_BASE_URL } from '../App'; 
-import Image from '../models/Image'; 
+import { API_BASE_URL } from '../App';
+import Image from '../models/Image';
 
 interface FrameDisplayPreviewProps {
-  imageUrl: string; 
-  onNext?: (newImage: Image) => void; 
+  imageUrl: string;
+  onNext?: (newImage: Image) => void;
 }
 
 export default function FrameDisplayPreview(props: FrameDisplayPreviewProps) {
@@ -18,7 +18,7 @@ export default function FrameDisplayPreview(props: FrameDisplayPreviewProps) {
 
   const handleNextClick = async () => {
     try {
-      const response = await axios.post<Image>(`${API_BASE_URL}/api/images/next`); 
+      const response = await axios.post<Image>(`${API_BASE_URL}/api/images/next`);
       if (onNext) {
         onNext(response.data);
       }
@@ -30,27 +30,27 @@ export default function FrameDisplayPreview(props: FrameDisplayPreviewProps) {
   return (
     <Box
       sx={{
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         maxWidth: 'lg',
-        mx: 'auto', 
-        p: 2, 
-        position: 'relative', 
+        mx: 'auto',
+        p: 2,
+        position: 'relative',
       }}
     >
       <Paper
         elevation={3}
         sx={{
           width: '100%',
-          paddingBottom: '56.25%', 
+          paddingBottom: '56.25%',
           position: 'relative',
           overflow: 'hidden',
-          backgroundColor: 'black', 
+          backgroundColor: 'black',
         }}
       >
         <img
-          src={currentCroppedImageUrl} 
+          src={currentCroppedImageUrl}
           alt="Frame Display Preview"
           style={{
             position: 'absolute',
@@ -58,7 +58,7 @@ export default function FrameDisplayPreview(props: FrameDisplayPreviewProps) {
             left: 0,
             width: '100%',
             height: '100%',
-            objectFit: 'contain', 
+            objectFit: 'contain',
           }}
         />
       </Paper>
@@ -67,7 +67,7 @@ export default function FrameDisplayPreview(props: FrameDisplayPreviewProps) {
           onClick={handleNextClick}
           sx={{
             position: 'absolute',
-            right: 30, 
+            right: 30,
             top: '50%',
             transform: 'translateY(-50%)',
             backgroundColor: 'rgba(0, 0, 0, 0.5)',

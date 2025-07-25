@@ -46,10 +46,9 @@ class FilterRepository:
     def update_filter(self, filter_to_update: Filter, filter_id: int) -> Filter:
         """Update a filter by its ID."""
         stmt = (
-            update(Filter).where(Filter.id == filter_id).values(
-                name=filter_to_update.name,
-                query=filter_to_update.query
-            )
+            update(Filter)
+            .where(Filter.id == filter_id)
+            .values(name=filter_to_update.name, query=filter_to_update.query)
         )
         self._db.execute(stmt)
         self._db.commit()

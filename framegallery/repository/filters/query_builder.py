@@ -26,6 +26,7 @@ class InvalidRuleError(Exception):
         """Return an InvalidRuleError for missing 'rules' key in a query group."""
         return cls("Invalid query group: missing 'rules' key")
 
+
 class UnsupportedFieldError(Exception):
     """Raised when an unsupported field is encountered in a rule."""
 
@@ -33,12 +34,14 @@ class UnsupportedFieldError(Exception):
         message = f"Unsupported field: {field}"
         super().__init__(message)
 
+
 class UnsupportedCombinatorError(Exception):
     """Raised when an unsupported combinator is encountered in a group."""
 
     def __init__(self, combinator: str) -> None:
         message = f"Unsupported combinator: {combinator}"
         super().__init__(message)
+
 
 class EmptyGroupError(Exception):
     """Raised when a query group contains no rules."""
@@ -157,6 +160,7 @@ class QueryBuilder:
             An ImageFilter that returns the given expression
 
         """
+
         class WrappedFilter(ImageFilter):
             def get_expression(self) -> ColumnElement[bool]:
                 return expression

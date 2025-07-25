@@ -16,6 +16,7 @@ from framegallery.logging_config import setup_logging
 logger = setup_logging(log_level=settings.log_level)
 register_heif_opener()  # HEIF support
 
+
 class Importer:
     """
     Imports all images from the gallery folder to the SQLite database.
@@ -34,8 +35,7 @@ class Importer:
                 Path(root) / f
                 for root, dirs, files in os.walk(self.image_path)
                 for f in files
-                if (f.endswith((".jpg", ".png")))
-                and not f.endswith(".thumbnail.jpg")
+                if (f.endswith((".jpg", ".png"))) and not f.endswith(".thumbnail.jpg")
             ]
         )
 
@@ -43,12 +43,9 @@ class Importer:
 
         return files
 
-    def check_if_local_image_exists_in_db(
-        self, image_path: str
-    ) -> models.Image | None:
+    def check_if_local_image_exists_in_db(self, image_path: str) -> models.Image | None:
         """Check if an image exists in the database by its file path."""
         return crud.get_image_by_path(self._db, filepath=image_path)
-
 
     @staticmethod
     def get_image_dimensions(img: Image) -> tuple[int, int]:
@@ -60,7 +57,7 @@ class Importer:
             return 0, 0
         return width, height
 
-    def read_file(self, filename: str) -> tuple[bytes, str]|tuple[None, None]:
+    def read_file(self, filename: str) -> tuple[bytes, str] | tuple[None, None]:
         """Read a file from disk and return the file data and type."""
         try:
             with Path(filename).open("rb") as f:
@@ -143,9 +140,7 @@ class Importer:
         logger.debug("Processed %d images", len(processed_images))
 
         # Delete all Images that have not been processed
-        delete_count = crud.delete_images_not_in_processed_items_list(
-            self._db, [i.filepath for i in processed_images]
-        )
+        delete_count = crud.delete_images_not_in_processed_items_list(self._db, [i.filepath for i in processed_images])
         logger.debug("Deleted %d images from the database", delete_count)
 
     @staticmethod

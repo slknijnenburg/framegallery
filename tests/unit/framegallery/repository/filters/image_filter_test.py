@@ -20,6 +20,7 @@ def test_directory_filter() -> None:
     # Assert the components of the SQL expression
     assert compiled_expression == "images.filepath LIKE '%2024-Album%'"
 
+
 def test_file_filter() -> None:
     """Test FilenameFilter SQL expression."""
     # Filter all first images from albums...
@@ -31,6 +32,7 @@ def test_file_filter() -> None:
     # Assert the components of the SQL expression
     assert compiled_expression == "images.filename LIKE '%_001.jpg%'"
 
+
 def test_and_filter() -> None:
     """Test AndFilter SQL expression."""
     file_filter = FilenameFilter("_001.jpg", "contains")
@@ -41,9 +43,8 @@ def test_and_filter() -> None:
     compiled_expression = str(binary_operator.compile(compile_kwargs={"literal_binds": True}))
 
     # Assert the components of the SQL expression
-    assert compiled_expression == (
-        "images.filename LIKE '%_001.jpg%' AND images.filepath LIKE '%2024-Album%'"
-    )
+    assert compiled_expression == ("images.filename LIKE '%_001.jpg%' AND images.filepath LIKE '%2024-Album%'")
+
 
 def test_or_filter() -> None:
     """Test OrFilter SQL expression."""
@@ -55,12 +56,12 @@ def test_or_filter() -> None:
     compiled_expression = str(binary_operator.compile(compile_kwargs={"literal_binds": True}))
 
     # Assert the components of the SQL expression
-    assert compiled_expression == (
-        "images.filename LIKE '%_001.jpg%' OR images.filepath LIKE '%2024-Album%'"
-    )
+    assert compiled_expression == ("images.filename LIKE '%_001.jpg%' OR images.filepath LIKE '%2024-Album%'")
+
 
 @pytest.mark.parametrize(
-    ("filter_class", "operator", "value", "expected_sql"), [
+    ("filter_class", "operator", "value", "expected_sql"),
+    [
         (DirectoryFilter, "=", "foo", "images.filepath = 'foo'"),
         (DirectoryFilter, "!=", "foo", "images.filepath != 'foo'"),
         (DirectoryFilter, "contains", "foo", "images.filepath LIKE '%foo%'"),
@@ -71,9 +72,8 @@ def test_or_filter() -> None:
         (DirectoryFilter, "doesNotEndWith", "foo", "images.filepath NOT LIKE '%foo'"),
         (DirectoryFilter, "null", None, "images.filepath IS NULL"),
         (DirectoryFilter, "notNull", None, "images.filepath IS NOT NULL"),
-        (DirectoryFilter, "in", ["foo","bar"], "images.filepath IN ('foo', 'bar')"),
-        (DirectoryFilter, "notIn", ["foo","bar"], "(images.filepath NOT IN ('foo', 'bar'))"),
-
+        (DirectoryFilter, "in", ["foo", "bar"], "images.filepath IN ('foo', 'bar')"),
+        (DirectoryFilter, "notIn", ["foo", "bar"], "(images.filepath NOT IN ('foo', 'bar'))"),
         (FilenameFilter, "=", "foo.jpg", "images.filename = 'foo.jpg'"),
         (FilenameFilter, "!=", "foo.jpg", "images.filename != 'foo.jpg'"),
         (FilenameFilter, "contains", "foo.jpg", "images.filename LIKE '%foo.jpg%'"),
@@ -84,9 +84,9 @@ def test_or_filter() -> None:
         (FilenameFilter, "doesNotEndWith", "jpg", "images.filename NOT LIKE '%jpg'"),
         (FilenameFilter, "null", None, "images.filename IS NULL"),
         (FilenameFilter, "notNull", None, "images.filename IS NOT NULL"),
-        (FilenameFilter, "in", ["foo","bar"], "images.filename IN ('foo', 'bar')"),
-        (FilenameFilter, "notIn", ["foo","bar"], "(images.filename NOT IN ('foo', 'bar'))"),
-    ]
+        (FilenameFilter, "in", ["foo", "bar"], "images.filename IN ('foo', 'bar')"),
+        (FilenameFilter, "notIn", ["foo", "bar"], "(images.filename NOT IN ('foo', 'bar'))"),
+    ],
 )
 def test_filter_operators(
     filter_class: type,
@@ -103,6 +103,7 @@ def test_filter_operators(
     compiled = str(expr.compile(compile_kwargs={"literal_binds": True}))
     # Assert SQL matches expected
     assert compiled == expected_sql
+
 
 def test_combine_and_and_or_filters() -> None:
     """Test combining AndFilter and OrFilter."""
@@ -121,8 +122,7 @@ def test_combine_and_and_or_filters() -> None:
 
     # Assert the components of the SQL expression
     assert (
-        compiled_expression
-        == "images.filename LIKE '%_001.jpg%' AND images.filepath LIKE '%2024-Kenya%' "
+        compiled_expression == "images.filename LIKE '%_001.jpg%' AND images.filepath LIKE '%2024-Kenya%' "
         "OR images.filename LIKE '%_002.jpg%' AND images.filepath LIKE '%2024-CostaRica%'"
     )
 

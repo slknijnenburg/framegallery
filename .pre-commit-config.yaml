@@ -1,0 +1,56 @@
+repos:
+  # Python linting and formatting
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: Python Linting (Ruff)
+        entry: uv run ruff check .
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: ruff-format
+        name: Python Formatting (Ruff)
+        entry: uv run ruff format .
+        language: system
+        types: [python]
+        pass_filenames: false
+
+  # Python tests
+  - repo: local
+    hooks:
+      - id: pytest
+        name: Python Tests (Pytest)
+        entry: uv run pytest
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-commit]
+
+  # TypeScript/JavaScript linting and tests
+  - repo: local
+    hooks:
+      - id: typescript-lint
+        name: TypeScript Linting (ESLint)
+        entry: bash -c 'cd ui && npm run lint'
+        language: system
+        files: ^ui/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+
+      - id: typescript-test
+        name: TypeScript Tests (Jest)
+        entry: bash -c 'cd ui && npm test -- --watchAll=false --passWithNoTests'
+        language: system
+        files: ^ui/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+        stages: [pre-commit]
+
+  # General hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict

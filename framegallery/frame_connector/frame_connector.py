@@ -24,6 +24,7 @@ logger = setup_logging(log_level=settings.log_level)
 class TvNotConnectedError(Exception):
     """Exception raised when the TV is not connected."""
 
+
 class TvConnectionTimeoutError(TvNotConnectedError):
     """Exception raised when the TV connection times out."""
 
@@ -39,9 +40,7 @@ class FrameConnector:
         self._ip_address = ip_address
         self._port = port
         self._pid = os.getpid()
-        self._token_file = (
-            Path(__file__).parent / f"tv-token-{self._pid}.txt"
-        )
+        self._token_file = Path(__file__).parent / f"tv-token-{self._pid}.txt"
         self._background_tasks = set()
 
         self._latest_content_id = None
@@ -84,7 +83,6 @@ class FrameConnector:
         self._background_tasks.add(pinger)
         pinger.add_done_callback(self._background_tasks.discard)
 
-
     async def _reconnect_ping(self) -> None:
         """Ping the TV to check if it is online."""
         from icmplib import ping
@@ -93,14 +91,10 @@ class FrameConnector:
             try:
                 response = ping(self._ip_address, count=1, timeout=2, privileged=False)
                 if not response.is_alive:
-                    logger.debug(
-                        "Ping to %s failed, retrying in 10 seconds", self._ip_address
-                    )
+                    logger.debug("Ping to %s failed, retrying in 10 seconds", self._ip_address)
                     self._tv_is_online = False
                 else:
-                    logger.info(
-                        "Ping to %s successful, reconnecting to the TV.", self._ip_address
-                    )
+                    logger.info("Ping to %s successful, reconnecting to the TV.", self._ip_address)
                     self._tv_is_online = True
                     await self.reconnect()
                     break
@@ -119,7 +113,7 @@ class FrameConnector:
         )
         await self.open()
 
-    async def get_active_item_details(self) -> dict|None:
+    async def get_active_item_details(self) -> dict | None:
         """Get the current active item details from the TV."""
         if not self._connected or not self._tv_is_online:
             return None
@@ -144,9 +138,7 @@ class FrameConnector:
             logger.debug("_on_active_image_updated: TV connected, uploading image")
             data = await self._upload_image(active_image)
         except websockets.exceptions.ConnectionClosedError:
-            logger.exception(
-                "Connection to TV is closed, perhaps the TV is off?"
-            )
+            logger.exception("Connection to TV is closed, perhaps the TV is off?")
             await self.close()
             return
         except AssertionError:
@@ -162,9 +154,7 @@ class FrameConnector:
 
             import traceback
 
-            logger.exception(
-                "Error uploading image to TV, traceback: %s", traceback.format_exc()
-            )
+            logger.exception("Error uploading image to TV, traceback: %s", traceback.format_exc())
             await self.close()
             return
 
@@ -203,17 +193,16 @@ class FrameConnector:
             logger.info("Upload successful (content_id: %s), activating image...", content_id)
             await self._activate_image(content_id)
         else:
-             logger.error("Upload completed but did not return a content_id.")
+            logger.error("Upload completed but did not return a content_id.")
 
-    async def _upload_image(self, image: Image) -> dict|None:
+    async def _upload_image(self, image: Image) -> dict | None:
         """Upload image to TV and return the uploaded file details as provided by the television."""
         logger.info("Uploading image %s to TV", image.filepath)
 
         file_data, file_type = read_file_data(image)
-        if (file_type is None):
+        if file_type is None:
             logger.error("File type not determined for image %s, canceling file upload", image.filepath)
             return None
-
 
         cropped_width, cropped_height = get_cropped_image_dimensions(image)
         cropped_width_aspect_width, cropped_width_aspect_height = get_aspect_ratio(cropped_width, cropped_height)
@@ -221,9 +210,14 @@ class FrameConnector:
         logger.info("Cropped image dimensions: %s:%s", cropped_width, cropped_height)
         logger.info("Cropped image aspect ratio: %s:%s", cropped_width_aspect_width, cropped_width_aspect_height)
 
-        matte = "none" if (cropped_width_aspect_width == self.IDEAL_ASPECT_RATIO_WIDTH
-                           and cropped_width_aspect_height == self.IDEAL_ASPECT_RATIO_HEIGHT) \
+        matte = (
+            "none"
+            if (
+                cropped_width_aspect_width == self.IDEAL_ASPECT_RATIO_WIDTH
+                and cropped_width_aspect_height == self.IDEAL_ASPECT_RATIO_HEIGHT
+            )
             else "shadowbox_black"
+        )
 
         logger.info(
             "Going to upload %s with file_type %s and filesize: %d",
@@ -253,7 +247,7 @@ class FrameConnector:
         return data
 
     async def _activate_image(self, content_id: str) -> None:
-        logger.info("Activating image %s",  content_id)
+        logger.info("Activating image %s", content_id)
         await self._tv.select_image(content_id, "MY-C0002")
 
     async def _delete_image(self, content_id: str) -> None:
