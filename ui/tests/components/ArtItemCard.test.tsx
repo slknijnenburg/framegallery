@@ -23,7 +23,7 @@ describe('ArtItemCard', () => {
     render(<ArtItemCard item={mockImage} />);
     
     expect(screen.getByText('test.jpg')).toBeInTheDocument();
-    expect(screen.getByRole('img')).toHaveAttribute('src', `http://localhost:7999/${mockImage.thumbnail_path}`);
+    expect(screen.getByRole('img')).toHaveAttribute('src', `/${mockImage.thumbnail_path}`);
   });
 
   it('has make active button that triggers API call', () => {
@@ -31,7 +31,7 @@ describe('ArtItemCard', () => {
     render(<ArtItemCard item={mockImage} />);
     
     fireEvent.click(screen.getByLabelText(`Make ${mockImage.filename} active`));
-    expect(mockAxios).toHaveBeenCalledWith(`http://localhost:7999/api/active-art/${mockImage.id}`);
+    expect(mockAxios).toHaveBeenCalledWith(`/api/active-art/${mockImage.id}`);
   });
 
   it('opens dialog when settings button is clicked', () => {

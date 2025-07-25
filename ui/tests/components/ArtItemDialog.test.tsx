@@ -86,7 +86,7 @@ describe('ArtItemDialog', () => {
 
     // Check API call details
     expect(mockedAxios.patch).toHaveBeenCalledWith(
-      `http://localhost:7999/api/available-art/${mockImage.id}`,
+      `/api/available-art/${mockImage.id}`,
       {
         matte_id: 'flexible_antique',
         portrait_matte_id: 'flexible_antique', // Assumes portrait updates too
@@ -117,7 +117,7 @@ describe('ArtItemDialog', () => {
     });
 
     expect(mockedAxios.patch).toHaveBeenCalledWith(
-      `http://localhost:7999/api/available-art/${mockImage.id}`,
+      `/api/available-art/${mockImage.id}`,
       {
         matte_id: 'none',
         portrait_matte_id: 'none',
