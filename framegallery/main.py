@@ -85,6 +85,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         msg = f"Database migration failed: {e}"
         raise RuntimeError(msg) from e
 
+    logger.info("Proceeding with application initialization after migrations...")
+
     # Initialize FrameConnector within lifespan
     frame_connector = FrameConnector(settings.tv_ip_address, settings.tv_port)
     app.state.frame_connector = frame_connector # Store in app state

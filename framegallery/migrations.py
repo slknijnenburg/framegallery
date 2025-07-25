@@ -72,7 +72,15 @@ def run_migrations() -> bool:
 
         # Run migrations to the latest version
         logger.info("Running migrations to head...")
-        command.upgrade(alembic_cfg, "head")
+        try:
+            command.upgrade(alembic_cfg, "head")
+            logger.info("Alembic upgrade command completed")
+        except SystemExit as e:
+            logger.error("Alembic called sys.exit() with code: %s", e.code)
+            if e.code != 0:
+                return False
+            # If exit code is 0, it might be normal completion
+            logger.info("Alembic exited with code 0, treating as success")
 
         logger.info("Database migrations completed successfully")
     except Exception:
