@@ -165,7 +165,7 @@ class Importer:
 
 if __name__ == "__main__":
     try:
-        models.Base.metadata.create_all(bind=database.engine)
+        # Database migrations are now handled centrally in main.py
         db = database.SessionLocal()
 
         importer = Importer(settings.gallery_path, db)

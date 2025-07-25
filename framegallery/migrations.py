@@ -44,10 +44,11 @@ def check_database_exists() -> bool:
         engine = create_engine(f"sqlite:///{settings.database_path}")
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        return True
-    except Exception as e:
+    except OSError as e:
         logger.warning("Database connection check failed: %s", e)
         return False
+    else:
+        return True
 
 
 def run_migrations() -> bool:
@@ -96,7 +97,7 @@ def get_current_migration_version() -> str | None:
         with engine.connect() as conn:
             context = MigrationContext.configure(conn)
             return context.get_current_revision()
-    except Exception as e:
+    except OSError as e:
         logger.warning("Could not determine current migration version: %s", e)
         return None
 
@@ -116,7 +117,7 @@ def validate_migration_state() -> bool:
             return False
 
         logger.info("Current database migration version: %s", current_version)
-    except Exception:
+    except OSError:
         logger.exception("Migration state validation failed")
         return False
     else:
