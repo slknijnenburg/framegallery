@@ -8,7 +8,7 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
-        
+
       - id: ruff-format
         name: Python Formatting (Ruff)
         entry: uv run ruff format .
@@ -36,7 +36,7 @@ repos:
         language: system
         files: ^ui/.*\.(ts|tsx|js|jsx)$
         pass_filenames: false
-        
+
       - id: typescript-test
         name: TypeScript Tests (Jest)
         entry: bash -c 'cd ui && npm test -- --watchAll=false --passWithNoTests'
