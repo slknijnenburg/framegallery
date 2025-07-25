@@ -152,7 +152,7 @@ class Importer:
     def resize_image(pil_image: Image, image_path: str) -> str:
         """Resize an image to a thumbnail and save it to disk. Return the thumbnail path."""
         thumbnail_path = image_path.replace(".jpg", ".thumbnail.jpg")
-        if os.path.exists(thumbnail_path):
+        if Path(thumbnail_path).exists():
             logger.debug("Thumbnail already exists for %s", image_path)
             return thumbnail_path
 
