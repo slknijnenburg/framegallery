@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     filesystem_refresh_interval: int = 600
     slideshow_interval: int = 180
     log_level: str = "DEBUG"
+    images_path: str = "./images"
+    data_path: str = "./data"
+    logs_path: str = "./logs"
 
     @property
     def database_path(self) -> str:

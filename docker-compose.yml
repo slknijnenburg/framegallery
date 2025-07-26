@@ -12,8 +12,8 @@ services:
     ports:
       - "7999:7999"
     volumes:
-      - ./images:/app/images
-      - ./data:/app/data
-      - ./logs:/app/logs
+      - ${IMAGES_PATH:-./images}:/app/images
+      - ${DATA_PATH:-./data}:/app/data
+      - ${LOGS_PATH:-./logs}:/app/logs
     env_file: .env
     restart: unless-stopped
