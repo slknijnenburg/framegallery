@@ -49,7 +49,7 @@ dependencies = [
     "pillow-heif<1.1.0,>=1.0.0",
     "blinker<2.0.0,>=1.8.2",
     "icmplib<4.0.0,>=3.0.4",
-    "sse-starlette~=2.1.0", # Added for Server-Sent Events
+    "sse-starlette~=2.4.1", # Added for Server-Sent Events
 ]
 name = "framegallery"
 version = "0.1.0"
