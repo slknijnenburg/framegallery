@@ -330,7 +330,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.6.0,<3.0.0" },
     { name = "samsungtvws", git = "https://github.com/slknijnenburg/samsung-tv-ws-api.git?rev=master" },
     { name = "sqlalchemy", specifier = ">=2.0.35,<3.0.0" },
-    { name = "sse-starlette", specifier = "~=2.4.1" },
+    { name = "sse-starlette", specifier = "~=3.0.0" },
     { name = "uvicorn", specifier = ">=0.34.0,<1.0.0" },
     { name = "wakeonlan", specifier = ">=3.1.0,<4.0.0" },
     { name = "websockets", specifier = ">=15.0.0,<16.0.0" },
@@ -1239,14 +1239,14 @@ wheels = [
 
 [[package]]
 name = "sse-starlette"
-version = "2.4.1"
+version = "3.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/07/3e/eae74d8d33e3262bae0a7e023bb43d8bdd27980aa3557333f4632611151f/sse_starlette-2.4.1.tar.gz", hash = "sha256:7c8a800a1ca343e9165fc06bbda45c78e4c6166320707ae30b416c42da070926", size = 18635, upload-time = "2025-07-06T09:41:33.631Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f2/bd/357d6183ed3a71143747c974a3a83d4a546f290c20e66006988f8a662842/sse_starlette-3.0.0.tar.gz", hash = "sha256:5318b0bf5aaa23550c9dd88bd3b8c9c2664aa3f94232ccde5e87519244dbc6b8", size = 21044, upload-time = "2025-07-26T10:24:10.758Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e4/f1/6c7eaa8187ba789a6dd6d74430307478d2a91c23a5452ab339b6fbe15a08/sse_starlette-2.4.1-py3-none-any.whl", hash = "sha256:08b77ea898ab1a13a428b2b6f73cfe6d0e607a7b4e15b9bb23e4a37b087fd39a", size = 10824, upload-time = "2025-07-06T09:41:32.321Z" },
+    { url = "https://files.pythonhosted.org/packages/36/f2/92ff9d1cca5fc97bf3407f817a571e02a55b080ec5f4a6f8df325ffbff80/sse_starlette-3.0.0-py3-none-any.whl", hash = "sha256:43ea0a032f936b3efff683aba55aa235e91b067ee9283beee918d2acce4fbb67", size = 11307, upload-time = "2025-07-26T10:24:09.605Z" },
 ]
 
 [[package]]
