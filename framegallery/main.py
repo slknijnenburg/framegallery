@@ -129,21 +129,38 @@ logger.info("logger - Before FastAPI launch")
 app = FastAPI(lifespan=lifespan)
 logger.info("logging - Before FastAPI launch")
 
-origins = [
-    "http://localhost:3000",  # React dev server
-    "http://127.0.0.1:3000",  # React dev server
-    "http://localhost:5173",  # Common Vite dev server port
-    "http://127.0.0.1:5173",  # Common Vite dev server port
-    "http://localhost:7999",  # ASGI server
-    "http://127.0.0.1:7999",  # ASGI server
+# CORS configuration with security considerations
+development_origins = [
+    "http://localhost:3000",  # Vite dev server
+    "http://127.0.0.1:3000",  # Vite dev server
+    "http://localhost:5173",  # Alternative Vite port
+    "http://127.0.0.1:5173",  # Alternative Vite port
+    "http://localhost:7999",  # Backend server (for development)
+    "http://127.0.0.1:7999",  # Backend server (for development)
 ]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+# Use environment variable to control CORS policy
+cors_origins = os.getenv("CORS_ORIGINS", ",".join(development_origins)).split(",")
+use_permissive_cors = os.getenv("CORS_ALLOW_ALL", "false").lower() == "true"
+
+if use_permissive_cors:
+    # Permissive CORS for development/testing (less secure)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,  # Must be False with wildcard origins
+        allow_methods=["GET", "POST", "OPTIONS"],  # Limit methods
+        allow_headers=["Content-Type", "Cache-Control"],  # Limit headers
+    )
+else:
+    # Secure CORS with specific origins (recommended for production)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type", "Cache-Control"],
+    )
 
 # Conditionally set up templates directory based on what's available
 ui_dist_path = Path("./ui/dist")
@@ -288,7 +305,6 @@ async def slideshow_events_options() -> JSONResponse:
     """Handle preflight requests for SSE endpoint."""
     headers = {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Credentials": "true",
         "Access-Control-Allow-Methods": "GET, OPTIONS",
         "Access-Control-Allow-Headers": "Cache-Control, Content-Type",
         "Access-Control-Max-Age": "86400",  # 24 hours
@@ -325,7 +341,6 @@ async def slideshow_events(request: Request) -> EventSourceResponse:
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Credentials": "true",
         "Access-Control-Allow-Methods": "GET, OPTIONS",
         "Access-Control-Allow-Headers": "Cache-Control",
     }
