@@ -162,6 +162,31 @@ else:
         allow_headers=["Content-Type", "Cache-Control"],
     )
 
+
+def _validate_cors_origin(origin: str | None) -> str:
+    """Validate CORS origin and return appropriate Access-Control-Allow-Origin value."""
+    if not origin:
+        return "*"
+
+    # Get CORS configuration
+    cors_origins = os.getenv("CORS_ORIGINS", ",".join(development_origins)).split(",")
+    use_permissive_cors = os.getenv("CORS_ALLOW_ALL", "false").lower() == "true"
+
+    if use_permissive_cors:
+        return "*"
+
+    # Check if origin is in allowed list
+    if origin in cors_origins:
+        return origin
+
+    # For localhost development, be more permissive
+    if "localhost" in origin or "127.0.0.1" in origin:
+        return origin
+
+    # Default to no access for unknown origins
+    return "null"
+
+
 # Conditionally set up templates directory based on what's available
 ui_dist_path = Path("./ui/dist")
 ui_dist_assets_path = Path("./ui/dist/assets")
@@ -301,14 +326,23 @@ async def disable_slideshow(db: Annotated[Session, Depends(get_db)]) -> dict:
 
 
 @app.options("/api/slideshow/events")
-async def slideshow_events_options() -> JSONResponse:
+async def slideshow_events_options(request: Request) -> JSONResponse:
     """Handle preflight requests for SSE endpoint."""
+    # Use same origin validation as main CORS middleware
+    origin = request.headers.get("origin")
+    allowed_origin = _validate_cors_origin(origin)
+
     headers = {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": allowed_origin,
         "Access-Control-Allow-Methods": "GET, OPTIONS",
         "Access-Control-Allow-Headers": "Cache-Control, Content-Type",
         "Access-Control-Max-Age": "86400",  # 24 hours
     }
+
+    # Only allow credentials if not using wildcard origin
+    if allowed_origin != "*":
+        headers["Access-Control-Allow-Credentials"] = "true"
+
     return JSONResponse(content={}, headers=headers)
 
 
@@ -336,14 +370,21 @@ async def slideshow_events(request: Request) -> EventSourceResponse:
             # Depending on the error, you might want to raise or just stop generation
             raise  # Reraising to ensure the connection closes on unexpected errors
 
-    # Add explicit CORS headers for Firefox compatibility
+    # Add explicit CORS headers for Firefox compatibility with origin validation
+    origin = request.headers.get("origin")
+    allowed_origin = _validate_cors_origin(origin)
+
     headers = {
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": allowed_origin,
         "Access-Control-Allow-Methods": "GET, OPTIONS",
         "Access-Control-Allow-Headers": "Cache-Control",
     }
+
+    # Only allow credentials if not using wildcard origin
+    if allowed_origin != "*":
+        headers["Access-Control-Allow-Credentials"] = "true"
 
     return EventSourceResponse(event_generator(), ping=100, headers=headers)
 

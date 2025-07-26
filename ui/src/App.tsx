@@ -82,7 +82,20 @@ function Home() {
   }, [settings]);
 
   useEffect(() => {
-    const eventSource = new EventSource(`${API_BASE_URL}/api/slideshow/events`);
+    // Use direct backend URL in development to bypass Vite proxy issues with SSE
+    // Check if we're in development mode (Vite dev server)
+    const isDevelopment = window.location.port === '3000';
+    const sseUrl = isDevelopment
+      ? 'http://localhost:7999/api/slideshow/events'
+      : `${API_BASE_URL}/api/slideshow/events`;
+
+    console.log('Creating EventSource with URL:', sseUrl);
+    const eventSource = new EventSource(sseUrl);
+
+    eventSource.onopen = (event) => {
+      console.log("SSE connection opened successfully:", event);
+      console.log("EventSource readyState:", eventSource.readyState);
+    };
 
     eventSource.onmessage = (event) => {
       console.log("SSE generic message:", event.data);
@@ -102,6 +115,30 @@ function Home() {
 
     eventSource.onerror = (error) => {
       console.error('EventSource failed:', error);
+      console.error('EventSource readyState:', eventSource.readyState);
+      console.error('EventSource url:', eventSource.url);
+
+      // Log additional details about the error
+      if (error instanceof Event) {
+        console.error('Error type:', error.type);
+        console.error('Error target:', error.target);
+      }
+
+      // Check connection state
+      switch (eventSource.readyState) {
+        case EventSource.CONNECTING:
+          console.error('SSE Connection state: CONNECTING (0)');
+          break;
+        case EventSource.OPEN:
+          console.error('SSE Connection state: OPEN (1)');
+          break;
+        case EventSource.CLOSED:
+          console.error('SSE Connection state: CLOSED (2)');
+          break;
+        default:
+          console.error('SSE Connection state: UNKNOWN');
+      }
+
       // eventSource.close(); // Commented out to allow default retry behavior
     };
 
