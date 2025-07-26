@@ -283,6 +283,19 @@ async def disable_slideshow(db: Annotated[Session, Depends(get_db)]) -> dict:
     return {}
 
 
+@app.options("/api/slideshow/events")
+async def slideshow_events_options() -> JSONResponse:
+    """Handle preflight requests for SSE endpoint."""
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Cache-Control, Content-Type",
+        "Access-Control-Max-Age": "86400",  # 24 hours
+    }
+    return JSONResponse(content={}, headers=headers)
+
+
 @app.get("/api/slideshow/events")
 async def slideshow_events(request: Request) -> EventSourceResponse:
     """SSE endpoint for slideshow updates."""
@@ -307,7 +320,17 @@ async def slideshow_events(request: Request) -> EventSourceResponse:
             # Depending on the error, you might want to raise or just stop generation
             raise  # Reraising to ensure the connection closes on unexpected errors
 
-    return EventSourceResponse(event_generator(), ping=100)
+    # Add explicit CORS headers for Firefox compatibility
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Cache-Control",
+    }
+
+    return EventSourceResponse(event_generator(), ping=100, headers=headers)
 
 
 @app.get("/api/settings")
