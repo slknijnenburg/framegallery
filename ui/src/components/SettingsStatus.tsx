@@ -11,7 +11,11 @@ const SettingsStatus: React.FC = () => {
   const { settings, loading, error } = useSettings();
 
   if (loading) {
-    return <Box display="flex" justifyContent="center" alignItems="center" minHeight={56}><CircularProgress size={24} /> </Box>;
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight={56}>
+        <CircularProgress size={24} />{' '}
+      </Box>
+    );
   }
   if (error) {
     return <Typography color="error">Error: {error}</Typography>;
@@ -22,15 +26,34 @@ const SettingsStatus: React.FC = () => {
 
   return (
     <Box maxWidth="lg" mx="auto" width="100%">
-      <Paper elevation={2} sx={{ px: 2, py: 0.5, mb: 2, borderRadius: 2, display: 'flex', alignItems: 'center', minHeight: 44, background: 'rgba(255,255,255,0.95)' }}>
-        <Stack direction="row" spacing={2} alignItems="center" width="100%" sx={{ flexWrap: 'nowrap', overflow: 'hidden' }}>
-
+      <Paper
+        elevation={2}
+        sx={{
+          px: 2,
+          py: 0.5,
+          mb: 2,
+          borderRadius: 2,
+          display: 'flex',
+          alignItems: 'center',
+          minHeight: 44,
+          background: 'rgba(255,255,255,0.95)',
+        }}
+      >
+        <Stack
+          direction="row"
+          spacing={2}
+          alignItems="center"
+          width="100%"
+          sx={{ flexWrap: 'nowrap', overflow: 'hidden' }}
+        >
           {/* Slideshow interval */}
           <Stack direction="row" spacing={0.5} alignItems="center" minWidth={0}>
             <Tooltip title="Slideshow Interval">
               <AccessTimeIcon fontSize="small" color="action" />
             </Tooltip>
-            <Typography variant="body2" noWrap>{settings.slideshow_interval} s</Typography>
+            <Typography variant="body2" noWrap>
+              {settings.slideshow_interval} s
+            </Typography>
           </Stack>
 
           {/* Slideshow enabled */}
@@ -42,7 +65,9 @@ const SettingsStatus: React.FC = () => {
                 <CancelIcon color="disabled" fontSize="small" />
               )}
             </Tooltip>
-            <Typography variant="body2" noWrap>{settings.slideshow_enabled ? 'On' : 'Off'}</Typography>
+            <Typography variant="body2" noWrap>
+              {settings.slideshow_enabled ? 'On' : 'Off'}
+            </Typography>
           </Stack>
 
           {/* Current image */}
@@ -65,7 +90,9 @@ const SettingsStatus: React.FC = () => {
             <Tooltip title="Active Filter">
               <FilterListIcon fontSize="small" color="action" />
             </Tooltip>
-            <Typography variant="body2" noWrap>{settings.active_filter?.name || 'None'}</Typography>
+            <Typography variant="body2" noWrap>
+              {settings.active_filter?.name || 'None'}
+            </Typography>
           </Stack>
         </Stack>
       </Paper>

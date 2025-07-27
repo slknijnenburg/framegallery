@@ -72,10 +72,7 @@ export default function ArtItemCard({ item }: ArtItemCardProps) {
         <IconButton aria-label={`Settings for ${item.filename}`} onClick={openDialog}>
           <SettingsIcon />
         </IconButton>
-        <IconButton
-          aria-label={`crop ${item.filename || 'image'}`}
-          onClick={openCropDialog}
-        >
+        <IconButton aria-label={`crop ${item.filename || 'image'}`} onClick={openCropDialog}>
           <CropIcon />
         </IconButton>
 
