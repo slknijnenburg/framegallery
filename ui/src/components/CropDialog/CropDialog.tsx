@@ -12,8 +12,6 @@ import DialogContentText from '@mui/material/DialogContentText';
 // Define the fixed aspect ratio
 const FIXED_ASPECT_RATIO = 16 / 9;
 
-
-
 interface CropDialogProps {
   open: boolean;
   image: Image;
@@ -27,7 +25,7 @@ const CropDialog: React.FC<CropDialogProps> = ({ open, image, onClose }) => {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onClose()
+        onClose();
       }
     };
 
@@ -80,34 +78,32 @@ const CropDialog: React.FC<CropDialogProps> = ({ open, image, onClose }) => {
   };
 
   return (
-    <Dialog
-      fullWidth={true}
-      maxWidth="xl"
-      open={open}
-      onClose={handleCancel}
-    >
+    <Dialog fullWidth={true} maxWidth="xl" open={open} onClose={handleCancel}>
       <DialogTitle>Crop Image</DialogTitle>
       <DialogContent>
         <DialogContentText>Select a 16:9 crop for the image</DialogContentText>
         <ReactCrop
           crop={crop?.[0]}
           onChange={(pixelCrop: PixelCrop, percentageCrop: PercentCrop) => {
-            console.log('Changed pixel crop:', pixelCrop)
-            console.log('Changed percentage crop:', percentageCrop)
+            console.log('Changed pixel crop:', pixelCrop);
+            console.log('Changed percentage crop:', percentageCrop);
             setCrop([pixelCrop, percentageCrop]);
           }}
           onComplete={(pixelCrop: PixelCrop, percentageCrop: PercentCrop) => {
-            console.log('Completed pixel crop:', pixelCrop)
-            console.log('Completed percentage crop:', percentageCrop)
+            console.log('Completed pixel crop:', pixelCrop);
+            console.log('Completed percentage crop:', percentageCrop);
             setCompletedCrop([pixelCrop, percentageCrop]);
           }}
-          aspect={FIXED_ASPECT_RATIO}>
-            <img src={`${API_BASE_URL}/${image.filepath}`} />
-          </ReactCrop>
+          aspect={FIXED_ASPECT_RATIO}
+        >
+          <img src={`${API_BASE_URL}/${image.filepath}`} />
+        </ReactCrop>
       </DialogContent>
       <DialogActions>
         <Button onClick={handleCancel}>Cancel</Button>
-        <Button variant="contained" onClick={handleSaveCrop}>Save</Button>
+        <Button variant="contained" onClick={handleSaveCrop}>
+          Save
+        </Button>
       </DialogActions>
     </Dialog>
   );

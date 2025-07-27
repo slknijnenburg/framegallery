@@ -1,4 +1,4 @@
-import React, {StrictMode, useEffect, useState} from 'react';
+import React, { StrictMode, useEffect, useState } from 'react';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
@@ -6,14 +6,18 @@ import axios from 'axios';
 import ImageGrid from './components/ImageGrid';
 import Image from './models/Image';
 import Filters from './pages/Filters';
-import {AppBar, Stack, Toolbar} from '@mui/material';
-import {Album, findAlbumById} from './models/Album';
-import {RichTreeView, TreeItem} from '@mui/x-tree-view';
-import {BrowserRouter as Router, Link as RouterLink, Outlet, Route, Routes} from 'react-router-dom';
+import { AppBar, Stack, Toolbar, IconButton } from '@mui/material';
+import { Album, findAlbumById } from './models/Album';
+import { RichTreeView, TreeItem } from '@mui/x-tree-view';
+import { BrowserRouter as Router, Link as RouterLink, Outlet, Route, Routes } from 'react-router-dom';
 import Button from '@mui/material/Button';
-import {SettingsProvider, useSettings} from './SettingsContext';
+import { SettingsProvider, useSettings } from './SettingsContext';
 import FrameDisplayPreview from './components/FrameDisplayPreview';
 import SettingsStatus from './components/SettingsStatus';
+import ArtItemDialog from './components/ArtItemDialog';
+import CropDialog from './components/CropDialog/CropDialog';
+import SettingsIcon from '@mui/icons-material/Settings';
+import CropIcon from '@mui/icons-material/Crop';
 
 export const API_BASE_URL = '';
 
@@ -26,8 +30,7 @@ const isDevelopmentMode = () => {
   }
 
   // Check hostname for development - covers both Vite dev server and general localhost usage
-  return window.location.hostname === 'localhost' ||
-         window.location.hostname === '127.0.0.1';
+  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 };
 
 export default function App() {
@@ -87,6 +90,8 @@ function Home() {
   const { settings } = useSettings();
 
   const [previewImageUrl, setPreviewImageUrl] = useState<string | undefined>(undefined);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [cropDialogOpen, setCropDialogOpen] = useState(false);
 
   useEffect(() => {
     if (settings?.current_active_image) {
@@ -108,14 +113,14 @@ function Home() {
 
     eventSource.onopen = (event) => {
       if (isDevelopmentMode()) {
-        console.log("SSE connection opened successfully:", event);
-        console.log("EventSource readyState:", eventSource.readyState);
+        console.log('SSE connection opened successfully:', event);
+        console.log('EventSource readyState:', eventSource.readyState);
       }
     };
 
     eventSource.onmessage = (event) => {
       if (isDevelopmentMode()) {
-        console.log("SSE generic message:", event.data);
+        console.log('SSE generic message:', event.data);
       }
     };
 
@@ -124,13 +129,13 @@ function Home() {
         const eventData = JSON.parse(event.data);
         if (eventData.imageId) {
           if (isDevelopmentMode()) {
-            console.log("SSE slideshow_update received, imageId:", eventData.imageId);
+            console.log('SSE slideshow_update received, imageId:', eventData.imageId);
           }
           setPreviewImageUrl(API_BASE_URL + '/api/images/' + eventData.imageId + '/cropped');
         }
       } catch (error) {
         if (isDevelopmentMode()) {
-          console.error("Error parsing SSE data:", error, event.data);
+          console.error('Error parsing SSE data:', error, event.data);
         }
       }
     });
@@ -175,6 +180,22 @@ function Home() {
     setPreviewImageUrl(API_BASE_URL + '/api/images/' + newImage.id + '/cropped');
   };
 
+  const openEditDialog = () => {
+    setEditDialogOpen(true);
+  };
+
+  const closeEditDialog = () => {
+    setEditDialogOpen(false);
+  };
+
+  const openCropDialog = () => {
+    setCropDialogOpen(true);
+  };
+
+  const closeCropDialog = () => {
+    setCropDialogOpen(false);
+  };
+
   return (
     <Stack direction={'column'}>
       <Container maxWidth="md" sx={{ mt: 4 }}>
@@ -188,10 +209,46 @@ function Home() {
         </Box>
       </Container>
       <Container>
-        {previewImageUrl && (
-          <FrameDisplayPreview imageUrl={previewImageUrl} onNext={handleImageChange} />
-        )}
+        {previewImageUrl && <FrameDisplayPreview imageUrl={previewImageUrl} onNext={handleImageChange} />}
       </Container>
+      {settings?.current_active_image && (
+        <Container maxWidth="md" sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+          <Stack direction="row" spacing={2}>
+            <IconButton
+              aria-label="Edit active image settings"
+              onClick={openEditDialog}
+              sx={{
+                backgroundColor: 'primary.main',
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: 'primary.dark',
+                },
+              }}
+            >
+              <SettingsIcon />
+            </IconButton>
+            <IconButton
+              aria-label="Crop active image"
+              onClick={openCropDialog}
+              sx={{
+                backgroundColor: 'primary.main',
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: 'primary.dark',
+                },
+              }}
+            >
+              <CropIcon />
+            </IconButton>
+          </Stack>
+        </Container>
+      )}
+      {settings?.current_active_image && (
+        <>
+          <ArtItemDialog open={editDialogOpen} image={settings.current_active_image} onClose={closeEditDialog} />
+          <CropDialog open={cropDialogOpen} image={settings.current_active_image} onClose={closeCropDialog} />
+        </>
+      )}
     </Stack>
   );
 }

@@ -18,7 +18,12 @@ import {
 import React, { useState, useEffect } from 'react';
 import FilterBuilder from '../components/Filters/FilterBuilder';
 import { Filter } from '../components/Filters/Filter';
-import { Add as AddIcon, Delete as DeleteIcon, Star as StarIcon, StarBorder as StarBorderIcon } from '@mui/icons-material';
+import {
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  Star as StarIcon,
+  StarBorder as StarBorderIcon,
+} from '@mui/icons-material';
 import { filterService } from '../services/filterService';
 import { API_BASE_URL } from '../App';
 
