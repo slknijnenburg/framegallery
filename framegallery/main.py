@@ -129,21 +129,70 @@ logger.info("logger - Before FastAPI launch")
 app = FastAPI(lifespan=lifespan)
 logger.info("logging - Before FastAPI launch")
 
-origins = [
-    "http://localhost:3000",  # React dev server
-    "http://127.0.0.1:3000",  # React dev server
-    "http://localhost:5173",  # Common Vite dev server port
-    "http://127.0.0.1:5173",  # Common Vite dev server port
-    "http://localhost:7999",  # ASGI server
-    "http://127.0.0.1:7999",  # ASGI server
+# CORS configuration with security considerations
+development_origins = [
+    "http://localhost:3000",  # Vite dev server
+    "http://127.0.0.1:3000",  # Vite dev server
+    "http://localhost:5173",  # Alternative Vite port
+    "http://127.0.0.1:5173",  # Alternative Vite port
+    "http://localhost:7999",  # Backend server (for development)
+    "http://127.0.0.1:7999",  # Backend server (for development)
 ]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+
+def _get_cors_configuration() -> tuple[list[str], bool]:
+    """Get CORS configuration from environment variables."""
+    cors_origins_raw = os.getenv("CORS_ORIGINS", ",".join(development_origins))
+    cors_origins = [origin.strip() for origin in cors_origins_raw.split(",") if origin.strip()]
+    use_permissive_cors = os.getenv("CORS_ALLOW_ALL", "false").lower() == "true"
+    return cors_origins, use_permissive_cors
+
+
+# Use environment variable to control CORS policy
+cors_origins, use_permissive_cors = _get_cors_configuration()
+
+if use_permissive_cors:
+    # Permissive CORS for development/testing (less secure)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,  # Must be False with wildcard origins
+        allow_methods=["GET", "POST", "OPTIONS"],  # Limit methods
+        allow_headers=["Content-Type", "Cache-Control"],  # Limit headers
+    )
+else:
+    # Secure CORS with specific origins (recommended for production)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type", "Cache-Control"],
+    )
+
+
+def _validate_cors_origin(origin: str | None) -> str:
+    """Validate CORS origin and return appropriate Access-Control-Allow-Origin value."""
+    if not origin:
+        return "*"
+
+    # Get CORS configuration
+    cors_origins, use_permissive_cors = _get_cors_configuration()
+
+    if use_permissive_cors:
+        return "*"
+
+    # Check if origin is in allowed list
+    if origin in cors_origins:
+        return origin
+
+    # For localhost development, be more permissive
+    if "localhost" in origin or "127.0.0.1" in origin:
+        return origin
+
+    # Default to no access for unknown origins
+    return "null"
+
 
 # Conditionally set up templates directory based on what's available
 ui_dist_path = Path("./ui/dist")
@@ -283,6 +332,29 @@ async def disable_slideshow(db: Annotated[Session, Depends(get_db)]) -> dict:
     return {}
 
 
+@app.options("/api/slideshow/events")
+async def slideshow_events_options(request: Request) -> JSONResponse:
+    """Handle preflight requests for SSE endpoint."""
+    # Use same origin validation as main CORS middleware
+    origin = request.headers.get("origin")
+    allowed_origin = _validate_cors_origin(origin)
+
+    headers = {
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Cache-Control, Content-Type",
+        "Access-Control-Max-Age": "86400",  # 24 hours
+    }
+
+    # Set origin header based on validation
+    if allowed_origin != "null":
+        headers["Access-Control-Allow-Origin"] = allowed_origin
+        # Only allow credentials if not using wildcard origin
+        if allowed_origin != "*":
+            headers["Access-Control-Allow-Credentials"] = "true"
+
+    return JSONResponse(content={}, headers=headers)
+
+
 @app.get("/api/slideshow/events")
 async def slideshow_events(request: Request) -> EventSourceResponse:
     """SSE endpoint for slideshow updates."""
@@ -307,7 +379,25 @@ async def slideshow_events(request: Request) -> EventSourceResponse:
             # Depending on the error, you might want to raise or just stop generation
             raise  # Reraising to ensure the connection closes on unexpected errors
 
-    return EventSourceResponse(event_generator(), ping=100)
+    # Add explicit CORS headers for Firefox compatibility with origin validation
+    origin = request.headers.get("origin")
+    allowed_origin = _validate_cors_origin(origin)
+
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Cache-Control",
+    }
+
+    # Set origin header based on validation
+    if allowed_origin != "null":
+        headers["Access-Control-Allow-Origin"] = allowed_origin
+        # Only allow credentials if not using wildcard origin
+        if allowed_origin != "*":
+            headers["Access-Control-Allow-Credentials"] = "true"
+
+    return EventSourceResponse(event_generator(), ping=100, headers=headers)
 
 
 @app.get("/api/settings")

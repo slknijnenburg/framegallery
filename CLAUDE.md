@@ -131,6 +131,8 @@ Images are processed with aspect ratio handling for Samsung Frame's 16:9 display
 - **Settings**: Pydantic-based configuration in `framegallery/config.py`
 - **Frontend config**: Injected into templates for React hydration
 
+When making configuration changes, like updating the config.py or modifying the .env.dist file, always try to update the README file.
+
 ## Testing Strategy
 
 - **Python**: pytest for unit tests

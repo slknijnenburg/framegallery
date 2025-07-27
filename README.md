@@ -109,11 +109,47 @@ docker run -it --rm -p 127.0.0.1:7999:7999 -v $(pwd)/images:/app/images -v $(pwd
 On start-up, the app will import all images from the `images` directory and create a database in the `data` directory.
 It will also generate thumbnails for display in the browser for each image, so you'll need to ensure that the images folder is writeable by the container.
 
-Create a `.env` file with your Samsung TV configuration:
+Create a `.env` file with your configuration. See `.env.dist` for all available options:
+
 ```bash
-TV_IP_ADDRESS=192.168.1.100
-TV_PORT=8002
-GALLERY_PATH=/app/images
+# Samsung TV Configuration
+tv_ip_address=192.168.1.100
+tv_port=8002
+
+# Application Settings
+gallery_path="./images"
+db_url="sqlite:///./data/framegallery.db"
+log_level=INFO
+slideshow_interval=180
+filesystem_refresh_interval=600
+
+# Docker Volume Mount Paths (customize for your setup)
+IMAGES_PATH=./images
+DATA_PATH=./data
+LOGS_PATH=./logs
+
+# CORS Security Configuration (optional)
+# CORS_ALLOW_ALL=true          # Use permissive CORS (less secure, good for development/testing)
+# CORS_ORIGINS=http://localhost:3000,http://your-domain.com  # Custom allowed origins
+```
+
+#### Docker Volume Configuration
+
+The Docker setup now supports configurable volume mount paths via environment variables:
+
+- `IMAGES_PATH`: Path to your images directory (default: `./images`)
+- `DATA_PATH`: Path to application data directory (default: `./data`)
+- `LOGS_PATH`: Path to logs directory (default: `./logs`)
+
+Example with custom paths:
+```bash
+# In your .env file
+IMAGES_PATH=/home/user/photos
+DATA_PATH=/home/user/framegallery-data
+LOGS_PATH=/var/log/framegallery
+
+# Then run normally
+docker-compose up -d
 ```
 
 #### Database Migrations
