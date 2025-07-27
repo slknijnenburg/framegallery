@@ -17,6 +17,19 @@ import SettingsStatus from './components/SettingsStatus';
 
 export const API_BASE_URL = '';
 
+// Helper function to detect development mode
+// Uses hostname-based detection which is more reliable across environments
+const isDevelopmentMode = () => {
+  // Check for Jest environment (when window might not exist)
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  // Check hostname for development - covers both Vite dev server and general localhost usage
+  return window.location.hostname === 'localhost' ||
+         window.location.hostname === '127.0.0.1';
+};
+
 export default function App() {
   return (
     <StrictMode>
@@ -83,60 +96,71 @@ function Home() {
 
   useEffect(() => {
     // Use direct backend URL in development to bypass Vite proxy issues with SSE
-    // Check if we're in development mode (Vite dev server)
-    const isDevelopment = window.location.port === '3000';
+    const isDevelopment = isDevelopmentMode();
     const sseUrl = isDevelopment
       ? 'http://localhost:7999/api/slideshow/events'
       : `${API_BASE_URL}/api/slideshow/events`;
 
-    console.log('Creating EventSource with URL:', sseUrl);
+    if (isDevelopment) {
+      console.log('Creating EventSource with URL:', sseUrl);
+    }
     const eventSource = new EventSource(sseUrl);
 
     eventSource.onopen = (event) => {
-      console.log("SSE connection opened successfully:", event);
-      console.log("EventSource readyState:", eventSource.readyState);
+      if (isDevelopmentMode()) {
+        console.log("SSE connection opened successfully:", event);
+        console.log("EventSource readyState:", eventSource.readyState);
+      }
     };
 
     eventSource.onmessage = (event) => {
-      console.log("SSE generic message:", event.data);
+      if (isDevelopmentMode()) {
+        console.log("SSE generic message:", event.data);
+      }
     };
 
     eventSource.addEventListener('slideshow_update', (event) => {
       try {
         const eventData = JSON.parse(event.data);
         if (eventData.imageId) {
-          console.log("SSE slideshow_update received, imageId:", eventData.imageId);
+          if (isDevelopmentMode()) {
+            console.log("SSE slideshow_update received, imageId:", eventData.imageId);
+          }
           setPreviewImageUrl(API_BASE_URL + '/api/images/' + eventData.imageId + '/cropped');
         }
       } catch (error) {
-        console.error("Error parsing SSE data:", error, event.data);
+        if (isDevelopmentMode()) {
+          console.error("Error parsing SSE data:", error, event.data);
+        }
       }
     });
 
     eventSource.onerror = (error) => {
-      console.error('EventSource failed:', error);
-      console.error('EventSource readyState:', eventSource.readyState);
-      console.error('EventSource url:', eventSource.url);
+      if (isDevelopmentMode()) {
+        console.error('EventSource failed:', error);
+        console.error('EventSource readyState:', eventSource.readyState);
+        console.error('EventSource url:', eventSource.url);
 
-      // Log additional details about the error
-      if (error instanceof Event) {
-        console.error('Error type:', error.type);
-        console.error('Error target:', error.target);
-      }
+        // Log additional details about the error
+        if (error instanceof Event) {
+          console.error('Error type:', error.type);
+          console.error('Error target:', error.target);
+        }
 
-      // Check connection state
-      switch (eventSource.readyState) {
-        case EventSource.CONNECTING:
-          console.error('SSE Connection state: CONNECTING (0)');
-          break;
-        case EventSource.OPEN:
-          console.error('SSE Connection state: OPEN (1)');
-          break;
-        case EventSource.CLOSED:
-          console.error('SSE Connection state: CLOSED (2)');
-          break;
-        default:
-          console.error('SSE Connection state: UNKNOWN');
+        // Check connection state
+        switch (eventSource.readyState) {
+          case EventSource.CONNECTING:
+            console.error('SSE Connection state: CONNECTING (0)');
+            break;
+          case EventSource.OPEN:
+            console.error('SSE Connection state: OPEN (1)');
+            break;
+          case EventSource.CLOSED:
+            console.error('SSE Connection state: CLOSED (2)');
+            break;
+          default:
+            console.error('SSE Connection state: UNKNOWN');
+        }
       }
 
       // eventSource.close(); // Commented out to allow default retry behavior

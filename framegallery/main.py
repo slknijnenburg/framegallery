@@ -139,9 +139,17 @@ development_origins = [
     "http://127.0.0.1:7999",  # Backend server (for development)
 ]
 
+
+def _get_cors_configuration() -> tuple[list[str], bool]:
+    """Get CORS configuration from environment variables."""
+    cors_origins_raw = os.getenv("CORS_ORIGINS", ",".join(development_origins))
+    cors_origins = [origin.strip() for origin in cors_origins_raw.split(",") if origin.strip()]
+    use_permissive_cors = os.getenv("CORS_ALLOW_ALL", "false").lower() == "true"
+    return cors_origins, use_permissive_cors
+
+
 # Use environment variable to control CORS policy
-cors_origins = os.getenv("CORS_ORIGINS", ",".join(development_origins)).split(",")
-use_permissive_cors = os.getenv("CORS_ALLOW_ALL", "false").lower() == "true"
+cors_origins, use_permissive_cors = _get_cors_configuration()
 
 if use_permissive_cors:
     # Permissive CORS for development/testing (less secure)
@@ -169,8 +177,7 @@ def _validate_cors_origin(origin: str | None) -> str:
         return "*"
 
     # Get CORS configuration
-    cors_origins = os.getenv("CORS_ORIGINS", ",".join(development_origins)).split(",")
-    use_permissive_cors = os.getenv("CORS_ALLOW_ALL", "false").lower() == "true"
+    cors_origins, use_permissive_cors = _get_cors_configuration()
 
     if use_permissive_cors:
         return "*"
@@ -333,15 +340,17 @@ async def slideshow_events_options(request: Request) -> JSONResponse:
     allowed_origin = _validate_cors_origin(origin)
 
     headers = {
-        "Access-Control-Allow-Origin": allowed_origin,
         "Access-Control-Allow-Methods": "GET, OPTIONS",
         "Access-Control-Allow-Headers": "Cache-Control, Content-Type",
         "Access-Control-Max-Age": "86400",  # 24 hours
     }
 
-    # Only allow credentials if not using wildcard origin
-    if allowed_origin != "*":
-        headers["Access-Control-Allow-Credentials"] = "true"
+    # Set origin header based on validation
+    if allowed_origin != "null":
+        headers["Access-Control-Allow-Origin"] = allowed_origin
+        # Only allow credentials if not using wildcard origin
+        if allowed_origin != "*":
+            headers["Access-Control-Allow-Credentials"] = "true"
 
     return JSONResponse(content={}, headers=headers)
 
@@ -377,14 +386,16 @@ async def slideshow_events(request: Request) -> EventSourceResponse:
     headers = {
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
-        "Access-Control-Allow-Origin": allowed_origin,
         "Access-Control-Allow-Methods": "GET, OPTIONS",
         "Access-Control-Allow-Headers": "Cache-Control",
     }
 
-    # Only allow credentials if not using wildcard origin
-    if allowed_origin != "*":
-        headers["Access-Control-Allow-Credentials"] = "true"
+    # Set origin header based on validation
+    if allowed_origin != "null":
+        headers["Access-Control-Allow-Origin"] = allowed_origin
+        # Only allow credentials if not using wildcard origin
+        if allowed_origin != "*":
+            headers["Access-Control-Allow-Credentials"] = "true"
 
     return EventSourceResponse(event_generator(), ping=100, headers=headers)
 
