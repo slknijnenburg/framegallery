@@ -50,6 +50,7 @@ dependencies = [
     "blinker<2.0.0,>=1.8.2",
     "icmplib<4.0.0,>=3.0.4",
     "sse-starlette~=3.0.0", # Added for Server-Sent Events
+    "pyexiv2<3.0.0,>=2.0.0", # For reading XMP metadata and keywords
 ]
 name = "framegallery"
 version = "0.1.0"

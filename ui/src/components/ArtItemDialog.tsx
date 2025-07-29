@@ -6,7 +6,7 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
-import { InputLabel, MenuItem, Select, SelectChangeEvent, Stack } from '@mui/material';
+import { InputLabel, MenuItem, Select, SelectChangeEvent, Stack, Chip, Box } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import axios from 'axios';
 import Image from '../models/Image';
@@ -138,6 +138,24 @@ export default function ArtItemDialog(props: ArtItemDialogProps) {
                   </MenuItem>
                 ))}
               </Select>
+            </Grid>
+
+            {/* Keywords section */}
+            <Grid size={4} sx={{ mb: 2 }}>
+              <InputLabel>Keywords:</InputLabel>
+            </Grid>
+            <Grid size={8} sx={{ textAlign: 'right', mb: 2 }}>
+              {props.image.keywords && props.image.keywords.length > 0 ? (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, justifyContent: 'flex-end' }}>
+                  {props.image.keywords.map((keyword, index) => (
+                    <Chip key={index} label={keyword} size="small" variant="outlined" />
+                  ))}
+                </Box>
+              ) : (
+                <Box sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                  No keywords found
+                </Box>
+              )}
             </Grid>
           </Grid>
         </Stack>

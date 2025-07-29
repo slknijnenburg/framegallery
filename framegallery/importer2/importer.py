@@ -3,6 +3,7 @@ import os
 import sys
 from pathlib import Path
 
+import pyexiv2
 from PIL import Image
 from PIL.ExifTags import GPSTAGS, IFD, TAGS
 from pillow_heif import register_heif_opener  # HEIF support
@@ -101,6 +102,59 @@ class Importer:
             except KeyError:
                 pass
 
+    @staticmethod
+    def read_exif_keywords(image_path: str) -> list[str]:
+        """
+        Read keywords from XMP metadata in image file.
+
+        Keywords are stored in XMP metadata under the dc:subject field.
+        This function uses pyexiv2 to directly access XMP dc:subject tags.
+
+        Args:
+            image_path: Path to the image file
+
+        Returns:
+            List of keyword strings, empty list if no keywords found
+
+        """
+        keywords = []
+
+        try:
+            # Open image with pyexiv2
+            with pyexiv2.Image(str(image_path)) as img:
+                # Read XMP metadata
+                xmp_data = img.read_xmp()
+
+                if not xmp_data:
+                    logger.debug("No XMP metadata found in %s", image_path)
+                    return []
+
+                # Look for dc:subject (Dublin Core subject/keywords)
+                # This is the standard field for keywords in XMP
+                dc_subject_key = "Xmp.dc.subject"
+
+                if dc_subject_key in xmp_data:
+                    # The dc:subject field contains the keywords
+                    dc_subject_value = xmp_data[dc_subject_key]
+
+                    # pyexiv2 returns keywords as a list or comma-separated string
+                    if isinstance(dc_subject_value, list):
+                        keywords = [kw.strip() for kw in dc_subject_value if kw.strip()]
+                    elif isinstance(dc_subject_value, str):
+                        # Split by comma if it's a string
+                        keywords = [kw.strip() for kw in dc_subject_value.split(",") if kw.strip()]
+
+                    if keywords:
+                        logger.debug("Extracted keywords from %s: %s", image_path, keywords)
+
+                    return keywords
+                logger.debug("No dc:subject field found in XMP metadata for %s", image_path)
+                return []
+
+        except Exception:
+            logger.exception("Error reading XMP keywords from %s", image_path)
+            return []
+
     async def synchronize_files(self) -> None:
         """Read all files from disk and synchronize them with the database."""
         # First, let's read all files currently on disk and ensure they are present in the DB/
@@ -119,6 +173,10 @@ class Importer:
             width, height = self.get_image_dimensions(pil_image)
             aspect_ratio = framegallery.aspect_ratio.get_aspect_ratio(width, height)
             self.print_exif(pil_image)
+
+            # Read keywords from EXIF/XMP metadata
+            keywords = self.read_exif_keywords(image)
+
             # Create thumbnail image for display in browser
             thumbnail_path = self.resize_image(pil_image, image)
 
@@ -131,6 +189,7 @@ class Importer:
                 aspect_width=aspect_ratio[0],
                 aspect_height=aspect_ratio[1],
                 thumbnail_path=thumbnail_path,
+                keywords=keywords if keywords else None,
             )
             self._db.add(img)
             self._db.commit()

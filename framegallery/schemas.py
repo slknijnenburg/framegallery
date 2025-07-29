@@ -24,6 +24,7 @@ class Image(BaseModel):
     height: int
     aspect_width: int
     aspect_height: int
+    keywords: list[str] | None = None
 
 
 class Filter(BaseModel):

@@ -9,4 +9,5 @@ export default interface Image {
   aspect_width: number;
   aspect_height: number;
   matte_id?: string;
+  keywords?: string[] | null;
 }
