@@ -13,7 +13,7 @@ ENV UV_PYTHON_DOWNLOADS=0
 # Change the working directory to the `app` directory
 WORKDIR /app
 RUN apt-get update && apt-get -y install git
-COPY pyproject.toml uv.lock alembic.ini ./
+COPY pyproject.toml uv.lock alembic.ini update_keywords.py ./
 COPY alembic/ ./alembic/
 COPY framegallery/ ./framegallery/
 
