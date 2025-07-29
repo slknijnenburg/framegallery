@@ -6,6 +6,7 @@ from framegallery.repository.filters.image_filter import (
     AspectRatioWidthFilter,
     DirectoryFilter,
     FilenameFilter,
+    KeywordFilter,
     OrFilter,
 )
 
@@ -160,3 +161,65 @@ def test_combine_aspect_ratio_filters() -> None:
 
     # Assert the components of the SQL expression
     assert compiled_expression == "images.aspect_width = 16.0 AND images.aspect_height = 9.0"
+
+
+def test_keyword_filter_basic() -> None:
+    """Test KeywordFilter can be instantiated and returns valid expression."""
+    keyword_filter = KeywordFilter("Holiday", "contains")
+    expression = keyword_filter.get_expression()
+
+    # Just verify we get a valid SQLAlchemy expression
+    assert expression is not None
+    # Verify it can be compiled (this would raise if invalid)
+    compiled = str(expression.compile())
+    assert "EXISTS" in compiled.upper()  # Should use EXISTS for JSON array queries
+
+
+def test_keyword_filter_null_operators() -> None:
+    """Test KeywordFilter null/notNull operators."""
+    # Test null operator
+    null_filter = KeywordFilter("", "null")
+    null_expr = null_filter.get_expression()
+    compiled_null = str(null_expr.compile(compile_kwargs={"literal_binds": True}))
+    assert compiled_null == "images.keywords IS NULL"
+
+    # Test notNull operator
+    not_null_filter = KeywordFilter("", "notNull")
+    not_null_expr = not_null_filter.get_expression()
+    compiled_not_null = str(not_null_expr.compile(compile_kwargs={"literal_binds": True}))
+    assert compiled_not_null == "images.keywords IS NOT NULL"
+
+
+@pytest.mark.parametrize(
+    "operator",
+    [
+        "=",
+        "!=",
+        "contains",
+        "beginsWith",
+        "endsWith",
+        "doesNotContain",
+        "doesNotBeginWith",
+        "doesNotEndWith",
+        "in",
+        "notIn",
+    ],
+)
+def test_keyword_filter_operators(operator: str) -> None:
+    """Test KeywordFilter with various operators."""
+    value = "Holiday" if operator not in ("in", "notIn") else ["Holiday", "Vacation"]
+    keyword_filter = KeywordFilter(value, operator)
+    expression = keyword_filter.get_expression()
+
+    # Verify we get a valid SQLAlchemy expression
+    assert expression is not None
+    # Verify it can be compiled (this would raise if invalid)
+    compiled = str(expression.compile())
+    assert len(compiled) > 0
+
+
+def test_keyword_filter_unsupported_operator() -> None:
+    """Test KeywordFilter raises error for unsupported operator."""
+    keyword_filter = KeywordFilter("Holiday", "unsupported_op")
+    with pytest.raises(ValueError, match="Unsupported operator for KeywordFilter"):
+        keyword_filter.get_expression()

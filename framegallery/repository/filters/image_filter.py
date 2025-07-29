@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.sql.elements import ColumnElement
 
 from framegallery.models import Image
@@ -122,6 +122,79 @@ class AspectRatioHeightFilter(ImageFilter):
     def get_expression(self) -> ColumnElement[bool]:
         """Return a SQLAlchemy expression that filters images by aspect ratio height."""
         return Image.aspect_height == self._aspect_ratio_height
+
+
+class KeywordFilter(ImageFilter):
+    """Filter images by keywords with various operators."""
+
+    def __init__(self, value: str, operator: str) -> None:
+        self._value = value
+        self._operator = operator
+
+    def get_expression(self) -> ColumnElement[bool]:
+        """Return a SQLAlchemy expression that filters images by keywords."""
+        op = self._operator
+        value = self._value
+
+        if op in (
+            "=",
+            "!=",
+            "contains",
+            "beginsWith",
+            "endsWith",
+            "doesNotContain",
+            "doesNotBeginWith",
+            "doesNotEndWith",
+            "null",
+            "notNull",
+            "in",
+            "notIn",
+        ):
+            # Handle null checks for keywords column
+            if op == "null":
+                return Image.keywords.is_(None)
+            if op == "notNull":
+                return Image.keywords.is_not(None)
+
+            # For array-based operations, we need to check if any keyword in the array matches
+            # Using JSON functions to search within the keywords array
+            json_each_table = func.json_each(Image.keywords).table_valued("value")
+
+            mapping = {
+                "=": lambda: exists(select(json_each_table.c.value).where(json_each_table.c.value == value)),
+                "!=": lambda: ~exists(select(json_each_table.c.value).where(json_each_table.c.value == value)),
+                "contains": lambda: exists(
+                    select(json_each_table.c.value).where(json_each_table.c.value.like(f"%{value}%"))
+                ),
+                "beginsWith": lambda: exists(
+                    select(json_each_table.c.value).where(json_each_table.c.value.like(f"{value}%"))
+                ),
+                "endsWith": lambda: exists(
+                    select(json_each_table.c.value).where(json_each_table.c.value.like(f"%{value}"))
+                ),
+                "doesNotContain": lambda: ~exists(
+                    select(json_each_table.c.value).where(json_each_table.c.value.like(f"%{value}%"))
+                ),
+                "doesNotBeginWith": lambda: ~exists(
+                    select(json_each_table.c.value).where(json_each_table.c.value.like(f"{value}%"))
+                ),
+                "doesNotEndWith": lambda: ~exists(
+                    select(json_each_table.c.value).where(json_each_table.c.value.like(f"%{value}"))
+                ),
+                "in": lambda: exists(
+                    select(json_each_table.c.value).where(
+                        json_each_table.c.value.in_(value if isinstance(value, list) else [value])
+                    )
+                ),
+                "notIn": lambda: ~exists(
+                    select(json_each_table.c.value).where(
+                        json_each_table.c.value.in_(value if isinstance(value, list) else [value])
+                    )
+                ),
+            }
+            return mapping[op]()
+        msg = f"Unsupported operator for KeywordFilter: {op}"
+        raise ValueError(msg)
 
 
 class AndFilter(ImageFilter):
