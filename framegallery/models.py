@@ -1,4 +1,4 @@
-from sqlalchemy import Float, Index, Integer, String
+from sqlalchemy import JSON, Float, Index, Integer, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -27,6 +27,7 @@ class Image(Base):
     crop_y: Mapped[float | None] = mapped_column(Float, nullable=True)
     crop_width: Mapped[float | None] = mapped_column(Float, nullable=True)
     crop_height: Mapped[float | None] = mapped_column(Float, nullable=True)
+    keywords: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
 
     def get_crop_info(self) -> dict | None:
         """Get the crop info for the image."""

@@ -6,6 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a web application for managing and displaying personal photo collections on Samsung "The Frame" televisions, consisting of a Python FastAPI backend and React/TypeScript frontend.
 
+## Instructions
+
+After running any command in a subdirectory, return back to the project root directory.
+Any time you get instructions and you cannot find the referenced files, check your current working directory and if not in the project root directory, navigate back to it.
+
 ## Development Commands
 
 **Backend (Python with uv):**
