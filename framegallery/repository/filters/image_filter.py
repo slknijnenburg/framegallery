@@ -127,7 +127,22 @@ class AspectRatioHeightFilter(ImageFilter):
 class KeywordFilter(ImageFilter):
     """Filter images by keywords with various operators."""
 
-    def __init__(self, value: str, operator: str) -> None:
+    SUPPORTED_OPERATORS = (
+        "=",
+        "!=",
+        "contains",
+        "beginsWith",
+        "endsWith",
+        "doesNotContain",
+        "doesNotBeginWith",
+        "doesNotEndWith",
+        "null",
+        "notNull",
+        "in",
+        "notIn",
+    )
+
+    def __init__(self, value: str | list[str], operator: str) -> None:
         self._value = value
         self._operator = operator
 
@@ -136,20 +151,7 @@ class KeywordFilter(ImageFilter):
         op = self._operator
         value = self._value
 
-        if op in (
-            "=",
-            "!=",
-            "contains",
-            "beginsWith",
-            "endsWith",
-            "doesNotContain",
-            "doesNotBeginWith",
-            "doesNotEndWith",
-            "null",
-            "notNull",
-            "in",
-            "notIn",
-        ):
+        if op in self.SUPPORTED_OPERATORS:
             # Handle null checks for keywords column
             if op == "null":
                 return Image.keywords.is_(None)

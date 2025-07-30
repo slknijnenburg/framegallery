@@ -207,7 +207,7 @@ def test_keyword_filter_null_operators() -> None:
 )
 def test_keyword_filter_operators(operator: str) -> None:
     """Test KeywordFilter with various operators."""
-    value = "Holiday" if operator not in ("in", "notIn") else ["Holiday", "Vacation"]
+    value: str | list[str] = "Holiday" if operator not in ("in", "notIn") else ["Holiday", "Vacation"]
     keyword_filter = KeywordFilter(value, operator)
     expression = keyword_filter.get_expression()
 
