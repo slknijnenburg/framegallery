@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.sql.elements import ColumnElement
 
 from framegallery.models import Image
@@ -122,6 +122,73 @@ class AspectRatioHeightFilter(ImageFilter):
     def get_expression(self) -> ColumnElement[bool]:
         """Return a SQLAlchemy expression that filters images by aspect ratio height."""
         return Image.aspect_height == self._aspect_ratio_height
+
+
+class KeywordFilter(ImageFilter):
+    """Filter images by keywords with various operators."""
+
+    SUPPORTED_OPERATORS = (
+        "=",
+        "!=",
+        "contains",
+        "beginsWith",
+        "endsWith",
+        "doesNotContain",
+        "doesNotBeginWith",
+        "doesNotEndWith",
+        "null",
+        "notNull",
+        "in",
+        "notIn",
+    )
+
+    def __init__(self, value: str | list[str], operator: str) -> None:
+        self._value = value
+        self._operator = operator
+
+    def get_expression(self) -> ColumnElement[bool]:
+        """Return a SQLAlchemy expression that filters images by keywords."""
+        op = self._operator
+        value = self._value
+
+        # Validate operator early to fail fast
+        if op not in self.SUPPORTED_OPERATORS:
+            msg = f"Unsupported operator for KeywordFilter: {op}"
+            raise ValueError(msg)
+
+        # Handle null checks for keywords column
+        if op == "null":
+            return Image.keywords.is_(None)
+        if op == "notNull":
+            return Image.keywords.is_not(None)
+
+        # For array-based operations, we need to check if any keyword in the array matches
+        # Using JSON functions to search within the keywords array
+        json_each_table = func.json_each(Image.keywords).table_valued("value")
+
+        def _ensure_list(val: str | list[str]) -> list[str]:
+            """Convert single value to list for in/notIn operators."""
+            return val if isinstance(val, list) else [val]
+
+        def _create_exists_clause(condition: ColumnElement[bool]) -> ColumnElement[bool]:
+            """Create EXISTS clause with json_each table condition."""
+            return exists(select(json_each_table.c.value).where(condition))
+
+        mapping = {
+            "=": lambda: _create_exists_clause(json_each_table.c.value == value),
+            "!=": lambda: ~_create_exists_clause(json_each_table.c.value == value),
+            "contains": lambda: _create_exists_clause(json_each_table.c.value.like(func.concat("%", value, "%"))),
+            "beginsWith": lambda: _create_exists_clause(json_each_table.c.value.like(func.concat(value, "%"))),
+            "endsWith": lambda: _create_exists_clause(json_each_table.c.value.like(func.concat("%", value))),
+            "doesNotContain": lambda: ~_create_exists_clause(
+                json_each_table.c.value.like(func.concat("%", value, "%"))
+            ),
+            "doesNotBeginWith": lambda: ~_create_exists_clause(json_each_table.c.value.like(func.concat(value, "%"))),
+            "doesNotEndWith": lambda: ~_create_exists_clause(json_each_table.c.value.like(func.concat("%", value))),
+            "in": lambda: _create_exists_clause(json_each_table.c.value.in_(_ensure_list(value))),
+            "notIn": lambda: ~_create_exists_clause(json_each_table.c.value.in_(_ensure_list(value))),
+        }
+        return mapping[op]()
 
 
 class AndFilter(ImageFilter):

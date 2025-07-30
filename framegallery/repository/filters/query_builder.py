@@ -11,6 +11,7 @@ from .image_filter import (
     DirectoryFilter,
     FilenameFilter,
     ImageFilter,
+    KeywordFilter,
     OrFilter,
 )
 
@@ -132,6 +133,8 @@ class QueryBuilder:
             return AspectRatioWidthFilter(float(value))
         if field == "aspect_ratio_height":
             return AspectRatioHeightFilter(float(value))
+        if field == "keyword":
+            return KeywordFilter(value, operator)
         raise UnsupportedFieldError(field)
 
     @staticmethod
