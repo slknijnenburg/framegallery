@@ -151,52 +151,44 @@ class KeywordFilter(ImageFilter):
         op = self._operator
         value = self._value
 
-        if op in self.SUPPORTED_OPERATORS:
-            # Handle null checks for keywords column
-            if op == "null":
-                return Image.keywords.is_(None)
-            if op == "notNull":
-                return Image.keywords.is_not(None)
+        # Validate operator early to fail fast
+        if op not in self.SUPPORTED_OPERATORS:
+            msg = f"Unsupported operator for KeywordFilter: {op}"
+            raise ValueError(msg)
 
-            # For array-based operations, we need to check if any keyword in the array matches
-            # Using JSON functions to search within the keywords array
-            json_each_table = func.json_each(Image.keywords).table_valued("value")
+        # Handle null checks for keywords column
+        if op == "null":
+            return Image.keywords.is_(None)
+        if op == "notNull":
+            return Image.keywords.is_not(None)
 
-            mapping = {
-                "=": lambda: exists(select(json_each_table.c.value).where(json_each_table.c.value == value)),
-                "!=": lambda: ~exists(select(json_each_table.c.value).where(json_each_table.c.value == value)),
-                "contains": lambda: exists(
-                    select(json_each_table.c.value).where(json_each_table.c.value.like(func.concat("%", value, "%")))
-                ),
-                "beginsWith": lambda: exists(
-                    select(json_each_table.c.value).where(json_each_table.c.value.like(func.concat(value, "%")))
-                ),
-                "endsWith": lambda: exists(
-                    select(json_each_table.c.value).where(json_each_table.c.value.like(func.concat("%", value)))
-                ),
-                "doesNotContain": lambda: ~exists(
-                    select(json_each_table.c.value).where(json_each_table.c.value.like(func.concat("%", value, "%")))
-                ),
-                "doesNotBeginWith": lambda: ~exists(
-                    select(json_each_table.c.value).where(json_each_table.c.value.like(func.concat(value, "%")))
-                ),
-                "doesNotEndWith": lambda: ~exists(
-                    select(json_each_table.c.value).where(json_each_table.c.value.like(func.concat("%", value)))
-                ),
-                "in": lambda: exists(
-                    select(json_each_table.c.value).where(
-                        json_each_table.c.value.in_(value if isinstance(value, list) else [value])
-                    )
-                ),
-                "notIn": lambda: ~exists(
-                    select(json_each_table.c.value).where(
-                        json_each_table.c.value.in_(value if isinstance(value, list) else [value])
-                    )
-                ),
-            }
-            return mapping[op]()
-        msg = f"Unsupported operator for KeywordFilter: {op}"
-        raise ValueError(msg)
+        # For array-based operations, we need to check if any keyword in the array matches
+        # Using JSON functions to search within the keywords array
+        json_each_table = func.json_each(Image.keywords).table_valued("value")
+
+        def _ensure_list(val: str | list[str]) -> list[str]:
+            """Convert single value to list for in/notIn operators."""
+            return val if isinstance(val, list) else [val]
+
+        def _create_exists_clause(condition: ColumnElement[bool]) -> ColumnElement[bool]:
+            """Create EXISTS clause with json_each table condition."""
+            return exists(select(json_each_table.c.value).where(condition))
+
+        mapping = {
+            "=": lambda: _create_exists_clause(json_each_table.c.value == value),
+            "!=": lambda: ~_create_exists_clause(json_each_table.c.value == value),
+            "contains": lambda: _create_exists_clause(json_each_table.c.value.like(func.concat("%", value, "%"))),
+            "beginsWith": lambda: _create_exists_clause(json_each_table.c.value.like(func.concat(value, "%"))),
+            "endsWith": lambda: _create_exists_clause(json_each_table.c.value.like(func.concat("%", value))),
+            "doesNotContain": lambda: ~_create_exists_clause(
+                json_each_table.c.value.like(func.concat("%", value, "%"))
+            ),
+            "doesNotBeginWith": lambda: ~_create_exists_clause(json_each_table.c.value.like(func.concat(value, "%"))),
+            "doesNotEndWith": lambda: ~_create_exists_clause(json_each_table.c.value.like(func.concat("%", value))),
+            "in": lambda: _create_exists_clause(json_each_table.c.value.in_(_ensure_list(value))),
+            "notIn": lambda: ~_create_exists_clause(json_each_table.c.value.in_(_ensure_list(value))),
+        }
+        return mapping[op]()
 
 
 class AndFilter(ImageFilter):

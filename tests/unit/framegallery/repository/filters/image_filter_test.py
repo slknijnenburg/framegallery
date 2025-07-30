@@ -248,3 +248,13 @@ def test_keyword_filter_sql_injection_protection() -> None:
         assert len(compiled) > 0
         # Should contain func.concat for safe parameter binding
         assert "concat" in compiled.lower()
+
+
+def test_keyword_filter_fail_fast_validation() -> None:
+    """Test KeywordFilter validates operator early and fails fast."""
+    # Test that unsupported operator raises ValueError immediately
+    keyword_filter = KeywordFilter("test", "unsupported_op")
+
+    # Should fail immediately when get_expression() is called, before any processing
+    with pytest.raises(ValueError, match="Unsupported operator for KeywordFilter: unsupported_op"):
+        keyword_filter.get_expression()
