@@ -166,22 +166,22 @@ class KeywordFilter(ImageFilter):
                 "=": lambda: exists(select(json_each_table.c.value).where(json_each_table.c.value == value)),
                 "!=": lambda: ~exists(select(json_each_table.c.value).where(json_each_table.c.value == value)),
                 "contains": lambda: exists(
-                    select(json_each_table.c.value).where(json_each_table.c.value.like(f"%{value}%"))
+                    select(json_each_table.c.value).where(json_each_table.c.value.like(func.concat("%", value, "%")))
                 ),
                 "beginsWith": lambda: exists(
-                    select(json_each_table.c.value).where(json_each_table.c.value.like(f"{value}%"))
+                    select(json_each_table.c.value).where(json_each_table.c.value.like(func.concat(value, "%")))
                 ),
                 "endsWith": lambda: exists(
-                    select(json_each_table.c.value).where(json_each_table.c.value.like(f"%{value}"))
+                    select(json_each_table.c.value).where(json_each_table.c.value.like(func.concat("%", value)))
                 ),
                 "doesNotContain": lambda: ~exists(
-                    select(json_each_table.c.value).where(json_each_table.c.value.like(f"%{value}%"))
+                    select(json_each_table.c.value).where(json_each_table.c.value.like(func.concat("%", value, "%")))
                 ),
                 "doesNotBeginWith": lambda: ~exists(
-                    select(json_each_table.c.value).where(json_each_table.c.value.like(f"{value}%"))
+                    select(json_each_table.c.value).where(json_each_table.c.value.like(func.concat(value, "%")))
                 ),
                 "doesNotEndWith": lambda: ~exists(
-                    select(json_each_table.c.value).where(json_each_table.c.value.like(f"%{value}"))
+                    select(json_each_table.c.value).where(json_each_table.c.value.like(func.concat("%", value)))
                 ),
                 "in": lambda: exists(
                     select(json_each_table.c.value).where(

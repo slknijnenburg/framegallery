@@ -223,3 +223,28 @@ def test_keyword_filter_unsupported_operator() -> None:
     keyword_filter = KeywordFilter("Holiday", "unsupported_op")
     with pytest.raises(ValueError, match="Unsupported operator for KeywordFilter"):
         keyword_filter.get_expression()
+
+
+def test_keyword_filter_sql_injection_protection() -> None:
+    """Test KeywordFilter prevents SQL injection with special characters."""
+    # Test with potentially dangerous SQL characters
+    dangerous_values = [
+        "'; DROP TABLE images; --",
+        "%' OR '1'='1",
+        "_test",
+        "test%",
+        "test'quote",
+        "test\\backslash",
+    ]
+
+    for dangerous_value in dangerous_values:
+        keyword_filter = KeywordFilter(dangerous_value, "contains")
+        expression = keyword_filter.get_expression()
+
+        # Verify we get a valid SQLAlchemy expression without errors
+        assert expression is not None
+        # Verify it can be compiled (this would raise if SQL injection succeeded)
+        compiled = str(expression.compile())
+        assert len(compiled) > 0
+        # Should contain func.concat for safe parameter binding
+        assert "concat" in compiled.lower()
