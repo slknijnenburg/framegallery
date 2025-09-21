@@ -6,6 +6,7 @@ import axios from 'axios';
 import ImageGrid from './components/ImageGrid';
 import Image from './models/Image';
 import Filters from './pages/Filters';
+import TvFiles from './pages/TvFiles';
 import { AppBar, Stack, Toolbar, IconButton } from '@mui/material';
 import { Album, findAlbumById } from './models/Album';
 import { RichTreeView, TreeItem } from '@mui/x-tree-view';
@@ -43,6 +44,7 @@ export default function App() {
               <Route index element={<Home />} />
               <Route path="/browser" element={<Browser />} />
               <Route path="/filters" element={<FiltersOverview />} />
+              <Route path="/tv-files" element={<TvFilesOverview />} />
             </Route>
           </Routes>
         </Router>
@@ -76,6 +78,14 @@ function Root() {
                 component={RouterLink}
               >
                 Filters
+              </Button>
+              <Button
+                key="tv-files"
+                sx={{ my: 2, color: 'white', display: 'block' }}
+                to="/tv-files"
+                component={RouterLink}
+              >
+                Files on TV
               </Button>
             </Box>
           </Toolbar>
@@ -334,4 +344,8 @@ function Browser() {
 
 function FiltersOverview() {
   return <Filters />;
+}
+
+function TvFilesOverview() {
+  return <TvFiles />;
 }

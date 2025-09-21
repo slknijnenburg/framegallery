@@ -33,6 +33,7 @@ from framegallery.repository.filter_repository import FilterRepository
 from framegallery.repository.image_repository import ImageRepository
 from framegallery.routers import config_router, filters_router
 from framegallery.routers.images import router as images_router
+from framegallery.routers.tv_files import router as tv_files_router
 from framegallery.schemas import ConfigResponse, Filter, Image
 from framegallery.slideshow.slideshow import Slideshow
 from framegallery.sse.slideshow_signal_listener import SlideshowSignalSSEListener
@@ -442,6 +443,7 @@ async def next_image(slideshow: Annotated[Slideshow, Depends(get_slideshow_insta
 app.include_router(filters_router)
 app.include_router(config_router)
 app.include_router(images_router)
+app.include_router(tv_files_router)
 
 
 # Defines a route handler for `/*` essentially.

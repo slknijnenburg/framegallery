@@ -74,3 +74,16 @@ class CropData(BaseModel):
     y: float = Field(..., ge=0, le=100, description="The y coordinate of the crop area as a percentage.")
     width: float = Field(..., gt=0, le=100, description="The width of the crop area as a percentage.")
     height: float = Field(..., gt=0, le=100, description="The height of the crop area as a percentage.")
+
+
+class TvFileResponse(BaseModel):
+    """Pydantic model for TV file information."""
+
+    content_id: str = Field(..., description="Unique identifier from TV")
+    file_name: str = Field(..., description="Display name of the file")
+    file_type: str = Field(..., description="File format (JPEG, PNG, etc.)")
+    file_size: int | None = Field(None, description="File size in bytes")
+    date: str | None = Field(None, description="Upload/creation date")
+    category_id: str = Field(..., description="TV category identifier")
+    thumbnail_available: bool | None = Field(None, description="Whether thumbnail exists")
+    matte: str | None = Field(None, description="Applied matte style")
