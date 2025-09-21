@@ -2,11 +2,14 @@
 
 import logging
 import os
+import subprocess
+import sys
 from pathlib import Path
 
+from alembic.config import Config
+from alembic.runtime.migration import MigrationContext
 from sqlalchemy import create_engine, text
 
-from alembic.config import Config
 from framegallery.config import settings
 
 logger = logging.getLogger(__name__)
@@ -60,9 +63,6 @@ def run_migrations() -> bool:
         bool: True if migrations were successful, False otherwise
 
     """
-    import subprocess
-    import sys
-
     try:
         logger.info("Starting database migration process")
 
@@ -125,7 +125,6 @@ def get_current_migration_version() -> str | None:
 
     """
     try:
-        from alembic.runtime.migration import MigrationContext
 
         engine = create_engine(f"sqlite:///{settings.database_path}")
         with engine.connect() as conn:
