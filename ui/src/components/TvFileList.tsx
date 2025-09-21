@@ -42,7 +42,7 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
             <TableRow>
               <TableCell>File Name</TableCell>
               <TableCell>Type</TableCell>
-              <TableCell align="right">Size</TableCell>
+              <TableCell align="right">Dimensions</TableCell>
               <TableCell>Date</TableCell>
               <TableCell align="center">Thumbnail</TableCell>
               <TableCell>Matte</TableCell>
@@ -125,7 +125,7 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
               </TableCell>
               <TableCell align="right">
                 <Typography variant="subtitle2" fontWeight="medium">
-                  Size
+                  Dimensions
                 </Typography>
               </TableCell>
               <TableCell>
@@ -172,7 +172,7 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
 
                 <TableCell align="right">
                   <Typography variant="body2">
-                    {tvFilesService.formatFileSize(file.file_size)}
+                    {tvFilesService.formatDimensions(file.width, file.height)}
                   </Typography>
                 </TableCell>
 

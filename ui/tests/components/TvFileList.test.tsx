@@ -12,6 +12,8 @@ describe('TvFileList', () => {
       file_name: 'Sunset Photo',
       file_type: 'JPEG',
       file_size: 2048576,
+      width: 1920,
+      height: 1080,
       date: '2024-01-15',
       category_id: 'MY-C0002',
       thumbnail_available: true,
@@ -22,6 +24,8 @@ describe('TvFileList', () => {
       file_name: 'Beach Scene',
       file_type: 'PNG',
       file_size: 3145728,
+      width: 2560,
+      height: 1440,
       date: '2024-01-16',
       category_id: 'MY-C0002',
       thumbnail_available: false,
@@ -65,7 +69,7 @@ describe('TvFileList', () => {
     // Check table headers
     expect(screen.getByText('File Name')).toBeInTheDocument();
     expect(screen.getByText('Type')).toBeInTheDocument();
-    expect(screen.getByText('Size')).toBeInTheDocument();
+    expect(screen.getByText('Dimensions')).toBeInTheDocument();
     expect(screen.getByText('Date')).toBeInTheDocument();
     expect(screen.getByText('Thumbnail')).toBeInTheDocument();
     expect(screen.getByText('Matte')).toBeInTheDocument();
@@ -74,13 +78,13 @@ describe('TvFileList', () => {
     expect(screen.getByText('Sunset Photo')).toBeInTheDocument();
     expect(screen.getByText('ID: MY-F0001')).toBeInTheDocument();
     expect(screen.getByText('JPEG')).toBeInTheDocument();
-    expect(screen.getByText('2.0 MB')).toBeInTheDocument();
+    expect(screen.getByText('1920×1080')).toBeInTheDocument();
 
     // Check second file data
     expect(screen.getByText('Beach Scene')).toBeInTheDocument();
     expect(screen.getByText('ID: MY-F0002')).toBeInTheDocument();
     expect(screen.getByText('PNG')).toBeInTheDocument();
-    expect(screen.getByText('3.0 MB')).toBeInTheDocument();
+    expect(screen.getByText('2560×1440')).toBeInTheDocument();
   });
 
   it('should handle files with null values gracefully', () => {
@@ -90,6 +94,8 @@ describe('TvFileList', () => {
         file_name: 'Test Photo',
         file_type: 'JPEG',
         file_size: null,
+        width: null,
+        height: null,
         date: null,
         category_id: 'MY-C0002',
         thumbnail_available: null,

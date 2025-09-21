@@ -11,6 +11,10 @@ export interface TvFile {
   file_type: string;
   /** File size in bytes */
   file_size: number | null;
+  /** Image width in pixels */
+  width: number | null;
+  /** Image height in pixels */
+  height: number | null;
   /** Upload/creation date */
   date: string | null;
   /** TV category identifier */

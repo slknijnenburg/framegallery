@@ -83,6 +83,8 @@ class TvFileResponse(BaseModel):
     file_name: str = Field(..., description="Display name of the file")
     file_type: str = Field(..., description="File format (JPEG, PNG, etc.)")
     file_size: int | None = Field(None, description="File size in bytes")
+    width: int | None = Field(None, description="Image width in pixels")
+    height: int | None = Field(None, description="Image height in pixels")
     date: str | None = Field(None, description="Upload/creation date")
     category_id: str = Field(..., description="TV category identifier")
     thumbnail_available: bool | None = Field(None, description="Whether thumbnail exists")

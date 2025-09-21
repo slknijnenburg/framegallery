@@ -55,6 +55,8 @@ async def list_tv_files(
                     file_name=file_data.get("file_name", "Unknown"),
                     file_type=file_data.get("file_type", "Unknown"),
                     file_size=file_data.get("file_size"),
+                    width=file_data.get("width"),
+                    height=file_data.get("height"),
                     date=file_data.get("date"),
                     category_id=file_data.get("category_id", category),
                     thumbnail_available=file_data.get("thumbnail_available"),

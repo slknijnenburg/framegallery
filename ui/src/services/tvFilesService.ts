@@ -134,9 +134,24 @@ export const tvFilesService = {
   },
 
   /**
-   * Format date for display.
+   * Format image dimensions for display.
    *
-   * @param dateString - ISO date string
+   * @param width - Image width in pixels
+   * @param height - Image height in pixels
+   * @returns Formatted dimensions string
+   */
+  formatDimensions(width: number | null, height: number | null): string {
+    if (width === null || height === null || width === undefined || height === undefined) {
+      return 'Unknown';
+    }
+    return `${width}×${height}`;
+  },
+
+  /**
+   * Format date for display.
+   * Handles the Samsung TV date format: "2025:09:08 17:58:00"
+   *
+   * @param dateString - Date string from TV
    * @returns Formatted date string
    */
   formatDate(dateString: string | null): string {
@@ -145,11 +160,23 @@ export const tvFilesService = {
     }
 
     try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString(undefined, {
+      // Handle Samsung TV date format: "2025:09:08 17:58:00"
+      // Convert colons to dashes for the date part
+      const normalizedDateString = dateString.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
+      const date = new Date(normalizedDateString);
+
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+      }
+
+      return date.toLocaleString(undefined, {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
       });
     } catch {
       return 'Invalid Date';
