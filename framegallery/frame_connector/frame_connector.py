@@ -267,3 +267,72 @@ class FrameConnector:
         """Close the connector when the TV goes to standby."""
         logger.info("TV is going to standby")
         await self.close()
+
+    async def list_files(self, category: str = "MY-C0002") -> list[dict] | None:
+        """
+        List all files available on the Samsung Frame TV.
+
+        Args:
+            category: The image folder/category on the TV (default: "MY-C0002")
+                     Common categories:
+                     - "MY-C0002": User uploaded content (default)
+                     - "MY-C0001": Samsung Art Store content
+                     - "MY-C000X": Other categories following the pattern
+
+        Returns:
+            List of dictionaries containing file information from the TV,
+            or None if the TV is not connected or an error occurs.
+
+        """
+        # Check connection status
+        if not self._connected or not self._tv_is_online:
+            logger.error("TV not connected, cannot list files.")
+            return None
+
+        try:
+            # Call Samsung TV API to get available files
+            logger.info("Retrieving file list from TV for category: %s", category)
+            available_files = await self._tv.available()
+
+            if not available_files:
+                logger.warning("No files returned from TV")
+                return []
+
+            # Parse and filter the response
+            file_list = []
+            for file_data in available_files:
+                # Check if file belongs to requested category
+                if file_data.get("category_id") == category or category is None:
+                    # Transform the response into standardized format
+                    file_info = {
+                        "content_id": file_data.get("content_id"),
+                        "category_id": file_data.get("category_id"),
+                        "file_name": file_data.get("file_name") or file_data.get("title"),
+                        "file_type": file_data.get("file_type") or file_data.get("format"),
+                        "file_size": file_data.get("file_size"),
+                        "upload_date": file_data.get("upload_date") or file_data.get("date"),
+                        "thumbnail_available": file_data.get("thumbnail_available", False),
+                        "matte": file_data.get("matte"),
+                    }
+
+                    # Include any additional metadata fields from the TV
+                    for key, value in file_data.items():
+                        if key not in file_info:
+                            file_info[key] = value
+
+                    file_list.append(file_info)
+
+            logger.info("Retrieved %d files from TV for category %s", len(file_list), category)
+
+        except websockets.exceptions.ConnectionClosedError:
+            logger.exception("Connection to TV is closed, perhaps the TV is off?")
+            await self.close()
+            return None
+        except TimeoutError:
+            logger.exception("Timeout while retrieving file list from TV")
+            raise TvConnectionTimeoutError from None
+        except Exception:
+            logger.exception("Error retrieving file list from TV")
+            return None
+        else:
+            return file_list
