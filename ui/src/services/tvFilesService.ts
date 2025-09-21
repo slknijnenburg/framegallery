@@ -1,6 +1,17 @@
 import { API_BASE_URL } from '../App';
 import { TvFile, TvCategory, TV_CATEGORIES } from '../models/TvFile';
 
+// Helper function to detect development mode
+const isDevelopmentMode = () => {
+  // Check for Jest environment (when window might not exist)
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  // Check hostname for development - covers both Vite dev server and general localhost usage
+  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+};
+
 /**
  * Error class for TV-specific errors.
  */
@@ -28,7 +39,10 @@ export const tvFilesService = {
    */
   async getTvFiles(category: TvCategory = TV_CATEGORIES.USER_CONTENT): Promise<TvFile[]> {
     try {
-      const url = new URL(`${API_BASE_URL}/api/tv/files`);
+      // Use direct backend URL in development, relative URL in production
+      const isDevelopment = isDevelopmentMode();
+      const baseUrl = isDevelopment ? 'http://localhost:7999' : API_BASE_URL;
+      const url = new URL('/api/tv/files', baseUrl);
       url.searchParams.set('category', category);
 
       const response = await fetch(url.toString());
