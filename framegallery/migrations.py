@@ -125,7 +125,6 @@ def get_current_migration_version() -> str | None:
 
     """
     try:
-
         engine = create_engine(f"sqlite:///{settings.database_path}")
         with engine.connect() as conn:
             context = MigrationContext.configure(conn)

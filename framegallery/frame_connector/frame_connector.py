@@ -152,7 +152,6 @@ class FrameConnector:
         except Exception:
             # log as much info about the error as possible
 
-
             logger.exception("Error uploading image to TV, traceback: %s", traceback.format_exc())
             await self.close()
             return
