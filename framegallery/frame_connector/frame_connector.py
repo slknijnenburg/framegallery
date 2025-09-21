@@ -5,10 +5,12 @@ update the active image on the Frame TV when the signal is emitted.
 
 import asyncio
 import os
+import traceback
 from pathlib import Path
 
 import websockets
 from blinker import signal
+from icmplib import ping
 from samsungtvws.async_art import SamsungTVAsyncArt
 
 from framegallery.aspect_ratio import get_aspect_ratio
@@ -85,8 +87,6 @@ class FrameConnector:
 
     async def _reconnect_ping(self) -> None:
         """Ping the TV to check if it is online."""
-        from icmplib import ping
-
         while True:
             try:
                 response = ping(self._ip_address, count=1, timeout=2, privileged=False)
@@ -151,8 +151,6 @@ class FrameConnector:
             return
         except Exception:
             # log as much info about the error as possible
-
-            import traceback
 
             logger.exception("Error uploading image to TV, traceback: %s", traceback.format_exc())
             await self.close()
@@ -267,3 +265,78 @@ class FrameConnector:
         """Close the connector when the TV goes to standby."""
         logger.info("TV is going to standby")
         await self.close()
+
+    def _transform_file_data(self, file_data: dict) -> dict:
+        """Transform TV file data into standardized format."""
+        file_info = {
+            "content_id": file_data.get("content_id"),
+            "category_id": file_data.get("category_id"),
+            "file_name": file_data.get("file_name") or file_data.get("title"),
+            "file_type": file_data.get("file_type") or file_data.get("format"),
+            "file_size": file_data.get("file_size"),
+            "upload_date": file_data.get("upload_date") or file_data.get("date"),
+            "thumbnail_available": file_data.get("thumbnail_available", False),
+            "matte": file_data.get("matte"),
+        }
+
+        # Include any additional metadata fields from the TV
+        for key, value in file_data.items():
+            if key not in file_info:
+                file_info[key] = value
+
+        return file_info
+
+    def _filter_files_by_category(self, files: list[dict], category: str | None) -> list[dict]:
+        """Filter files by category and transform them."""
+        return [
+            self._transform_file_data(file_data)
+            for file_data in files
+            if file_data.get("category_id") == category or category is None
+        ]
+
+    async def list_files(self, category: str = "MY-C0002") -> list[dict] | None:
+        """
+        List all files available on the Samsung Frame TV.
+
+        Args:
+            category: The image folder/category on the TV (default: "MY-C0002")
+                     Common categories:
+                     - "MY-C0002": User uploaded content (default)
+                     - "MY-C0001": Samsung Art Store content
+                     - "MY-C000X": Other categories following the pattern
+
+        Returns:
+            List of dictionaries containing file information from the TV,
+            or None if the TV is not connected or an error occurs.
+
+        """
+        # Check connection status
+        if not self._connected or not self._tv_is_online:
+            logger.error("TV not connected, cannot list files.")
+            return None
+
+        try:
+            # Call Samsung TV API to get available files
+            logger.info("Retrieving file list from TV for category: %s", category)
+            available_files = await self._tv.available()
+
+            if not available_files:
+                logger.warning("No files returned from TV")
+                return []
+
+            # Parse and filter the response
+            file_list = self._filter_files_by_category(available_files, category)
+            logger.info("Retrieved %d files from TV for category %s", len(file_list), category)
+
+        except websockets.exceptions.ConnectionClosedError:
+            logger.exception("Connection to TV is closed, perhaps the TV is off?")
+            await self.close()
+            return None
+        except TimeoutError:
+            logger.exception("Timeout while retrieving file list from TV")
+            raise TvConnectionTimeoutError from None
+        except Exception:
+            logger.exception("Error retrieving file list from TV")
+            return None
+        else:
+            return file_list
