@@ -1,9 +1,10 @@
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
 from framegallery.database import get_db
+from framegallery.frame_connector.frame_connector import FrameConnector
 from framegallery.repository.config_repository import ConfigRepository
 from framegallery.repository.filter_repository import FilterRepository
 from framegallery.repository.image_repository import ImageRepository
@@ -32,3 +33,8 @@ def get_slideshow_instance(
 ) -> Slideshow:
     """Get the slideshow instance."""
     return Slideshow(image_repository, config_repository, filter_repository)
+
+
+def get_frame_connector(request: Request) -> FrameConnector:
+    """Get the FrameConnector instance from app state."""
+    return request.app.state.frame_connector
