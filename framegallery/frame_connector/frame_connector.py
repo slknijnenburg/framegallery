@@ -4,14 +4,16 @@ update the active image on the Frame TV when the signal is emitted.
 """
 
 import asyncio
+import json
 import os
 import traceback
+import uuid
 from pathlib import Path
 
 import websockets
 from blinker import signal
 from icmplib import ping
-from samsungtvws.async_art import SamsungTVAsyncArt
+from samsungtvws.async_art import ArtChannelEmitCommand, SamsungTVAsyncArt
 
 from framegallery.aspect_ratio import get_aspect_ratio
 from framegallery.config import settings
@@ -268,15 +270,26 @@ class FrameConnector:
 
     def _transform_file_data(self, file_data: dict) -> dict:
         """Transform TV file data into standardized format."""
+        # Extract content ID for display name
+        content_id = file_data.get("content_id", "Unknown")
+
+        # Generate file_name from content_id (e.g., "MY_F33145" -> "MY_F33145")
+        file_name = content_id
+
+        # Determine file type from content_type and other indicators
+        content_type = file_data.get("content_type", "mobile")
+        # Default to JPEG for mobile uploads, Samsung Art for preinstalled content
+        file_type = "SAMSUNG_ART" if content_type == "preinstall" else "JPEG"
+
         file_info = {
-            "content_id": file_data.get("content_id"),
+            "content_id": content_id,
             "category_id": file_data.get("category_id"),
-            "file_name": file_data.get("file_name") or file_data.get("title"),
-            "file_type": file_data.get("file_type") or file_data.get("format"),
+            "file_name": file_name,
+            "file_type": file_type,
             "file_size": file_data.get("file_size"),
-            "upload_date": file_data.get("upload_date") or file_data.get("date"),
-            "thumbnail_available": file_data.get("thumbnail_available", False),
-            "matte": file_data.get("matte"),
+            "date": file_data.get("image_date"),
+            "thumbnail_available": True,  # Frame TV typically has thumbnails for all images
+            "matte": file_data.get("matte_id"),
         }
 
         # Include any additional metadata fields from the TV
@@ -293,6 +306,62 @@ class FrameConnector:
             for file_data in files
             if file_data.get("category_id") == category or category is None
         ]
+
+    async def _get_available_files_with_timeout(
+        self, category: str | None = None, timeout_seconds: int = 10
+    ) -> list[dict] | None:
+        """
+        Get available files from TV with a configurable timeout.
+
+        The Samsung TV library has a hardcoded 2-second timeout which is often too short
+        for TVs that take longer to respond. This method implements a longer timeout.
+
+        Args:
+            category: The image folder/category on the TV
+            timeout_seconds: Timeout in seconds (default: 10)
+
+        Returns:
+            List of available files or None if timeout/error occurs
+
+        """
+        # Generate a unique request ID
+        request_id = str(uuid.uuid4())
+        request_data = {"request": "get_content_list", "category": category, "id": request_id, "request_id": request_id}
+
+        # Set up the pending request future
+        self._tv.pending_requests[request_id] = asyncio.Future()
+
+        try:
+            # Send the request
+            await self._tv.send_command(ArtChannelEmitCommand.art_app_request(request_data))
+
+            # Wait for response with extended timeout
+            response = await asyncio.wait_for(self._tv.pending_requests[request_id], timeout_seconds)
+            data = json.loads(response["data"])
+
+            # Clean up pending request
+            self._tv.pending_requests.pop(request_id, None)
+
+            if data and data.get("event", "*") == "error":
+                logger.error("TV returned error for get_content_list: %s", data.get("error_code"))
+                return None
+
+            if not data or not data.get("content_list"):
+                logger.info("No content list returned from TV")
+                return []
+
+            # Parse and filter by category if specified
+            content_list = json.loads(data["content_list"])
+            return [v for v in content_list if v.get("category_id") == category] if category else content_list
+
+        except TimeoutError:
+            logger.warning("Timeout waiting for TV response after %d seconds", timeout_seconds)
+            self._tv.pending_requests.pop(request_id, None)
+            return None
+        except Exception:
+            logger.exception("Error getting available files with extended timeout")
+            self._tv.pending_requests.pop(request_id, None)
+            return None
 
     async def list_files(self, category: str = "MY-C0002") -> list[dict] | None:
         """
@@ -316,9 +385,9 @@ class FrameConnector:
             return None
 
         try:
-            # Call Samsung TV API to get available files
+            # Call Samsung TV API to get available files with extended timeout
             logger.info("Retrieving file list from TV for category: %s", category)
-            available_files = await self._tv.available()
+            available_files = await self._get_available_files_with_timeout(category)
 
             if not available_files:
                 logger.warning("No files returned from TV")
