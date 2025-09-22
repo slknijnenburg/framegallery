@@ -1,4 +1,4 @@
-import React from 'react';
+ import React, { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -11,11 +11,14 @@ import {
   Typography,
   Box,
   Skeleton,
+  IconButton,
+  CircularProgress,
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   ImageOutlined as ImageIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { TvFile } from '../models/TvFile';
 import { tvFilesService } from '../services/tvFilesService';
@@ -27,12 +30,33 @@ interface TvFileListProps {
   loading?: boolean;
   /** Category being displayed for context */
   category?: string;
+  /** Callback when a file is deleted */
+  onDelete?: (contentId: string) => Promise<void>;
 }
 
 /**
  * Component for displaying a list of TV files in a table format.
  */
-const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, category }) => {
+const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, category, onDelete }) => {
+  const [deletingFiles, setDeletingFiles] = useState<Set<string>>(new Set());
+
+  const handleDelete = async (contentId: string) => {
+    if (!onDelete) return;
+
+    setDeletingFiles(prev => new Set(prev).add(contentId));
+    try {
+      await onDelete(contentId);
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      // Could show a toast notification here
+    } finally {
+      setDeletingFiles(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(contentId);
+        return newSet;
+      });
+    }
+  };
   // Loading skeleton
   if (loading) {
     return (
@@ -46,6 +70,7 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
               <TableCell>Date</TableCell>
               <TableCell align="center">Thumbnail</TableCell>
               <TableCell>Matte</TableCell>
+              <TableCell align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -68,6 +93,9 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
                 </TableCell>
                 <TableCell>
                   <Skeleton variant="text" width="60%" />
+                </TableCell>
+                <TableCell align="center">
+                  <Skeleton variant="circular" width={24} height={24} />
                 </TableCell>
               </TableRow>
             ))}
@@ -141,6 +169,11 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
               <TableCell>
                 <Typography variant="subtitle2" fontWeight="medium">
                   Matte
+                </Typography>
+              </TableCell>
+              <TableCell align="center">
+                <Typography variant="subtitle2" fontWeight="medium">
+                  Actions
                 </Typography>
               </TableCell>
             </TableRow>
@@ -218,6 +251,24 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
                     <Typography variant="body2" color="text.secondary">
                       None
                     </Typography>
+                  )}
+                </TableCell>
+
+                <TableCell align="center">
+                  {onDelete && (
+                    <IconButton
+                      onClick={() => handleDelete(file.content_id)}
+                      disabled={deletingFiles.has(file.content_id)}
+                      size="small"
+                      sx={{ color: 'error.main' }}
+                      title="Delete file from TV"
+                    >
+                      {deletingFiles.has(file.content_id) ? (
+                        <CircularProgress size={20} />
+                      ) : (
+                        <DeleteIcon />
+                      )}
+                    </IconButton>
                   )}
                 </TableCell>
               </TableRow>

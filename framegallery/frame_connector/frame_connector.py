@@ -409,3 +409,49 @@ class FrameConnector:
             return None
         else:
             return file_list
+
+    async def delete_file(self, content_id: str) -> bool | None:
+        """
+        Delete a file from the Samsung Frame TV.
+
+        Args:
+            content_id: The content ID of the file to delete (e.g., "MY-F0001")
+
+        Returns:
+            True if file was successfully deleted
+            False if file was not found or could not be deleted
+            None if TV is not connected or unavailable
+
+        Raises:
+            TvConnectionTimeoutError: If the TV connection times out
+
+        """
+        if not self._connected or not self._tv_is_online:
+            logger.error("TV not connected, cannot delete file.")
+            return None
+
+        try:
+            logger.info("Deleting file from TV: %s", content_id)
+
+            # Use the Samsung TV library's built-in delete method
+            await self._tv.delete(content_id)
+
+        except websockets.exceptions.ConnectionClosedError:
+            logger.exception("Connection to TV is closed, perhaps the TV is off?")
+            await self.close()
+            return None
+        except TimeoutError:
+            logger.exception("Timeout while deleting file from TV")
+            raise TvConnectionTimeoutError from None
+        except Exception as e:
+            logger.exception("Error deleting file from TV")
+            # If the error indicates the file wasn't found, return False
+            # Otherwise, return None to indicate a connection/system error
+            error_msg = str(e).lower()
+            if any(term in error_msg for term in ["not found", "does not exist", "invalid"]):
+                logger.warning("File %s not found on TV", content_id)
+                return False
+            return None
+        else:
+            logger.info("Successfully deleted file from TV: %s", content_id)
+            return True

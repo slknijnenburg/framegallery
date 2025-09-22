@@ -16,6 +16,14 @@ def _raise_tv_unavailable() -> None:
     raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="TV is not connected or unavailable")
 
 
+def _raise_file_not_found(content_id: str) -> None:
+    """Raise HTTP exception for file not found."""
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"File with content_id '{content_id}' not found or could not be deleted",
+    )
+
+
 @router.get("/api/tv/files", status_code=status.HTTP_200_OK)
 async def list_tv_files(
     frame_connector: Annotated[FrameConnector, Depends(get_frame_connector)],
@@ -77,4 +85,48 @@ async def list_tv_files(
         logger.exception("Unexpected error while listing TV files")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error while retrieving TV files"
+        ) from e
+
+
+@router.delete("/api/tv/files/{content_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_tv_file(
+    content_id: str,
+    frame_connector: Annotated[FrameConnector, Depends(get_frame_connector)],
+) -> None:
+    """
+    Delete a file from the Samsung Frame TV.
+
+    Args:
+        content_id: The content ID of the file to delete
+        frame_connector: Injected FrameConnector instance
+
+    Raises:
+        HTTPException: 503 if TV is unavailable, 404 if file not found, 500 for other errors
+
+    """
+    try:
+        logger.info("Deleting TV file with content_id: %s", content_id)
+
+        # Call the FrameConnector's delete_file method
+        success = await frame_connector.delete_file(content_id)
+
+        if success is None:
+            logger.warning("TV is not connected or file could not be deleted")
+            _raise_tv_unavailable()
+        elif not success:
+            logger.warning("File with content_id %s not found or could not be deleted", content_id)
+            _raise_file_not_found(content_id)
+        else:
+            logger.info("Successfully deleted file with content_id: %s", content_id)
+
+    except TvConnectionTimeoutError as e:
+        logger.exception("TV connection timeout while deleting file")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="TV connection timeout") from e
+    except HTTPException:
+        # Re-raise HTTPExceptions (like our TV unavailable exception) without logging
+        raise
+    except Exception as e:
+        logger.exception("Unexpected error while deleting TV file")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error while deleting TV file"
         ) from e

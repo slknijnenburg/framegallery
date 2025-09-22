@@ -87,6 +87,21 @@ const TvFiles: React.FC = () => {
     fetchTvFiles(selectedCategory, true);
   }, [fetchTvFiles, selectedCategory]);
 
+  /**
+   * Handle file deletion.
+   */
+  const handleDelete = useCallback(async (contentId: string) => {
+    try {
+      await tvFilesService.deleteTvFile(contentId);
+      // Refresh the file list after successful deletion
+      await fetchTvFiles(selectedCategory, true);
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      // Error is already handled by the service, just re-throw to show loading state properly
+      throw error;
+    }
+  }, [fetchTvFiles, selectedCategory]);
+
   // Initial load
   useEffect(() => {
     fetchTvFiles(selectedCategory);
@@ -185,6 +200,7 @@ const TvFiles: React.FC = () => {
           files={files}
           loading={loading}
           category={availableCategories.find(c => c.id === selectedCategory)?.name}
+          onDelete={handleDelete}
         />
 
         {/* Additional Info */}
