@@ -158,7 +158,7 @@ if use_permissive_cors:
         CORSMiddleware,
         allow_origins=["*"],
         allow_credentials=False,  # Must be False with wildcard origins
-        allow_methods=["GET", "POST", "OPTIONS"],  # Limit methods
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Include DELETE method
         allow_headers=["Content-Type", "Cache-Control"],  # Limit headers
     )
 else:
@@ -167,7 +167,7 @@ else:
         CORSMiddleware,
         allow_origins=cors_origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Include DELETE method
         allow_headers=["Content-Type", "Cache-Control"],
     )
 
