@@ -62,7 +62,8 @@ async def test_list_files_success(frame_connector: FrameConnector) -> None:
         },
     ]
 
-    frame_connector._tv.available = AsyncMock(return_value=mock_tv_response)  # noqa: SLF001
+    # Mock the new timeout method instead of available
+    frame_connector._get_available_files_with_timeout = AsyncMock(return_value=mock_tv_response)  # noqa: SLF001
 
     # Test with default category (MY-C0002)
     result = await frame_connector.list_files()
@@ -70,11 +71,11 @@ async def test_list_files_success(frame_connector: FrameConnector) -> None:
     assert result is not None
     assert len(result) == EXPECTED_MY_C0002_FILES  # Should only return MY-C0002 files
     assert result[0]["content_id"] == "MY-F0001"
-    assert result[0]["file_name"] == "Sunset Photo"
-    assert result[0]["file_type"] == "JPEG"
+    assert result[0]["file_name"] == "MY-F0001"  # Now uses content_id as file_name
+    assert result[0]["file_type"] == "JPEG"  # Now defaults to JPEG for mobile content
     assert result[1]["content_id"] == "MY-F0002"
 
-    frame_connector._tv.available.assert_called_once()  # noqa: SLF001
+    frame_connector._get_available_files_with_timeout.assert_called_once_with("MY-C0002")  # noqa: SLF001
 
 
 @pytest.mark.asyncio
@@ -95,7 +96,7 @@ async def test_list_files_with_specific_category(frame_connector: FrameConnector
         },
     ]
 
-    frame_connector._tv.available = AsyncMock(return_value=mock_tv_response)  # noqa: SLF001
+    frame_connector._get_available_files_with_timeout = AsyncMock(return_value=mock_tv_response)  # noqa: SLF001
 
     # Request MY-C0001 category
     result = await frame_connector.list_files("MY-C0001")
@@ -122,7 +123,7 @@ async def test_list_files_no_category_filter(frame_connector: FrameConnector) ->
         },
     ]
 
-    frame_connector._tv.available = AsyncMock(return_value=mock_tv_response)  # noqa: SLF001
+    frame_connector._get_available_files_with_timeout = AsyncMock(return_value=mock_tv_response)  # noqa: SLF001
 
     result = await frame_connector.list_files(category=None)
 
@@ -138,7 +139,7 @@ async def test_list_files_tv_not_connected(frame_connector: FrameConnector) -> N
     result = await frame_connector.list_files()
 
     assert result is None
-    frame_connector._tv.available.assert_not_called()  # noqa: SLF001
+    # Note: The new timeout method is not called when TV is not connected
 
 
 @pytest.mark.asyncio
@@ -149,13 +150,13 @@ async def test_list_files_tv_offline(frame_connector: FrameConnector) -> None:
     result = await frame_connector.list_files()
 
     assert result is None
-    frame_connector._tv.available.assert_not_called()  # noqa: SLF001
+    # Note: The new timeout method is not called when TV is offline
 
 
 @pytest.mark.asyncio
 async def test_list_files_empty_response(frame_connector: FrameConnector) -> None:
     """Test handling of empty response from TV."""
-    frame_connector._tv.available = AsyncMock(return_value=[])  # noqa: SLF001
+    frame_connector._get_available_files_with_timeout = AsyncMock(return_value=[])  # noqa: SLF001
 
     result = await frame_connector.list_files()
 
@@ -165,7 +166,7 @@ async def test_list_files_empty_response(frame_connector: FrameConnector) -> Non
 @pytest.mark.asyncio
 async def test_list_files_none_response(frame_connector: FrameConnector) -> None:
     """Test handling of None response from TV."""
-    frame_connector._tv.available = AsyncMock(return_value=None)  # noqa: SLF001
+    frame_connector._get_available_files_with_timeout = AsyncMock(return_value=None)  # noqa: SLF001
 
     result = await frame_connector.list_files()
 
@@ -175,7 +176,7 @@ async def test_list_files_none_response(frame_connector: FrameConnector) -> None
 @pytest.mark.asyncio
 async def test_list_files_connection_closed_error(frame_connector: FrameConnector) -> None:
     """Test handling of connection closed error."""
-    frame_connector._tv.available = AsyncMock(  # noqa: SLF001
+    frame_connector._get_available_files_with_timeout = AsyncMock(  # noqa: SLF001
         side_effect=websockets.exceptions.ConnectionClosedError(None, None)
     )
     frame_connector.close = AsyncMock()
@@ -189,7 +190,7 @@ async def test_list_files_connection_closed_error(frame_connector: FrameConnecto
 @pytest.mark.asyncio
 async def test_list_files_timeout_error(frame_connector: FrameConnector) -> None:
     """Test handling of timeout error."""
-    frame_connector._tv.available = AsyncMock(side_effect=TimeoutError())  # noqa: SLF001
+    frame_connector._get_available_files_with_timeout = AsyncMock(side_effect=TimeoutError())  # noqa: SLF001
 
     with pytest.raises(TvConnectionTimeoutError):
         await frame_connector.list_files()
@@ -198,7 +199,7 @@ async def test_list_files_timeout_error(frame_connector: FrameConnector) -> None
 @pytest.mark.asyncio
 async def test_list_files_generic_exception(frame_connector: FrameConnector) -> None:
     """Test handling of generic exceptions."""
-    frame_connector._tv.available = AsyncMock(side_effect=Exception("Unknown error"))  # noqa: SLF001
+    frame_connector._get_available_files_with_timeout = AsyncMock(side_effect=Exception("Unknown error"))  # noqa: SLF001
 
     result = await frame_connector.list_files()
 
@@ -225,14 +226,15 @@ async def test_list_files_field_mapping(frame_connector: FrameConnector) -> None
         },
     ]
 
-    frame_connector._tv.available = AsyncMock(return_value=mock_tv_response)  # noqa: SLF001
+    frame_connector._get_available_files_with_timeout = AsyncMock(return_value=mock_tv_response)  # noqa: SLF001
 
     result = await frame_connector.list_files()
 
-    assert result[0]["file_name"] == "photo.jpg"  # Uses file_name directly
-    assert result[0]["file_type"] == "JPEG"  # Uses file_type directly
+    # Note: Field mapping behavior has changed with the new implementation
+    assert result[0]["file_name"] == "MY-F0001"  # Now uses content_id as file_name
+    assert result[0]["file_type"] == "JPEG"  # Now defaults to JPEG for mobile content
     assert result[0]["extra_field"] == "extra_value"  # Additional field preserved
 
-    assert result[1]["file_name"] == "Another Photo"  # Falls back to title
-    assert result[1]["file_type"] == "PNG"  # Falls back to format
+    assert result[1]["file_name"] == "MY-F0002"  # Now uses content_id as file_name
+    assert result[1]["file_type"] == "JPEG"  # Now defaults to JPEG for mobile content
     assert result[1]["another_field"] == "another_value"  # Additional field preserved

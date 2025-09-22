@@ -17,6 +17,7 @@ import {
   Tv as TvIcon,
   Warning as WarningIcon,
   Error as ErrorIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import TvFileList from '../components/TvFileList';
 import { TvFile, TvCategory, TV_CATEGORIES } from '../models/TvFile';
@@ -32,6 +33,8 @@ const TvFiles: React.FC = () => {
   const [isServiceUnavailable, setIsServiceUnavailable] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<TvCategory>(TV_CATEGORIES.USER_CONTENT);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+  const [deletingMultiple, setDeletingMultiple] = useState(false);
 
   /**
    * Fetch TV files for the selected category.
@@ -87,6 +90,56 @@ const TvFiles: React.FC = () => {
     fetchTvFiles(selectedCategory, true);
   }, [fetchTvFiles, selectedCategory]);
 
+  /**
+   * Handle file deletion.
+   */
+  const handleDelete = useCallback(async (contentId: string) => {
+    try {
+      await tvFilesService.deleteTvFile(contentId);
+      // Clear selection if deleted file was selected
+      setSelectedFiles(prev => prev.filter(id => id !== contentId));
+      // Refresh the file list after successful deletion
+      await fetchTvFiles(selectedCategory, true);
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      // Error is already handled by the service, just re-throw to show loading state properly
+      throw error;
+    }
+  }, [fetchTvFiles, selectedCategory]);
+
+  /**
+   * Handle multiple file deletion.
+   */
+  const handleDeleteMultiple = useCallback(async () => {
+    if (selectedFiles.length === 0) return;
+
+    setDeletingMultiple(true);
+    try {
+      // Use the new multi-delete service method
+      const result = await tvFilesService.deleteTvFiles(selectedFiles);
+
+      // Log results for debugging
+      console.log(`Deleted ${result.deleted_count} files, ${result.failed_count} failed`);
+
+      // Clear selection after deletion attempt
+      setSelectedFiles([]);
+      // Refresh the file list after deletion
+      await fetchTvFiles(selectedCategory, true);
+    } catch (error) {
+      console.error('Failed to delete multiple files:', error);
+      // Error is already handled by the service
+    } finally {
+      setDeletingMultiple(false);
+    }
+  }, [selectedFiles, fetchTvFiles, selectedCategory]);
+
+  /**
+   * Handle file selection changes.
+   */
+  const handleSelectionChange = useCallback((newSelection: string[]) => {
+    setSelectedFiles(newSelection);
+  }, []);
+
   // Initial load
   useEffect(() => {
     fetchTvFiles(selectedCategory);
@@ -134,6 +187,23 @@ const TvFiles: React.FC = () => {
               ))}
             </Select>
           </FormControl>
+
+          {/* Bulk delete button */}
+          {selectedFiles.length > 0 && (
+            <Button
+              variant="contained"
+              color="error"
+              startIcon={deletingMultiple ? <CircularProgress size={16} /> : <DeleteIcon />}
+              onClick={handleDeleteMultiple}
+              disabled={loading || refreshing || deletingMultiple}
+              sx={{ minWidth: 160 }}
+            >
+              {deletingMultiple
+                ? 'Deleting...'
+                : `Delete ${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''}`
+              }
+            </Button>
+          )}
 
           {/* Refresh button */}
           <Button
@@ -185,6 +255,9 @@ const TvFiles: React.FC = () => {
           files={files}
           loading={loading}
           category={availableCategories.find(c => c.id === selectedCategory)?.name}
+          onDelete={handleDelete}
+          selectedFiles={selectedFiles}
+          onSelectionChange={handleSelectionChange}
         />
 
         {/* Additional Info */}

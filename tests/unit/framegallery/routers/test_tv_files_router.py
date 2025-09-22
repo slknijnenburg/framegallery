@@ -261,6 +261,8 @@ async def test_list_tv_files_field_mapping(client: TestClient, mock_frame_connec
         "file_name",
         "file_type",
         "file_size",
+        "width",
+        "height",
         "date",
         "category_id",
         "thumbnail_available",

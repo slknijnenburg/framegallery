@@ -4,14 +4,16 @@ update the active image on the Frame TV when the signal is emitted.
 """
 
 import asyncio
+import json
 import os
 import traceback
+import uuid
 from pathlib import Path
 
 import websockets
 from blinker import signal
 from icmplib import ping
-from samsungtvws.async_art import SamsungTVAsyncArt
+from samsungtvws.async_art import ArtChannelEmitCommand, SamsungTVAsyncArt
 
 from framegallery.aspect_ratio import get_aspect_ratio
 from framegallery.config import settings
@@ -268,15 +270,26 @@ class FrameConnector:
 
     def _transform_file_data(self, file_data: dict) -> dict:
         """Transform TV file data into standardized format."""
+        # Extract content ID for display name
+        content_id = file_data.get("content_id", "Unknown")
+
+        # Generate file_name from content_id (e.g., "MY_F33145" -> "MY_F33145")
+        file_name = content_id
+
+        # Determine file type from content_type and other indicators
+        content_type = file_data.get("content_type", "mobile")
+        # Default to JPEG for mobile uploads, Samsung Art for preinstalled content
+        file_type = "SAMSUNG_ART" if content_type == "preinstall" else "JPEG"
+
         file_info = {
-            "content_id": file_data.get("content_id"),
+            "content_id": content_id,
             "category_id": file_data.get("category_id"),
-            "file_name": file_data.get("file_name") or file_data.get("title"),
-            "file_type": file_data.get("file_type") or file_data.get("format"),
+            "file_name": file_name,
+            "file_type": file_type,
             "file_size": file_data.get("file_size"),
-            "upload_date": file_data.get("upload_date") or file_data.get("date"),
-            "thumbnail_available": file_data.get("thumbnail_available", False),
-            "matte": file_data.get("matte"),
+            "date": file_data.get("image_date"),
+            "thumbnail_available": True,  # Frame TV typically has thumbnails for all images
+            "matte": file_data.get("matte_id"),
         }
 
         # Include any additional metadata fields from the TV
@@ -293,6 +306,62 @@ class FrameConnector:
             for file_data in files
             if file_data.get("category_id") == category or category is None
         ]
+
+    async def _get_available_files_with_timeout(
+        self, category: str | None = None, timeout_seconds: int = 10
+    ) -> list[dict] | None:
+        """
+        Get available files from TV with a configurable timeout.
+
+        The Samsung TV library has a hardcoded 2-second timeout which is often too short
+        for TVs that take longer to respond. This method implements a longer timeout.
+
+        Args:
+            category: The image folder/category on the TV
+            timeout_seconds: Timeout in seconds (default: 10)
+
+        Returns:
+            List of available files or None if timeout/error occurs
+
+        """
+        # Generate a unique request ID
+        request_id = str(uuid.uuid4())
+        request_data = {"request": "get_content_list", "category": category, "id": request_id, "request_id": request_id}
+
+        # Set up the pending request future
+        self._tv.pending_requests[request_id] = asyncio.Future()
+
+        try:
+            # Send the request
+            await self._tv.send_command(ArtChannelEmitCommand.art_app_request(request_data))
+
+            # Wait for response with extended timeout
+            response = await asyncio.wait_for(self._tv.pending_requests[request_id], timeout_seconds)
+            data = json.loads(response["data"])
+
+            # Clean up pending request
+            self._tv.pending_requests.pop(request_id, None)
+
+            if data and data.get("event", "*") == "error":
+                logger.error("TV returned error for get_content_list: %s", data.get("error_code"))
+                return None
+
+            if not data or not data.get("content_list"):
+                logger.info("No content list returned from TV")
+                return []
+
+            # Parse and filter by category if specified
+            content_list = json.loads(data["content_list"])
+            return [v for v in content_list if v.get("category_id") == category] if category else content_list
+
+        except TimeoutError:
+            logger.warning("Timeout waiting for TV response after %d seconds", timeout_seconds)
+            self._tv.pending_requests.pop(request_id, None)
+            return None
+        except Exception:
+            logger.exception("Error getting available files with extended timeout")
+            self._tv.pending_requests.pop(request_id, None)
+            return None
 
     async def list_files(self, category: str = "MY-C0002") -> list[dict] | None:
         """
@@ -316,9 +385,9 @@ class FrameConnector:
             return None
 
         try:
-            # Call Samsung TV API to get available files
+            # Call Samsung TV API to get available files with extended timeout
             logger.info("Retrieving file list from TV for category: %s", category)
-            available_files = await self._tv.available()
+            available_files = await self._get_available_files_with_timeout(category)
 
             if not available_files:
                 logger.warning("No files returned from TV")
@@ -340,3 +409,117 @@ class FrameConnector:
             return None
         else:
             return file_list
+
+    async def delete_file(self, content_id: str) -> bool | None:
+        """
+        Delete a file from the Samsung Frame TV.
+
+        Args:
+            content_id: The content ID of the file to delete (e.g., "MY-F0001")
+
+        Returns:
+            True if file was successfully deleted
+            False if file was not found or could not be deleted
+            None if TV is not connected or unavailable
+
+        Raises:
+            TvConnectionTimeoutError: If the TV connection times out
+
+        """
+        if not self._connected or not self._tv_is_online:
+            logger.error("TV not connected, cannot delete file.")
+            return None
+
+        try:
+            logger.info("Deleting file from TV: %s", content_id)
+
+            # Use the Samsung TV library's built-in delete method
+            await self._tv.delete(content_id)
+
+        except websockets.exceptions.ConnectionClosedError:
+            logger.exception("Connection to TV is closed, perhaps the TV is off?")
+            await self.close()
+            return None
+        except TimeoutError:
+            logger.exception("Timeout while deleting file from TV")
+            raise TvConnectionTimeoutError from None
+        except Exception as e:
+            logger.exception("Error deleting file from TV")
+            # If the error indicates the file wasn't found, return False
+            # Otherwise, return None to indicate a connection/system error
+            error_msg = str(e).lower()
+            if any(term in error_msg for term in ["not found", "does not exist", "invalid"]):
+                logger.warning("File %s not found on TV", content_id)
+                return False
+            return None
+        else:
+            logger.info("Successfully deleted file from TV: %s", content_id)
+            return True
+
+    async def delete_files(self, content_ids: list[str]) -> dict[str, bool] | None:
+        """
+        Delete multiple files from the Samsung Frame TV.
+
+        Args:
+            content_ids: List of content IDs to delete (e.g., ["MY-F0001", "MY-F0002"])
+
+        Returns:
+            Dictionary mapping content_id to success status (True/False) if TV is connected
+            None if TV is not connected or unavailable
+
+        Raises:
+            TvConnectionTimeoutError: If the TV connection times out
+
+        """
+        if not self._connected or not self._tv_is_online:
+            logger.error("TV not connected, cannot delete files.")
+            return None
+
+        if not content_ids:
+            logger.info("No files to delete")
+            return {}
+
+        try:
+            logger.info("Deleting %d files from TV: %s", len(content_ids), content_ids)
+
+            # Chunk the content_ids into batches of max 20 files to avoid WebSocket API errors
+            chunk_size = 20
+            result = {}
+
+            for i in range(0, len(content_ids), chunk_size):
+                chunk = content_ids[i : i + chunk_size]
+                logger.info("Deleting chunk %d-%d: %d files", i + 1, min(i + chunk_size, len(content_ids)), len(chunk))
+
+                # Use the Samsung TV library's built-in delete_list method
+                await self._tv.delete_list(chunk)
+
+                # The delete_list method doesn't return individual status, so we assume all succeeded
+                # In practice, if any fail, the method would raise an exception
+                chunk_result = dict.fromkeys(chunk, True)
+                result.update(chunk_result)
+
+                # Small delay between chunks to avoid overwhelming the TV
+                if i + chunk_size < len(content_ids):
+                    await asyncio.sleep(0.1)
+
+            num_chunks = (len(content_ids) + chunk_size - 1) // chunk_size
+            logger.info("Successfully deleted %d files from TV in %d chunks", len(content_ids), num_chunks)
+
+        except websockets.exceptions.ConnectionClosedError:
+            logger.exception("Connection to TV is closed, perhaps the TV is off?")
+            await self.close()
+            return None
+        except TimeoutError:
+            logger.exception("Timeout while deleting files from TV")
+            raise TvConnectionTimeoutError from None
+        except Exception as e:
+            logger.exception("Error deleting files from TV")
+            # If the error indicates files weren't found, return False for all
+            # Otherwise, return None to indicate a connection/system error
+            error_msg = str(e).lower()
+            if any(term in error_msg for term in ["not found", "does not exist", "invalid"]):
+                logger.warning("Some files not found on TV: %s", content_ids)
+                return dict.fromkeys(content_ids, False)
+            return None
+        else:
+            return result

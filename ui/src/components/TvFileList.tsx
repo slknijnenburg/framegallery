@@ -1,4 +1,4 @@
-import React from 'react';
+ import React, { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -11,11 +11,15 @@ import {
   Typography,
   Box,
   Skeleton,
+  IconButton,
+  CircularProgress,
+  Checkbox,
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   ImageOutlined as ImageIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { TvFile } from '../models/TvFile';
 import { tvFilesService } from '../services/tvFilesService';
@@ -27,12 +31,66 @@ interface TvFileListProps {
   loading?: boolean;
   /** Category being displayed for context */
   category?: string;
+  /** Callback when a file is deleted */
+  onDelete?: (contentId: string) => Promise<void>;
+  /** Currently selected file IDs */
+  selectedFiles?: string[];
+  /** Callback when file selection changes */
+  onSelectionChange?: (selectedIds: string[]) => void;
 }
 
 /**
  * Component for displaying a list of TV files in a table format.
  */
-const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, category }) => {
+const TvFileList: React.FC<TvFileListProps> = ({
+  files,
+  loading = false,
+  category,
+  onDelete,
+  selectedFiles = [],
+  onSelectionChange
+}) => {
+  const [deletingFiles, setDeletingFiles] = useState<Set<string>>(new Set());
+
+  // Selection handlers
+  const handleSelectFile = (contentId: string, checked: boolean) => {
+    if (!onSelectionChange) return;
+
+    const newSelection = checked
+      ? [...selectedFiles, contentId]
+      : selectedFiles.filter(id => id !== contentId);
+
+    onSelectionChange(newSelection);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (!onSelectionChange) return;
+
+    const newSelection = checked ? files.map(file => file.content_id) : [];
+    onSelectionChange(newSelection);
+  };
+
+  // Check if all files are selected
+  const isAllSelected = files.length > 0 && selectedFiles.length === files.length;
+  const isIndeterminate = selectedFiles.length > 0 && selectedFiles.length < files.length;
+
+  const handleDelete = async (contentId: string) => {
+    if (!onDelete) return;
+
+    setDeletingFiles(prev => new Set(prev).add(contentId));
+    try {
+      await onDelete(contentId);
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      // Could show a toast notification here
+    } finally {
+      setDeletingFiles(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(contentId);
+        return newSet;
+      });
+    }
+  };
   // Loading skeleton
   if (loading) {
     return (
@@ -40,17 +98,24 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
         <Table aria-label="TV files loading">
           <TableHead>
             <TableRow>
+              <TableCell padding="checkbox">
+                <Skeleton variant="circular" width={24} height={24} />
+              </TableCell>
               <TableCell>File Name</TableCell>
               <TableCell>Type</TableCell>
-              <TableCell align="right">Size</TableCell>
+              <TableCell align="right">Dimensions</TableCell>
               <TableCell>Date</TableCell>
               <TableCell align="center">Thumbnail</TableCell>
               <TableCell>Matte</TableCell>
+              <TableCell align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {Array.from({ length: 5 }).map((_, index) => (
               <TableRow key={`skeleton-${index}`}>
+                <TableCell padding="checkbox">
+                  <Skeleton variant="circular" width={24} height={24} />
+                </TableCell>
                 <TableCell>
                   <Skeleton variant="text" width="60%" />
                 </TableCell>
@@ -68,6 +133,9 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
                 </TableCell>
                 <TableCell>
                   <Skeleton variant="text" width="60%" />
+                </TableCell>
+                <TableCell align="center">
+                  <Skeleton variant="circular" width={24} height={24} />
                 </TableCell>
               </TableRow>
             ))}
@@ -113,6 +181,16 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
         <Table aria-label="TV files table">
           <TableHead>
             <TableRow>
+              <TableCell padding="checkbox">
+                {onSelectionChange && (
+                  <Checkbox
+                    checked={isAllSelected}
+                    indeterminate={isIndeterminate}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    aria-label="Select all files"
+                  />
+                )}
+              </TableCell>
               <TableCell>
                 <Typography variant="subtitle2" fontWeight="medium">
                   File Name
@@ -125,7 +203,7 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
               </TableCell>
               <TableCell align="right">
                 <Typography variant="subtitle2" fontWeight="medium">
-                  Size
+                  Dimensions
                 </Typography>
               </TableCell>
               <TableCell>
@@ -143,6 +221,11 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
                   Matte
                 </Typography>
               </TableCell>
+              <TableCell align="center">
+                <Typography variant="subtitle2" fontWeight="medium">
+                  Actions
+                </Typography>
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -150,8 +233,18 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
               <TableRow
                 key={file.content_id}
                 hover
+                selected={selectedFiles.includes(file.content_id)}
                 sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
               >
+                <TableCell padding="checkbox">
+                  {onSelectionChange && (
+                    <Checkbox
+                      checked={selectedFiles.includes(file.content_id)}
+                      onChange={(e) => handleSelectFile(file.content_id, e.target.checked)}
+                      aria-label={`Select ${file.file_name}`}
+                    />
+                  )}
+                </TableCell>
                 <TableCell>
                   <Typography variant="body2" fontWeight="medium">
                     {file.file_name}
@@ -172,7 +265,7 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
 
                 <TableCell align="right">
                   <Typography variant="body2">
-                    {tvFilesService.formatFileSize(file.file_size)}
+                    {tvFilesService.formatDimensions(file.width, file.height)}
                   </Typography>
                 </TableCell>
 
@@ -218,6 +311,24 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
                     <Typography variant="body2" color="text.secondary">
                       None
                     </Typography>
+                  )}
+                </TableCell>
+
+                <TableCell align="center">
+                  {onDelete && (
+                    <IconButton
+                      onClick={() => handleDelete(file.content_id)}
+                      disabled={deletingFiles.has(file.content_id)}
+                      size="small"
+                      sx={{ color: 'error.main' }}
+                      title="Delete file from TV"
+                    >
+                      {deletingFiles.has(file.content_id) ? (
+                        <CircularProgress size={20} />
+                      ) : (
+                        <DeleteIcon />
+                      )}
+                    </IconButton>
                   )}
                 </TableCell>
               </TableRow>
