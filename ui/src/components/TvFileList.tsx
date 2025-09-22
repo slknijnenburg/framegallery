@@ -13,6 +13,7 @@ import {
   Skeleton,
   IconButton,
   CircularProgress,
+  Checkbox,
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
@@ -32,13 +33,46 @@ interface TvFileListProps {
   category?: string;
   /** Callback when a file is deleted */
   onDelete?: (contentId: string) => Promise<void>;
+  /** Currently selected file IDs */
+  selectedFiles?: string[];
+  /** Callback when file selection changes */
+  onSelectionChange?: (selectedIds: string[]) => void;
 }
 
 /**
  * Component for displaying a list of TV files in a table format.
  */
-const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, category, onDelete }) => {
+const TvFileList: React.FC<TvFileListProps> = ({
+  files,
+  loading = false,
+  category,
+  onDelete,
+  selectedFiles = [],
+  onSelectionChange
+}) => {
   const [deletingFiles, setDeletingFiles] = useState<Set<string>>(new Set());
+
+  // Selection handlers
+  const handleSelectFile = (contentId: string, checked: boolean) => {
+    if (!onSelectionChange) return;
+
+    const newSelection = checked
+      ? [...selectedFiles, contentId]
+      : selectedFiles.filter(id => id !== contentId);
+
+    onSelectionChange(newSelection);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (!onSelectionChange) return;
+
+    const newSelection = checked ? files.map(file => file.content_id) : [];
+    onSelectionChange(newSelection);
+  };
+
+  // Check if all files are selected
+  const isAllSelected = files.length > 0 && selectedFiles.length === files.length;
+  const isIndeterminate = selectedFiles.length > 0 && selectedFiles.length < files.length;
 
   const handleDelete = async (contentId: string) => {
     if (!onDelete) return;
@@ -64,6 +98,9 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
         <Table aria-label="TV files loading">
           <TableHead>
             <TableRow>
+              <TableCell padding="checkbox">
+                <Skeleton variant="circular" width={24} height={24} />
+              </TableCell>
               <TableCell>File Name</TableCell>
               <TableCell>Type</TableCell>
               <TableCell align="right">Dimensions</TableCell>
@@ -76,6 +113,9 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
           <TableBody>
             {Array.from({ length: 5 }).map((_, index) => (
               <TableRow key={`skeleton-${index}`}>
+                <TableCell padding="checkbox">
+                  <Skeleton variant="circular" width={24} height={24} />
+                </TableCell>
                 <TableCell>
                   <Skeleton variant="text" width="60%" />
                 </TableCell>
@@ -141,6 +181,16 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
         <Table aria-label="TV files table">
           <TableHead>
             <TableRow>
+              <TableCell padding="checkbox">
+                {onSelectionChange && (
+                  <Checkbox
+                    checked={isAllSelected}
+                    indeterminate={isIndeterminate}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    aria-label="Select all files"
+                  />
+                )}
+              </TableCell>
               <TableCell>
                 <Typography variant="subtitle2" fontWeight="medium">
                   File Name
@@ -183,8 +233,18 @@ const TvFileList: React.FC<TvFileListProps> = ({ files, loading = false, categor
               <TableRow
                 key={file.content_id}
                 hover
+                selected={selectedFiles.includes(file.content_id)}
                 sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
               >
+                <TableCell padding="checkbox">
+                  {onSelectionChange && (
+                    <Checkbox
+                      checked={selectedFiles.includes(file.content_id)}
+                      onChange={(e) => handleSelectFile(file.content_id, e.target.checked)}
+                      aria-label={`Select ${file.file_name}`}
+                    />
+                  )}
+                </TableCell>
                 <TableCell>
                   <Typography variant="body2" fontWeight="medium">
                     {file.file_name}

@@ -455,3 +455,71 @@ class FrameConnector:
         else:
             logger.info("Successfully deleted file from TV: %s", content_id)
             return True
+
+    async def delete_files(self, content_ids: list[str]) -> dict[str, bool] | None:
+        """
+        Delete multiple files from the Samsung Frame TV.
+
+        Args:
+            content_ids: List of content IDs to delete (e.g., ["MY-F0001", "MY-F0002"])
+
+        Returns:
+            Dictionary mapping content_id to success status (True/False) if TV is connected
+            None if TV is not connected or unavailable
+
+        Raises:
+            TvConnectionTimeoutError: If the TV connection times out
+
+        """
+        if not self._connected or not self._tv_is_online:
+            logger.error("TV not connected, cannot delete files.")
+            return None
+
+        if not content_ids:
+            logger.info("No files to delete")
+            return {}
+
+        try:
+            logger.info("Deleting %d files from TV: %s", len(content_ids), content_ids)
+
+            # Chunk the content_ids into batches of max 20 files to avoid WebSocket API errors
+            chunk_size = 20
+            result = {}
+
+            for i in range(0, len(content_ids), chunk_size):
+                chunk = content_ids[i : i + chunk_size]
+                logger.info("Deleting chunk %d-%d: %d files", i + 1, min(i + chunk_size, len(content_ids)), len(chunk))
+
+                # Use the Samsung TV library's built-in delete_list method
+                await self._tv.delete_list(chunk)
+
+                # The delete_list method doesn't return individual status, so we assume all succeeded
+                # In practice, if any fail, the method would raise an exception
+                chunk_result = dict.fromkeys(chunk, True)
+                result.update(chunk_result)
+
+                # Small delay between chunks to avoid overwhelming the TV
+                if i + chunk_size < len(content_ids):
+                    await asyncio.sleep(0.1)
+
+            num_chunks = (len(content_ids) + chunk_size - 1) // chunk_size
+            logger.info("Successfully deleted %d files from TV in %d chunks", len(content_ids), num_chunks)
+
+        except websockets.exceptions.ConnectionClosedError:
+            logger.exception("Connection to TV is closed, perhaps the TV is off?")
+            await self.close()
+            return None
+        except TimeoutError:
+            logger.exception("Timeout while deleting files from TV")
+            raise TvConnectionTimeoutError from None
+        except Exception as e:
+            logger.exception("Error deleting files from TV")
+            # If the error indicates files weren't found, return False for all
+            # Otherwise, return None to indicate a connection/system error
+            error_msg = str(e).lower()
+            if any(term in error_msg for term in ["not found", "does not exist", "invalid"]):
+                logger.warning("Some files not found on TV: %s", content_ids)
+                return dict.fromkeys(content_ids, False)
+            return None
+        else:
+            return result

@@ -27,6 +27,15 @@ export class TvServiceError extends Error {
 }
 
 /**
+ * Response type for multi-delete operation.
+ */
+interface DeleteFilesResponse {
+  deleted_count: number;
+  failed_count: number;
+  results: Record<string, boolean>;
+}
+
+/**
  * Service for interacting with TV files API.
  */
 export const tvFilesService = {
@@ -251,6 +260,89 @@ export const tvFilesService = {
       // Handle other unexpected errors
       throw new TvServiceError(
         `Unexpected error while deleting TV file: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        0
+      );
+    }
+  },
+
+  /**
+   * Delete multiple files from the Samsung Frame TV.
+   *
+   * @param contentIds - Array of content IDs to delete
+   * @returns Promise<DeleteFilesResponse> - Response with deletion results
+   * @throws TvServiceError - When TV is unavailable or other errors occur
+   */
+  async deleteTvFiles(contentIds: string[]): Promise<DeleteFilesResponse> {
+    if (!contentIds.length) {
+      throw new TvServiceError('No files specified for deletion', 400);
+    }
+
+    try {
+      // Use direct backend URL in development, relative URL in production
+      const isDevelopment = isDevelopmentMode();
+      const baseUrl = isDevelopment ? 'http://localhost:7999' : API_BASE_URL;
+      const url = new URL('/api/tv/files/delete', baseUrl);
+
+      const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content_ids: contentIds,
+        }),
+      });
+
+      if (!response.ok) {
+        // Handle specific error cases
+        if (response.status === 503) {
+          throw new TvServiceError(
+            'TV is not connected or unavailable. Please check your TV connection.',
+            503,
+            true
+          );
+        }
+
+        if (response.status === 400) {
+          throw new TvServiceError(
+            'Invalid request: No files specified for deletion.',
+            400
+          );
+        }
+
+        if (response.status >= 500) {
+          throw new TvServiceError(
+            'Server error while deleting TV files. Please try again later.',
+            response.status
+          );
+        }
+
+        throw new TvServiceError(
+          `Failed to delete TV files: ${response.statusText}`,
+          response.status
+        );
+      }
+
+      const result: DeleteFilesResponse = await response.json();
+      return result;
+
+    } catch (error) {
+      // Re-throw TvServiceError as-is
+      if (error instanceof TvServiceError) {
+        throw error;
+      }
+
+      // Handle network/fetch errors
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new TvServiceError(
+          'Network error: Unable to connect to the server. Please check your connection.',
+          0
+        );
+      }
+
+      // Handle other unexpected errors
+      throw new TvServiceError(
+        `Unexpected error while deleting TV files: ${error instanceof Error ? error.message : 'Unknown error'}`,
         0
       );
     }
