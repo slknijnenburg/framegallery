@@ -7,4 +7,5 @@ export interface Settings {
   current_active_image: Image;
   current_active_image_since: string | null;
   active_filter: Filter | null;
+  auto_cleanup_enabled: boolean;
 }

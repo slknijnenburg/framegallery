@@ -33,3 +33,21 @@ def set_active_filter(
     else:
         config_repository.set(ConfigKey.ACTIVE_FILTER, config_value.value)
     return config_value
+
+
+@router.get("/auto_cleanup_enabled", response_model=schemas.ConfigValue)
+def get_auto_cleanup_enabled(
+    config_repository: Annotated[ConfigRepository, Depends(get_config_repository)],
+) -> schemas.ConfigValue:
+    """Get the auto-cleanup enabled status."""
+    config = config_repository.get(ConfigKey.AUTO_CLEANUP_ENABLED)
+    return schemas.ConfigValue(value=config.value if config else "false")
+
+
+@router.post("/auto_cleanup_enabled", response_model=schemas.ConfigValue)
+def set_auto_cleanup_enabled(
+    config_value: schemas.ConfigValue, config_repository: Annotated[ConfigRepository, Depends(get_config_repository)]
+) -> schemas.ConfigValue:
+    """Set the auto-cleanup enabled status."""
+    config_repository.set(ConfigKey.AUTO_CLEANUP_ENABLED, config_value.value)
+    return config_value

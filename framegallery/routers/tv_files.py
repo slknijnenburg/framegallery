@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
 from framegallery.dependencies import get_frame_connector
@@ -37,6 +37,16 @@ def _raise_file_not_found(content_id: str) -> None:
         status_code=status.HTTP_404_NOT_FOUND,
         detail=f"File with content_id '{content_id}' not found or could not be deleted",
     )
+
+
+def _raise_cleanup_service_unavailable() -> None:
+    """Raise HTTP exception for cleanup service unavailable."""
+    raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Auto-cleanup service not available")
+
+
+def _raise_cleanup_failed(message: str) -> None:
+    """Raise HTTP exception for cleanup failure."""
+    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Cleanup failed: {message}")
 
 
 @router.get("/api/tv/files", status_code=status.HTTP_200_OK)
@@ -198,3 +208,46 @@ async def delete_tv_files(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error while deleting TV files"
         ) from e
+
+
+@router.post("/api/tv/files/cleanup", status_code=status.HTTP_200_OK)
+async def cleanup_tv_files(request: Request) -> dict[str, str]:
+    """
+    Manually trigger TV file cleanup (keep 3 most recent files, delete the rest).
+
+    Args:
+        request: FastAPI request object to access app state
+
+    Returns:
+        Status of the cleanup operation
+
+    Raises:
+        HTTPException: 503 if cleanup service is unavailable, 500 for other errors
+
+    """
+    try:
+        logger.info("Manual TV cleanup requested")
+
+        # Get cleanup service from app state
+        cleanup_service = getattr(request.app.state, "cleanup_service", None)
+        if cleanup_service is None:
+            _raise_cleanup_service_unavailable()
+
+        # Run cleanup
+        result = await cleanup_service.cleanup_now()
+
+        if result.get("status") == "error":
+            _raise_cleanup_failed(result.get("message", "Unknown error"))
+
+        logger.info("Manual TV cleanup completed successfully")
+
+    except HTTPException:
+        # Re-raise HTTPExceptions without logging
+        raise
+    except Exception as e:
+        logger.exception("Unexpected error during manual TV cleanup")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error during TV cleanup"
+        ) from e
+    else:
+        return {"status": "completed", "message": "TV cleanup completed successfully"}
