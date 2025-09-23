@@ -6,6 +6,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
+import CleaningServicesIcon from '@mui/icons-material/CleaningServices';
 
 const SettingsStatus: React.FC = () => {
   const { settings, loading, error } = useSettings();
@@ -92,6 +93,20 @@ const SettingsStatus: React.FC = () => {
             </Tooltip>
             <Typography variant="body2" noWrap>
               {settings.active_filter?.name || 'None'}
+            </Typography>
+          </Stack>
+
+          {/* Auto-cleanup enabled */}
+          <Stack direction="row" spacing={0.5} alignItems="center" minWidth={0}>
+            <Tooltip title="TV Auto-cleanup">
+              {settings.auto_cleanup_enabled ? (
+                <CleaningServicesIcon color="success" fontSize="small" />
+              ) : (
+                <CleaningServicesIcon color="disabled" fontSize="small" />
+              )}
+            </Tooltip>
+            <Typography variant="body2" noWrap>
+              Cleanup {settings.auto_cleanup_enabled ? 'On' : 'Off'}
             </Typography>
           </Stack>
         </Stack>

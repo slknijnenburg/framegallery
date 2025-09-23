@@ -7,6 +7,7 @@ import ImageGrid from './components/ImageGrid';
 import Image from './models/Image';
 import Filters from './pages/Filters';
 import TvFiles from './pages/TvFiles';
+import Settings from './pages/Settings';
 import { AppBar, Stack, Toolbar, IconButton } from '@mui/material';
 import { Album, findAlbumById } from './models/Album';
 import { RichTreeView, TreeItem } from '@mui/x-tree-view';
@@ -45,6 +46,7 @@ export default function App() {
               <Route path="/browser" element={<Browser />} />
               <Route path="/filters" element={<FiltersOverview />} />
               <Route path="/tv-files" element={<TvFilesOverview />} />
+              <Route path="/settings" element={<SettingsOverview />} />
             </Route>
           </Routes>
         </Router>
@@ -86,6 +88,14 @@ function Root() {
                 component={RouterLink}
               >
                 Files on TV
+              </Button>
+              <Button
+                key="settings"
+                sx={{ my: 2, color: 'white', display: 'block' }}
+                to="/settings"
+                component={RouterLink}
+              >
+                Settings
               </Button>
             </Box>
           </Toolbar>
@@ -348,4 +358,8 @@ function FiltersOverview() {
 
 function TvFilesOverview() {
   return <TvFiles />;
+}
+
+function SettingsOverview() {
+  return <Settings />;
 }

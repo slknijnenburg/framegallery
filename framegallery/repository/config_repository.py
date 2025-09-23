@@ -16,6 +16,7 @@ class ConfigKey(Enum):
     CURRENT_ACTIVE_IMAGE = "current_active_image"
     CURRENT_ACTIVE_IMAGE_SINCE = "current_active_image_since"
     ACTIVE_FILTER = "active_filter"
+    AUTO_CLEANUP_ENABLED = "auto_cleanup_enabled"
 
 
 class ConfigRepository:

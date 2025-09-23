@@ -45,6 +45,7 @@ class ConfigResponse(BaseModel):
     current_active_image: Image | None
     current_active_image_since: str | None
     active_filter: Filter | None
+    auto_cleanup_enabled: bool
 
 
 class FilterCreate(BaseModel):

@@ -17,6 +17,7 @@ from sse_starlette import EventSourceResponse, ServerSentEvent
 from starlette.responses import Response
 
 from framegallery import crud, models, schemas
+from framegallery.auto_cleanup.tv_cleanup_service import TvCleanupService
 from framegallery.config import settings
 from framegallery.configuration.update_current_active_image_config_listener import (
     UpdateCurrentActiveImageConfigListener,
@@ -122,6 +123,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Instantiate and store the new SSE signal listener
     app.state.slideshow_signal_sse_listener = SlideshowSignalSSEListener(slideshow_event_queue)
+
+    # Start TV auto-cleanup service
+    cleanup_service = TvCleanupService(frame_connector, config_repository)
+    logger.info("Scheduling the TV auto-cleanup service")
+    cleanup_task = asyncio.create_task(cleanup_service.run_periodic_cleanup())
+    background_tasks.add(cleanup_task)
+    cleanup_task.add_done_callback(background_tasks.discard)
+    # Store cleanup service in app state for manual cleanup endpoint
+    app.state.cleanup_service = cleanup_service
 
     yield
 
@@ -428,6 +438,7 @@ async def get_settings(
             ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, default_value=None
         ).value,
         "active_filter": active_filter,
+        "auto_cleanup_enabled": config_repo.get_or(ConfigKey.AUTO_CLEANUP_ENABLED, default_value=False).value,
     }
 
     return ConfigResponse(**config)
@@ -470,6 +481,7 @@ async def react_app(
             ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, default_value=None
         ).value,
         "active_filter": active_filter,
+        "auto_cleanup_enabled": config_repo.get_or(ConfigKey.AUTO_CLEANUP_ENABLED, default_value=False).value,
     }
 
     return templates.TemplateResponse("index.html", {"request": req, "config": config})

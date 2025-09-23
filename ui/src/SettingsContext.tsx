@@ -8,6 +8,7 @@ interface SettingsContextValue {
   loading: boolean;
   error: string | null;
   updateSetting: (key: keyof Settings, value: Settings[keyof Settings]) => Promise<boolean>;
+  refreshSettings: () => Promise<void>;
 }
 
 // Create the context with a default value
@@ -32,25 +33,27 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`${API_BASE_URL}/api/settings`);
+  // Function to load settings from API
+  const loadSettings = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/api/settings`);
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data: Settings = await response.json();
-        setSettings(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    };
 
+      const data: Settings = await response.json();
+      setSettings(data);
+      setError(null); // Clear any previous errors
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadSettings();
   }, []);
 
@@ -85,11 +88,17 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     }
   };
 
+  // Method to refresh settings from the server
+  const refreshSettings = async () => {
+    await loadSettings();
+  };
+
   const value: SettingsContextValue = {
     settings,
     loading,
     error,
     updateSetting,
+    refreshSettings,
   };
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
