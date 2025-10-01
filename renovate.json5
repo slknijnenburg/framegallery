@@ -5,5 +5,8 @@
   ],
   "schedule": [
     "* * * * 6" // Every saturday
-  ]
+  ],
+  "automerge": true,
+  "automergeType": "pr",
+  "platformAutomerge": true
 }
