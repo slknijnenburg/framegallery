@@ -25,7 +25,7 @@ RUN --mount=type=cache,target=/tmp/.cache/uv \
 
 
 
-FROM python:3.13-slim AS backend
+FROM python:3.14-slim AS backend
 WORKDIR /app
 COPY --from=builder --chown=1000:1000 /app /app
 COPY --from=frontend-builder --chown=1000:1000 /app/dist /app/ui/dist
