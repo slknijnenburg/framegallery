@@ -6,7 +6,7 @@ RUN npm install
 COPY ui/ ./
 RUN npm run build
 
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim@sha256:661ae5d98b045922b10684e22214cbeabe38d5bcdc900025d4c3e8174b304511 AS builder
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim@sha256:b6617231e5b985e887de048bf9100dfb66554d8b3ab07582d852aa59cc932825 AS builder
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_PYTHON_DOWNLOADS=0
 
