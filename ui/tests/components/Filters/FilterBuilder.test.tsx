@@ -59,8 +59,8 @@ describe('FilterBuilder', () => {
 
         // Check that the main query builder elements are rendered
         expect(screen.getByRole('form')).toBeInTheDocument();
-        // Corrected name: Combinators (plural)
-        expect(screen.getByRole('combobox', { name: 'Combinators' })).toBeInTheDocument();
+        // react-querybuilder uses singular "Combinator" as the accessible name
+        expect(screen.getByRole('combobox', { name: 'Combinator' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: '+ Rule' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: '+ Group' })).toBeInTheDocument();
 
@@ -104,7 +104,7 @@ describe('FilterBuilder', () => {
 
         // 3. Select operator (change from '=' to 'contains')
         // Find the operator selector for the first rule
-        const operatorSelects = screen.getAllByRole('combobox', { name: 'Operators' });
+        const operatorSelects = screen.getAllByRole('combobox', { name: 'Operator' });
         fireEvent.change(operatorSelects[0], { target: { value: 'contains' } });
 
         // 4. Enter value
