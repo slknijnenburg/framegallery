@@ -36,21 +36,29 @@ const Filters = () => {
   const [activeFilter, setActiveFilter] = useState<number | null>(null);
 
   useEffect(() => {
-    loadFilters();
-    loadActiveFilter();
-  }, []);
-
-  const loadActiveFilter = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/config/active_filter`);
-      if (response.ok) {
-        const data = await response.json();
-        setActiveFilter(data.value ? parseInt(data.value) : null);
+    // Load filters and active filter on mount
+    const loadData = async () => {
+      try {
+        const fetchedFilters = await filterService.getFilters();
+        setFilters(fetchedFilters);
+      } catch (err) {
+        setError('Failed to load filters');
+        console.error(err);
       }
-    } catch (err) {
-      console.error('Failed to load active filter:', err);
-    }
-  };
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/config/active_filter`);
+        if (response.ok) {
+          const data = await response.json();
+          setActiveFilter(data.value ? parseInt(data.value) : null);
+        }
+      } catch (err) {
+        console.error('Failed to load active filter:', err);
+      }
+    };
+
+    loadData();
+  }, []);
 
   const setFilterAsActive = async (filterId: number | null) => {
     try {
@@ -66,16 +74,6 @@ const Filters = () => {
       }
     } catch (err) {
       setError('Failed to set active filter');
-      console.error(err);
-    }
-  };
-
-  const loadFilters = async () => {
-    try {
-      const fetchedFilters = await filterService.getFilters();
-      setFilters(fetchedFilters);
-    } catch (err) {
-      setError('Failed to load filters');
       console.error(err);
     }
   };
@@ -183,6 +181,7 @@ const Filters = () => {
                   Define your filter conditions below
                 </Typography>
                 <FilterBuilder
+                  key={selectedFilter.id}
                   filter={selectedFilter}
                   onFilterChange={(name: string, query: string) => handleUpdateFilter(selectedFilter.id, name, query)}
                 />

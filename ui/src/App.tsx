@@ -1,4 +1,4 @@
-import React, { StrictMode, useEffect, useState } from 'react';
+import React, { StrictMode, useEffect, useRef, useState } from 'react';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
@@ -113,11 +113,14 @@ function Home() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
 
-  useEffect(() => {
+  // Sync previewImageUrl with settings changes (React 19 pattern)
+  const prevSettingsImageIdRef = useRef(settings?.current_active_image?.id);
+  if (prevSettingsImageIdRef.current !== settings?.current_active_image?.id) {
+    prevSettingsImageIdRef.current = settings?.current_active_image?.id;
     if (settings?.current_active_image) {
       setPreviewImageUrl(API_BASE_URL + '/api/images/' + settings.current_active_image.id + '/cropped');
     }
-  }, [settings]);
+  }
 
   useEffect(() => {
     // Use direct backend URL in development to bypass Vite proxy issues with SSE

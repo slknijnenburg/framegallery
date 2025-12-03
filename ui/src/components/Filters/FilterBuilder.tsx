@@ -1,6 +1,6 @@
 import { Field, formatQuery, QueryBuilder, RuleGroupType, generateID } from 'react-querybuilder';
 import 'react-querybuilder/dist/query-builder.css';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Stack } from '@mui/material';
 import Container from '@mui/material/Container';
 import FormControl from '@mui/material/FormControl';
@@ -108,35 +108,24 @@ interface FilterBuilderProps {
 const defaultFilter: RuleGroupType = { id: generateID(), combinator: 'and', rules: [] };
 
 const FilterBuilder = ({ filter, onFilterChange }: FilterBuilderProps) => {
-  const [query, setQuery] = useState<RuleGroupType>(defaultFilter);
-  const [filterName, setFilterName] = useState<string>(filter.name);
-
-  useEffect(() => {
-    if (filter) {
-      const jsonParsedFilter = JSON.parse(
-        filter.query || '{"id":"root","combinator":"and","rules":[]}',
-      ) as RuleGroupType;
-
-      // Ensure the parsed filter has an ID
-      const filterWithId = {
+  // Initialize state from filter prop - parent should use key prop to reset when filter changes
+  const [query, setQuery] = useState<RuleGroupType>(() => {
+    if (filter && filter.query) {
+      const jsonParsedFilter = JSON.parse(filter.query) as RuleGroupType;
+      return {
         ...jsonParsedFilter,
         id: jsonParsedFilter.id || generateID(),
       };
-
-      setQuery(filterWithId);
-      setFilterName(filter.name);
-    } else {
-      setQuery({ ...defaultFilter, id: generateID() });
-      setFilterName('');
     }
-  }, [filter]);
+    return { ...defaultFilter, id: generateID() };
+  });
 
   const handleQueryChange = (newQuery: RuleGroupType): void => {
     setQuery(newQuery);
   };
 
   const handleSave = (): void => {
-    onFilterChange(filterName, JSON.stringify(query));
+    onFilterChange(filter.name, JSON.stringify(query));
   };
 
   const removeAllFilters = (): void => {

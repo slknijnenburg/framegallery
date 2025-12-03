@@ -1,5 +1,5 @@
 import Grid from '@mui/material/Grid';
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import ArtItemCard from './ArtItemCard';
 import Image from '../models/Image';
 import { Chip, CircularProgress, Divider } from '@mui/material';
@@ -12,25 +12,15 @@ export interface ImageGridProps {
 function ImageGrid({ items }: ImageGridProps) {
   const [visibleCount, setVisibleCount] = useState(18);
   const [loading, setLoading] = useState(false);
-  const [allImagesDisplayed, setAllImagesDisplayed] = useState(false);
 
-  useEffect(() => {
-    setAllImagesDisplayed(visibleCount >= items.length);
-  }, [items.length, visibleCount]);
+  // Derive allImagesDisplayed from visibleCount and items.length
+  const allImagesDisplayed = useMemo(() => visibleCount >= items.length, [visibleCount, items.length]);
 
   const loadMore = useCallback(() => {
     setLoading(true);
-    setVisibleCount((visibleCount) => {
-      const newVisibleCount = visibleCount + 6;
-
-      if (newVisibleCount >= items.length) {
-        setAllImagesDisplayed(newVisibleCount >= items.length);
-      }
-
-      return newVisibleCount;
-    });
+    setVisibleCount((visibleCount) => visibleCount + 6);
     setLoading(false);
-  }, [items.length]);
+  }, []);
 
   const handleScroll = useCallback(() => {
     if (window.innerHeight + document.documentElement.scrollTop !== document.documentElement.offsetHeight) {
@@ -46,9 +36,8 @@ function ImageGrid({ items }: ImageGridProps) {
 
   useEffect(() => {
     window.addEventListener('scroll', handleScroll);
-    setAllImagesDisplayed(visibleCount >= items.length);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [handleScroll, items.length, visibleCount]);
+  }, [handleScroll]);
 
   return (
     <>
