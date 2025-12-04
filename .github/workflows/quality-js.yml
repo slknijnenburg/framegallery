@@ -21,3 +21,20 @@ jobs:
     - name: Run Jest
       working-directory: ./ui
       run: npm test
+
+  # This job always runs and reports success if build succeeded or was skipped
+  js-quality-status:
+    name: JavaScript Quality Status
+    runs-on: ubuntu-latest
+    needs: build
+    if: always()
+    steps:
+      - name: Check build status
+        run: |
+          if [ "${{ needs.build.result }}" == "success" ] || [ "${{ needs.build.result }}" == "skipped" ]; then
+            echo "Build succeeded or was skipped - marking as success"
+            exit 0
+          else
+            echo "Build failed"
+            exit 1
+          fi
