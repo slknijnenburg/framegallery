@@ -1,5 +1,5 @@
 # Stage 1: Build the React frontend
-FROM node:22 AS frontend-builder
+FROM node:24 AS frontend-builder
 WORKDIR /app
 COPY ui/package.json ui/package-lock.json ./
 RUN npm install
