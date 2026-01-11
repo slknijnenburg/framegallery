@@ -33,7 +33,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           # Install a specific version of uv.
-          version: "0.9.21"
+          version: "0.9.24"
 
       - name: Set up Python
         run: uv python install ${{ matrix.python-version }}
