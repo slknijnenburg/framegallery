@@ -3,7 +3,18 @@ default:
     just --list
 
 # Run all checks
-all: test lint
+all: install test lint
+
+# Install all dependencies
+install: install-py install-ts
+
+# Install python dependencies
+install-py:
+    uv sync
+
+# Install typescript dependencies
+@install-ts:
+    cd ui && npm install
 
 # Run all tests
 test: test-py test-ts
