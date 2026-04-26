@@ -54,6 +54,9 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   };
 
   useEffect(() => {
+    // Initial fetch on mount; switching to use()/Suspense or a data
+    // library would be a larger refactor than this rule is worth here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadSettings();
   }, []);
 

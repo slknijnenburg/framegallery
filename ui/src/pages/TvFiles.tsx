@@ -140,8 +140,10 @@ const TvFiles: React.FC = () => {
     setSelectedFiles(newSelection);
   }, []);
 
-  // Initial load
+  // Initial load + reload when category changes. Switching to use()/Suspense
+  // or a data library would be a larger refactor than this rule is worth here.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchTvFiles(selectedCategory);
   }, [fetchTvFiles, selectedCategory]);
 
