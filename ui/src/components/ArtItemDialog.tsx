@@ -64,12 +64,10 @@ export default function ArtItemDialog(props: ArtItemDialogProps) {
       'art-item-matte-landscape': string;
       'art-item-matte-landscape-color': string;
     };
-    let matteId = '';
-    if (formJson['art-item-matte-landscape'] === 'none') {
-      matteId = 'none';
-    } else {
-      matteId = `${formJson['art-item-matte-landscape']}_${formJson['art-item-matte-landscape-color']}`;
-    }
+    const matteId =
+      formJson['art-item-matte-landscape'] === 'none'
+        ? 'none'
+        : `${formJson['art-item-matte-landscape']}_${formJson['art-item-matte-landscape-color']}`;
 
     // Send the new matte ID to the backend
     try {
