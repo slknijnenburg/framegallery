@@ -9,7 +9,7 @@ jobs:
     outputs:
       ui: ${{ steps.filter.outputs.ui }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
         id: filter
         with:
@@ -22,7 +22,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.ui == 'true' || github.event_name == 'workflow_dispatch'
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - name: Install modules
       working-directory: ./ui
