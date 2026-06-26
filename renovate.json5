@@ -8,5 +8,14 @@
   ],
   "automerge": true,
   "automergeType": "pr",
-  "platformAutomerge": true
+  "platformAutomerge": true,
+  "packageRules": [
+    {
+      // eslint-plugin-react has no release supporting eslint 10 (its peer dep
+      // caps at ^9.7), so eslint 10 breaks `npm install` in the Docker build.
+      // Hold eslint and @eslint/js at v9 until eslint-plugin-react supports v10.
+      "matchPackageNames": ["eslint", "@eslint/js"],
+      "allowedVersions": "<10"
+    }
+  ]
 }

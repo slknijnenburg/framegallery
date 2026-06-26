@@ -6,7 +6,14 @@ RUN npm install
 COPY ui/ ./
 RUN npm run build
 
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim@sha256:531f855bda2c73cd6ef67d56b733b357cea384185b3022bd09f05e002cd144ca AS builder
+# Shared Python base: single source of truth for the Python version.
+# Both the dependency builder and the runtime stage derive from this, so the
+# virtualenv built here is always run by the exact same interpreter version.
+# (A venv lives under .venv/lib/pythonX.Y/site-packages and only works with a
+# matching interpreter, so the two stages must never use different versions.)
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim@sha256:531f855bda2c73cd6ef67d56b733b357cea384185b3022bd09f05e002cd144ca AS python-base
+
+FROM python-base AS builder
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_PYTHON_DOWNLOADS=0
 
@@ -25,7 +32,7 @@ RUN --mount=type=cache,target=/tmp/.cache/uv \
 
 
 
-FROM python:3.14-slim AS backend
+FROM python-base AS backend
 WORKDIR /app
 COPY --from=builder --chown=1000:1000 /app /app
 COPY --from=frontend-builder --chown=1000:1000 /app/dist /app/ui/dist
