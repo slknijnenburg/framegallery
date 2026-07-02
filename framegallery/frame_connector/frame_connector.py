@@ -14,6 +14,7 @@ import websockets
 from blinker import signal
 from icmplib import ping
 from samsungtvws.async_art import ArtChannelEmitCommand, SamsungTVAsyncArt
+from samsungtvws.async_remote import SamsungTVWSAsyncRemote
 
 from framegallery.aspect_ratio import get_aspect_ratio
 from framegallery.config import settings
@@ -23,6 +24,13 @@ from framegallery.models import Image
 
 api_version = "4.3.4.0"
 logger = setup_logging(log_level=settings.log_level)
+
+# Stable client identity shared by both the remote-control and art-app channels.
+# It MUST be constant across restarts (and independent of the process id): the TV
+# grants the auth token to this name and only honours it for the same name later.
+# A PID-based name also produced zombie registrations on the TV (e.g. PID 1 in a
+# container -> "FrameTV-1"), which flooded the art channel with clientDisconnects.
+TV_CLIENT_NAME = "FrameGallery"
 
 
 class TvNotConnectedError(Exception):
@@ -44,7 +52,10 @@ class FrameConnector:
         self._ip_address = ip_address
         self._port = port
         self._pid = os.getpid()
-        self._token_file = Path(__file__).parent / f"tv-token-{self._pid}.txt"
+        # Persist the auth token in the data directory (a mounted volume in
+        # Docker) under a stable filename so it survives restarts. A per-PID
+        # token file meant the token was never reused and every boot re-paired.
+        self._token_file = Path(settings.data_path) / "tv-token.txt"
         self._background_tasks = set()
 
         self._latest_content_id = None
@@ -105,12 +116,40 @@ class FrameConnector:
                 logger.exception("Error during ping.")
             await asyncio.sleep(10)
 
+    async def _ensure_token(self) -> None:
+        """
+        Ensure a valid auth token is persisted before opening the art channel.
+
+        Recent Frame firmware (incl. 2023 models after an OS update) no longer
+        completes first-time pairing on the art-app channel: it just times out
+        with `ms.channel.timeOut`. The token must instead be obtained on the
+        standard remote-control channel, which shows the on-screen "Allow"
+        prompt and returns a token we can reuse for the art-app channel.
+
+        On the very first run the user must accept the prompt on the TV; the
+        token is then written to `self._token_file` and reused silently after.
+        """
+        remote = SamsungTVWSAsyncRemote(
+            host=self._ip_address,
+            port=self._port,
+            name=TV_CLIENT_NAME,
+            token_file=str(self._token_file),
+            timeout=30,
+        )
+        try:
+            # open() triggers the prompt (first run) and persists the token via
+            # the base connection's _check_for_token on ms.channel.connect.
+            await remote.open()
+        finally:
+            await remote.close()
+
     async def reconnect(self) -> None:
         """Reconnect to the TV."""
+        await self._ensure_token()
         self._tv = SamsungTVAsyncArt(
             host=self._ip_address,
             port=self._port,
-            name=f"FrameTV-{self._pid}",
+            name=TV_CLIENT_NAME,
             token_file=self._token_file,
         )
         await self.open()
