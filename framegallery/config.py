@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     app_name: str = "Frame Gallery"
     tv_ip_address: str = "192.168.2.76"
     tv_port: int = 8002
+    # Client identity registered on the TV and granted the auth token. Must stay
+    # constant across restarts; change it only if you want the TV to re-pair
+    # (a new "Allow" prompt) under a different device name.
+    tv_client_name: str = "FrameGallery"
     gallery_path: str = "./images"
     db_url: str = "sqlite:///./data/framegallery.db"
     filesystem_refresh_interval: int = 600

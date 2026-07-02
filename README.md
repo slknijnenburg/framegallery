@@ -115,6 +115,7 @@ Create a `.env` file with your configuration. See `.env.dist` for all available 
 # Samsung TV Configuration
 tv_ip_address=192.168.1.100
 tv_port=8002
+tv_client_name=FrameGallery   # device name registered on the TV; keep stable to avoid re-pairing
 
 # Application Settings
 gallery_path="./images"

@@ -25,13 +25,6 @@ from framegallery.models import Image
 api_version = "4.3.4.0"
 logger = setup_logging(log_level=settings.log_level)
 
-# Stable client identity shared by both the remote-control and art-app channels.
-# It MUST be constant across restarts (and independent of the process id): the TV
-# grants the auth token to this name and only honours it for the same name later.
-# A PID-based name also produced zombie registrations on the TV (e.g. PID 1 in a
-# container -> "FrameTV-1"), which flooded the art channel with clientDisconnects.
-TV_CLIENT_NAME = "FrameGallery"
-
 
 class TvNotConnectedError(Exception):
     """Exception raised when the TV is not connected."""
@@ -132,7 +125,7 @@ class FrameConnector:
         remote = SamsungTVWSAsyncRemote(
             host=self._ip_address,
             port=self._port,
-            name=TV_CLIENT_NAME,
+            name=settings.tv_client_name,
             token_file=str(self._token_file),
             timeout=30,
         )
@@ -149,7 +142,7 @@ class FrameConnector:
         self._tv = SamsungTVAsyncArt(
             host=self._ip_address,
             port=self._port,
-            name=TV_CLIENT_NAME,
+            name=settings.tv_client_name,
             token_file=self._token_file,
         )
         await self.open()
