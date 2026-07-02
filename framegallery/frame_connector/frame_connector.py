@@ -157,6 +157,25 @@ class FrameConnector:
 
         return data
 
+    async def _is_art_mode_active(self) -> bool:
+        """
+        Return whether the TV is currently in art mode.
+
+        The cached `self._tv.art_mode` flag is only updated from push events
+        (e.g. `art_mode_changed`), so it can be stale when the app connected
+        while the TV was already in art mode, or when a transition event was
+        missed. Query the live status and fall back to the cached flag only if
+        the query fails.
+        """
+        try:
+            return await self._tv.get_artmode() == "on"
+        except (AssertionError, KeyError, OSError, websockets.exceptions.WebSocketException):
+            logger.debug(
+                "Live art-mode query failed; falling back to cached art_mode=%s",
+                self._tv.art_mode,
+            )
+            return bool(self._tv.art_mode)
+
     async def _on_active_image_updated(self, _: object, active_image: Image) -> None:
         logger.info("Updating active image on TV (via slideshow signal): %s", active_image.filepath)
 
@@ -165,7 +184,7 @@ class FrameConnector:
             if not self._connected or not self._tv_is_online:
                 return
 
-            if not self._tv.art_mode:
+            if not await self._is_art_mode_active():
                 logger.debug("TV is not in art-mode, skipping image update.")
                 return
 
