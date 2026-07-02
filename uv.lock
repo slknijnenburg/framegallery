@@ -1407,7 +1407,7 @@ wheels = [
 [[package]]
 name = "samsungtvws"
 version = "3.0.5"
-source = { git = "https://github.com/slknijnenburg/samsung-tv-ws-api.git?rev=master#1124ab868898cf1b4a081a202614f2b9ff0304e6" }
+source = { git = "https://github.com/slknijnenburg/samsung-tv-ws-api.git?rev=master#6fda1c326545a69a13e7ce400ac5b863440b8fb2" }
 dependencies = [
     { name = "aiohttp" },
     { name = "async-timeout" },
