@@ -192,37 +192,37 @@ const TvFileList: React.FC<TvFileListProps> = ({
                 )}
               </TableCell>
               <TableCell>
-                <Typography variant="subtitle2" fontWeight="medium">
+                <Typography variant="subtitle2" sx={{ fontWeight: 'medium' }}>
                   File Name
                 </Typography>
               </TableCell>
               <TableCell>
-                <Typography variant="subtitle2" fontWeight="medium">
+                <Typography variant="subtitle2" sx={{ fontWeight: 'medium' }}>
                   Type
                 </Typography>
               </TableCell>
               <TableCell align="right">
-                <Typography variant="subtitle2" fontWeight="medium">
+                <Typography variant="subtitle2" sx={{ fontWeight: 'medium' }}>
                   Dimensions
                 </Typography>
               </TableCell>
               <TableCell>
-                <Typography variant="subtitle2" fontWeight="medium">
+                <Typography variant="subtitle2" sx={{ fontWeight: 'medium' }}>
                   Date
                 </Typography>
               </TableCell>
               <TableCell align="center">
-                <Typography variant="subtitle2" fontWeight="medium">
+                <Typography variant="subtitle2" sx={{ fontWeight: 'medium' }}>
                   Thumbnail
                 </Typography>
               </TableCell>
               <TableCell>
-                <Typography variant="subtitle2" fontWeight="medium">
+                <Typography variant="subtitle2" sx={{ fontWeight: 'medium' }}>
                   Matte
                 </Typography>
               </TableCell>
               <TableCell align="center">
-                <Typography variant="subtitle2" fontWeight="medium">
+                <Typography variant="subtitle2" sx={{ fontWeight: 'medium' }}>
                   Actions
                 </Typography>
               </TableCell>
@@ -246,7 +246,7 @@ const TvFileList: React.FC<TvFileListProps> = ({
                   )}
                 </TableCell>
                 <TableCell>
-                  <Typography variant="body2" fontWeight="medium">
+                  <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
                     {file.file_name}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">

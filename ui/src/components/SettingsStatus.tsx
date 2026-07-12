@@ -13,7 +13,7 @@ const SettingsStatus: React.FC = () => {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight={56}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 56 }}>
         <CircularProgress size={24} />{' '}
       </Box>
     );
@@ -26,7 +26,7 @@ const SettingsStatus: React.FC = () => {
   }
 
   return (
-    <Box maxWidth="lg" mx="auto" width="100%">
+    <Box sx={{ maxWidth: 'lg', mx: 'auto', width: '100%' }}>
       <Paper
         elevation={2}
         sx={{
@@ -43,12 +43,10 @@ const SettingsStatus: React.FC = () => {
         <Stack
           direction="row"
           spacing={2}
-          alignItems="center"
-          width="100%"
-          sx={{ flexWrap: 'nowrap', overflow: 'hidden' }}
+          sx={{ alignItems: 'center', width: '100%', flexWrap: 'nowrap', overflow: 'hidden' }}
         >
           {/* Slideshow interval */}
-          <Stack direction="row" spacing={0.5} alignItems="center" minWidth={0}>
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', minWidth: 0 }}>
             <Tooltip title="Slideshow Interval">
               <AccessTimeIcon fontSize="small" color="action" />
             </Tooltip>
@@ -58,7 +56,7 @@ const SettingsStatus: React.FC = () => {
           </Stack>
 
           {/* Slideshow enabled */}
-          <Stack direction="row" spacing={0.5} alignItems="center" minWidth={0}>
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', minWidth: 0 }}>
             <Tooltip title="Slideshow Enabled">
               {settings.slideshow_enabled ? (
                 <CheckCircleIcon color="success" fontSize="small" />
@@ -72,7 +70,7 @@ const SettingsStatus: React.FC = () => {
           </Stack>
 
           {/* Current image */}
-          <Stack direction="row" spacing={0.5} alignItems="center" minWidth={0} sx={{ flexGrow: 1, minWidth: 0 }}>
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexGrow: 1, minWidth: 0 }}>
             <Tooltip title="Current Image">
               <InsertDriveFileIcon fontSize="small" color="action" />
             </Tooltip>
@@ -87,7 +85,7 @@ const SettingsStatus: React.FC = () => {
           </Stack>
 
           {/* Active filter */}
-          <Stack direction="row" spacing={0.5} alignItems="center" minWidth={0}>
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', minWidth: 0 }}>
             <Tooltip title="Active Filter">
               <FilterListIcon fontSize="small" color="action" />
             </Tooltip>
@@ -97,7 +95,7 @@ const SettingsStatus: React.FC = () => {
           </Stack>
 
           {/* Auto-cleanup enabled */}
-          <Stack direction="row" spacing={0.5} alignItems="center" minWidth={0}>
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', minWidth: 0 }}>
             <Tooltip title="TV Auto-cleanup">
               {settings.auto_cleanup_enabled ? (
                 <CleaningServicesIcon color="success" fontSize="small" />

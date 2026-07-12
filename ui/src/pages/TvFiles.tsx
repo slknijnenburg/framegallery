@@ -154,7 +154,7 @@ const TvFiles: React.FC = () => {
     <Container maxWidth="xl">
       <Box sx={{ my: 4 }}>
         {/* Page Header */}
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
+        <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 3 }}>
           <TvIcon sx={{ fontSize: 32, color: 'primary.main' }} />
           <Typography variant="h4" component="h1">
             Files on TV
@@ -169,8 +169,7 @@ const TvFiles: React.FC = () => {
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           spacing={2}
-          alignItems={{ xs: 'stretch', sm: 'center' }}
-          sx={{ mb: 3 }}
+          sx={{ alignItems: { xs: 'stretch', sm: 'center' }, mb: 3 }}
         >
           {/* Category selector */}
           <FormControl size="small" sx={{ minWidth: 200 }}>

@@ -16,6 +16,14 @@ install-py:
 @install-ts:
     cd ui && npm install
 
+# Start the backend server (FastAPI on port 7999)
+start-backend:
+    uv run uvicorn --port 7999 --reload framegallery.main:app
+
+# Start the frontend dev server (Vite on port 3000)
+@start-frontend:
+    cd ui && npm run dev
+
 # Run all tests
 test: test-py test-ts
 
