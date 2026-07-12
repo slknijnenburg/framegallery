@@ -86,20 +86,23 @@ export default function ArtItemDialog(props: ArtItemDialogProps) {
     <Dialog
       open={props.open}
       onClose={handleClose}
-      PaperProps={{
-        component: 'form',
-        onSubmit: handleSubmit,
+      slotProps={{
+        paper: {
+          component: 'form',
+          // The Paper slot is typed as a div, so cast the form submit handler to match.
+          onSubmit: handleSubmit as unknown as React.FormEventHandler<HTMLDivElement>,
+        },
       }}
     >
       <DialogTitle>Item properties for {props.image.filename}</DialogTitle>
       <DialogContent>
         <DialogContentText>Update the display settings for the art item here.</DialogContentText>
         <Stack direction="column">
-          <Grid container justifyContent="space-between" alignItems="center">
+          <Grid container sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
             <Grid size={4} sx={{ mb: 2 }}>
               <InputLabel id="art-item-matte-landscape-label">Matte style:</InputLabel>
             </Grid>
-            <Grid size={8} alignItems="right" alignContent="right" sx={{ textAlign: 'right', mb: 2 }}>
+            <Grid size={8} sx={{ alignItems: 'right', alignContent: 'right', textAlign: 'right', mb: 2 }}>
               <Select
                 labelId="art-item-matte-landscape-label"
                 id="art-item-matte-landscape"

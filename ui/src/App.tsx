@@ -328,8 +328,8 @@ function Browser() {
           The Frame Art Gallery Manager
         </Typography>
       </Box>
-      <Stack direction="row" spacing={2} justifyContent="center" alignItems="flex-start">
-        <Stack direction="column" spacing={1} justifyContent="flex-start" alignItems="flex-start">
+      <Stack direction="row" spacing={2} sx={{ justifyContent: 'center', alignItems: 'flex-start' }}>
+        <Stack direction="column" spacing={1} sx={{ justifyContent: 'flex-start', alignItems: 'flex-start' }}>
           <Typography variant="h5" component="h2" sx={{ mb: 2 }}>
             Albums
           </Typography>
@@ -344,7 +344,7 @@ function Browser() {
             ></RichTreeView>
           </Box>
         </Stack>
-        <Stack direction="column" spacing={1} justifyContent="flex-start" alignItems="flex-start">
+        <Stack direction="column" spacing={1} sx={{ justifyContent: 'flex-start', alignItems: 'flex-start' }}>
           <Typography variant="h5" component="h2" sx={{ mb: 2 }}>
             Photos
           </Typography>

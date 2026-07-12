@@ -91,7 +91,7 @@ const Settings: React.FC = () => {
     <Container maxWidth="md">
       <Box sx={{ my: 4 }}>
         {/* Page Header */}
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
+        <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 3 }}>
           <SettingsIcon sx={{ fontSize: 32, color: 'primary.main' }} />
           <Typography variant="h4" component="h1">
             Settings
@@ -117,7 +117,7 @@ const Settings: React.FC = () => {
 
         {/* TV Auto-cleanup Settings */}
         <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
-          <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+          <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 2 }}>
             <CleaningServicesIcon sx={{ fontSize: 24, color: 'primary.main' }} />
             <Typography variant="h6" component="h2">
               TV Auto-cleanup
@@ -138,7 +138,7 @@ const Settings: React.FC = () => {
               />
             }
             label={
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                 <Typography>
                   Enable automatic cleanup
                 </Typography>
@@ -148,10 +148,10 @@ const Settings: React.FC = () => {
           />
 
           <Box sx={{ mt: 2, p: 2, backgroundColor: 'grey.50', borderRadius: 1 }}>
-            <Stack direction="row" spacing={1} alignItems="flex-start">
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
               <InfoIcon fontSize="small" color="info" sx={{ mt: 0.5 }} />
               <Box>
-                <Typography variant="body2" fontWeight="medium">
+                <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
                   How it works:
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
@@ -166,7 +166,7 @@ const Settings: React.FC = () => {
 
           <Divider sx={{ my: 2 }} />
 
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
             <Button
               variant="outlined"
               onClick={handleManualCleanup}
