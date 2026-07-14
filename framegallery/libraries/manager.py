@@ -91,7 +91,11 @@ class LibraryManager:
 
     async def fetch_bytes(self, composite_id: str) -> PhotoBytes:
         """Return the image bytes for a photo identified by its composite id."""
-        library_id, external_id = parse_composite_id(composite_id)
+        try:
+            library_id, external_id = parse_composite_id(composite_id)
+        except ValueError as exc:
+            error_message = f"Invalid photo id {composite_id!r}"
+            raise LibraryUnavailableError(error_message) from exc
         with self._session_factory() as session:
             library = self._build_by_library_id(session, library_id)
             if library is None:
@@ -112,7 +116,11 @@ class LibraryManager:
         ``source_type`` (e.g. "local"/"immich") comes from the owning library's config row, so
         callers can render source-aware UI without a second lookup.
         """
-        library_id, external_id = parse_composite_id(composite_id)
+        try:
+            library_id, external_id = parse_composite_id(composite_id)
+        except ValueError:
+            logger.warning("Invalid composite id %r; treating as unavailable", composite_id)
+            return None
         with self._session_factory() as session:
             row = LibraryRepository(session).get_by_library_id(library_id)
             if row is None:
@@ -201,6 +209,10 @@ def _weighted_choice(candidates: list[Library], weights: list[float]) -> Library
     cryptographic strength is irrelevant here but harmless.
     """
     total = sum(weights)
+    if total <= 0:
+        # Every candidate has zero effective weight (e.g. all weights set to 0); fall back to a
+        # uniform pick rather than always returning the last one.
+        return secrets.choice(candidates)
     threshold = secrets.randbelow(10_000_000) / 10_000_000 * total
     cumulative = 0.0
     for library, weight in zip(candidates, weights, strict=True):

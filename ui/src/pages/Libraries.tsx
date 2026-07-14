@@ -269,6 +269,8 @@ const Libraries = () => {
               <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                 {renderStatusChip(library)}
                 <TextField
+                  // Remount when the saved weight changes so the uncontrolled input doesn't show a stale value.
+                  key={`weight-${library.id}-${library.weight}`}
                   label="Weight"
                   type="number"
                   size="small"

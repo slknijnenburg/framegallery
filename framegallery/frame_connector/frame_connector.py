@@ -3,6 +3,8 @@ The FrameConnector provides a signal handler for the `active_image_updated` sign
 update the active image on the Frame TV when the signal is emitted.
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import os
@@ -19,10 +21,10 @@ from samsungtvws.async_remote import SamsungTVWSAsyncRemote
 
 from framegallery.aspect_ratio import get_aspect_ratio
 from framegallery.config import settings
-from framegallery.libraries.base import PhotoBytes, PhotoRef
 from framegallery.logging_config import setup_logging
 
 if TYPE_CHECKING:
+    from framegallery.libraries.base import PhotoBytes, PhotoRef
     from framegallery.libraries.manager import LibraryManager
 
 api_version = "4.3.4.0"

@@ -1,5 +1,6 @@
 """Build :class:`~framegallery.libraries.base.Library` instances from persisted config rows."""
 
+import asyncio
 import logging
 
 from sqlalchemy.orm import Session
@@ -13,6 +14,26 @@ from framegallery.repository.filter_repository import FilterRepository
 from framegallery.repository.image_repository import ImageRepository
 
 logger = logging.getLogger("framegallery")
+
+# Keeps references to in-flight aclose() tasks so they aren't garbage-collected mid-close.
+_pending_closes: set = set()
+
+
+def _close_client_soon(client: ImmichClient) -> None:
+    """
+    Close a superseded Immich client without blocking the (synchronous) factory.
+
+    Schedules ``aclose()`` on the running event loop. If no loop is running (e.g. in unit tests
+    that build libraries synchronously), there is nothing to schedule onto, so the client is left
+    for garbage collection.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    task = loop.create_task(client.aclose())
+    _pending_closes.add(task)
+    task.add_done_callback(_pending_closes.discard)
 
 
 def _build_local(row: LibraryModel, session: Session, image_repository: ImageRepository) -> LocalLibrary:
@@ -45,9 +66,10 @@ def _build_immich(row: LibraryModel, client_cache: dict) -> ImmichLibrary | None
     if cached is not None and cached[0] == key:
         return cached[1]
 
-    # Config changed (or first build): close any superseded client before replacing it.
+    # Config changed (or first build): close the superseded client's HTTP pool before replacing
+    # it, so rotating an API key / album selection doesn't leak connections. cached = (key, lib, client).
     if cached is not None:
-        client_cache.pop(row.library_id, None)
+        _close_client_soon(cached[2])
 
     client = ImmichClient(base_url, api_key)
     library = ImmichLibrary(client, list(config.get("album_ids", [])), row.library_id)

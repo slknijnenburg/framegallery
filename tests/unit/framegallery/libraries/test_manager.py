@@ -74,6 +74,31 @@ def test_weighted_choice_single_candidate() -> None:
     assert _weighted_choice([only], [5.0]) is only
 
 
+def test_weighted_choice_all_zero_weights() -> None:
+    """When all weights are zero, a candidate is still returned (uniform fallback, no crash)."""
+    a = FakeLibrary("a", count=0)
+    b = FakeLibrary("b", count=0)
+    chosen = {_weighted_choice([a, b], [0.0, 0.0]).library_id for _ in range(50)}
+    # Should not deterministically collapse to a single (last) candidate.
+    assert chosen <= {"a", "b"}
+    assert chosen  # non-empty
+
+
+@pytest.mark.asyncio
+async def test_describe_invalid_composite_id_returns_none() -> None:
+    """A malformed composite id is treated as unavailable rather than raising."""
+    manager = LibraryManager(session_factory=_null_session_factory)
+    assert await manager.describe("no-separator") is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_bytes_invalid_composite_id_raises_library_error() -> None:
+    """A malformed composite id raises LibraryUnavailableError (→ controlled 502), not ValueError."""
+    manager = LibraryManager(session_factory=_null_session_factory)
+    with pytest.raises(LibraryUnavailableError):
+        await manager.fetch_bytes("no-separator")
+
+
 @pytest.mark.asyncio
 async def test_pick_photo_skips_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
     """An unreachable library is skipped and the pick comes from a healthy one."""

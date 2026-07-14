@@ -180,7 +180,7 @@ It actually seems you can select any matte style for any image, as long the slid
 The slideshow can draw photos from multiple **libraries** at once, managed on the **Libraries** page.
 
 - **Local Gallery** — the always-present default library, backed by the `images/` folder and the SQLite database.
-Its selection is controlled by the active [filter](#).
+Its selection is controlled by the active filter (configured on the Filters page).
 - **Immich** — one or more external [Immich](https://immich.app) servers.
 Add one on the Libraries page by entering the server's base URL (e.g. `http://immich.local:2283`) and an API key,
 testing the connection, and selecting one or more albums.
