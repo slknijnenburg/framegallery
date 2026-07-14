@@ -1,4 +1,4 @@
-from sqlalchemy import JSON, Float, Index, Integer, String
+from sqlalchemy import JSON, Boolean, Float, Index, Integer, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -62,3 +62,20 @@ class Filter(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String, index=True)
     query: Mapped[str] = mapped_column(String, nullable=True)
+
+
+class Library(Base):
+    """A configured photo source (the local gallery or an external service like Immich)."""
+
+    __tablename__ = "libraries"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
+    # Stable string identifier used in composite photo ids, e.g. "local" or "immich-1".
+    library_id: Mapped[str] = mapped_column(String, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String)
+    source_type: Mapped[str] = mapped_column(String)  # "local" | "immich"
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Relative selection weight; the effective probability is weight * matching_photo_count.
+    weight: Mapped[float] = mapped_column(Float, default=1.0)
+    # Per-source configuration. local: {"filter_id": int|null};
+    # immich: {"base_url": str, "api_key": str, "album_ids": [str, ...]}.
+    config: Mapped[dict] = mapped_column(JSON, default=dict)

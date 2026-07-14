@@ -91,6 +91,7 @@ just lint-py-fix # Fix Python lint errors
 3. **Frame Connector** (`framegallery/frame_connector/`): WebSocket communication with Samsung Frame TV
 4. **Filter System** (`framegallery/repository/filter_repository.py`): Query builder for image filtering and organization
 5. **Real-time Updates** (`framegallery/sse/`): Server-Sent Events for live slideshow status
+6. **Photo Libraries** (`framegallery/libraries/`): pluggable photo sources behind a `Library` ABC (`base.py`). `LocalLibrary` wraps the SQLite gallery; `ImmichLibrary` (+ `immich_client.py`) fetches from Immich. `LibraryManager` (`manager.py`) blends across all enabled libraries with count-proportional weighting and dispatches byte/metadata lookups. Photos are identified by a composite id `"<library_id>:<external_id>"` (e.g. `local:123`, `immich-1:<uuid>`) and flow through the `active_image_updated` signal as a source-agnostic `PhotoRef`. Configured libraries live in the `libraries` table.
 
 **Database Schema:**
 - `images` table: stores image metadata, paths, dimensions, aspect ratios

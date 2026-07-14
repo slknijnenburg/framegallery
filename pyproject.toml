@@ -51,6 +51,7 @@ dependencies = [
     "icmplib<4.0.0,>=3.0.4",
     "sse-starlette~=3.4.1", # Added for Server-Sent Events
     "pyexiv2<3.0.0,>=2.0.0", # For reading XMP metadata and keywords
+    "httpx>=0.28.1",
 ]
 name = "framegallery"
 version = "0.1.0"

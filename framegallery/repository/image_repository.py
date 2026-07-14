@@ -25,6 +25,14 @@ class ImageRepository:
 
         return self._db.execute(stmt).scalar_one_or_none()
 
+    def count_matching_filter(self, where_expression: ColumnElement[bool] | None) -> int:
+        """Count the images matching the given filter provided via the where_expression."""
+        stmt = select(func.count()).select_from(Image)
+        if where_expression is not None:
+            stmt = stmt.where(where_expression)
+
+        return self._db.execute(stmt).scalar_one()
+
 
 class NoImagesError(ValueError):
     """Raised when there are no images in the database."""

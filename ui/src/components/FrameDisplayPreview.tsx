@@ -3,11 +3,11 @@ import { Box, IconButton, Paper } from '@mui/material';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import axios from 'axios';
 import { API_BASE_URL } from '../App';
-import Image from '../models/Image';
+import ActivePhoto from '../models/Photo';
 
 interface FrameDisplayPreviewProps {
   imageUrl: string;
-  onNext?: (newImage: Image) => void;
+  onNext?: (newPhoto: ActivePhoto) => void;
 }
 
 export default function FrameDisplayPreview(props: FrameDisplayPreviewProps) {
@@ -18,8 +18,8 @@ export default function FrameDisplayPreview(props: FrameDisplayPreviewProps) {
 
   const handleNextClick = async () => {
     try {
-      const response = await axios.post<Image>(`${API_BASE_URL}/api/images/next`);
-      if (onNext) {
+      const response = await axios.post<ActivePhoto | null>(`${API_BASE_URL}/api/images/next`);
+      if (onNext && response.data) {
         onNext(response.data);
       }
     } catch (error) {

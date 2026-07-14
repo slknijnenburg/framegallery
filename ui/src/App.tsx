@@ -5,7 +5,9 @@ import Box from '@mui/material/Box';
 import axios from 'axios';
 import ImageGrid from './components/ImageGrid';
 import Image from './models/Image';
+import ActivePhoto from './models/Photo';
 import Filters from './pages/Filters';
+import Libraries from './pages/Libraries';
 import TvFiles from './pages/TvFiles';
 import Settings from './pages/Settings';
 import { AppBar, Stack, Toolbar, IconButton } from '@mui/material';
@@ -44,6 +46,7 @@ export default function App() {
             <Route path="/" element={<Root />}>
               <Route index element={<Home />} />
               <Route path="/browser" element={<Browser />} />
+              <Route path="/libraries" element={<LibrariesOverview />} />
               <Route path="/filters" element={<FiltersOverview />} />
               <Route path="/tv-files" element={<TvFilesOverview />} />
               <Route path="/settings" element={<SettingsOverview />} />
@@ -72,6 +75,14 @@ function Root() {
                 component={RouterLink}
               >
                 Browser
+              </Button>
+              <Button
+                key="libraries"
+                sx={{ my: 2, color: 'white', display: 'block' }}
+                to="/libraries"
+                component={RouterLink}
+              >
+                Libraries
               </Button>
               <Button
                 key="filters"
@@ -112,15 +123,41 @@ function Home() {
   const [previewImageUrl, setPreviewImageUrl] = useState<string | undefined>(undefined);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [localImage, setLocalImage] = useState<Image | null>(null);
+
+  const activePhoto = settings?.current_active_photo ?? null;
 
   // Sync previewImageUrl with settings changes (React 19 pattern)
-  const prevSettingsImageIdRef = useRef(settings?.current_active_image?.id);
-  if (prevSettingsImageIdRef.current !== settings?.current_active_image?.id) {
-    prevSettingsImageIdRef.current = settings?.current_active_image?.id;
-    if (settings?.current_active_image) {
-      setPreviewImageUrl(API_BASE_URL + '/api/images/' + settings.current_active_image.id + '/cropped');
+  const prevCompositeIdRef = useRef(activePhoto?.composite_id);
+  if (prevCompositeIdRef.current !== activePhoto?.composite_id) {
+    prevCompositeIdRef.current = activePhoto?.composite_id;
+    if (activePhoto) {
+      setPreviewImageUrl(API_BASE_URL + activePhoto.bytes_url);
     }
   }
+
+  // Fetch the full local Image (used by the crop/matte dialogs) when the active photo is local.
+  // External photos don't support those dialogs, so there is nothing to fetch.
+  useEffect(() => {
+    if (!activePhoto?.is_local) {
+      // Clearing stale local-image state when switching to an external photo.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLocalImage(null);
+      return undefined;
+    }
+    let cancelled = false;
+    fetch(`${API_BASE_URL}/api/images/${activePhoto.external_id}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: Image | null) => {
+        if (!cancelled) setLocalImage(data);
+      })
+      .catch(() => {
+        if (!cancelled) setLocalImage(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activePhoto?.is_local, activePhoto?.external_id]);
 
   useEffect(() => {
     // Use direct backend URL in development to bypass Vite proxy issues with SSE
@@ -150,11 +187,14 @@ function Home() {
     eventSource.addEventListener('slideshow_update', (event) => {
       try {
         const eventData = JSON.parse(event.data);
-        if (eventData.imageId) {
+        if (eventData.libraryId && eventData.externalId) {
           if (isDevelopmentMode()) {
-            console.log('SSE slideshow_update received, imageId:', eventData.imageId);
+            console.log('SSE slideshow_update received, photoId:', eventData.photoId);
           }
-          setPreviewImageUrl(API_BASE_URL + '/api/images/' + eventData.imageId + '/cropped');
+          // Cache-bust so a re-selected local photo (e.g. after a crop) reloads.
+          setPreviewImageUrl(
+            `${API_BASE_URL}/api/photos/${eventData.libraryId}/${eventData.externalId}/bytes?v=${Date.now()}`,
+          );
         }
       } catch (error) {
         if (isDevelopmentMode()) {
@@ -199,8 +239,8 @@ function Home() {
     };
   }, []);
 
-  const handleImageChange = (newImage: Image) => {
-    setPreviewImageUrl(API_BASE_URL + '/api/images/' + newImage.id + '/cropped');
+  const handleImageChange = (newPhoto: ActivePhoto) => {
+    setPreviewImageUrl(`${API_BASE_URL}${newPhoto.bytes_url}?v=${Date.now()}`);
   };
 
   const openEditDialog = () => {
@@ -234,7 +274,8 @@ function Home() {
       <Container>
         {previewImageUrl && <FrameDisplayPreview imageUrl={previewImageUrl} onNext={handleImageChange} />}
       </Container>
-      {settings?.current_active_image && (
+      {/* Crop and matte editing are only available for local images. */}
+      {activePhoto?.is_local && localImage && (
         <Container maxWidth="md" sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
           <Stack direction="row" spacing={2}>
             <IconButton
@@ -266,10 +307,10 @@ function Home() {
           </Stack>
         </Container>
       )}
-      {settings?.current_active_image && (
+      {activePhoto?.is_local && localImage && (
         <>
-          <ArtItemDialog open={editDialogOpen} image={settings.current_active_image} onClose={closeEditDialog} />
-          <CropDialog open={cropDialogOpen} image={settings.current_active_image} onClose={closeCropDialog} />
+          <ArtItemDialog open={editDialogOpen} image={localImage} onClose={closeEditDialog} />
+          <CropDialog open={cropDialogOpen} image={localImage} onClose={closeCropDialog} />
         </>
       )}
     </Stack>
@@ -357,6 +398,10 @@ function Browser() {
 
 function FiltersOverview() {
   return <Filters />;
+}
+
+function LibrariesOverview() {
+  return <Libraries />;
 }
 
 function TvFilesOverview() {
