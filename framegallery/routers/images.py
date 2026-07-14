@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from framegallery import schemas
 from framegallery.database import get_db
 from framegallery.image_manipulation import read_file_data
 from framegallery.logging_config import setup_logging
@@ -12,6 +13,15 @@ from framegallery.schemas import CropData
 
 router = APIRouter()
 logger = setup_logging()
+
+
+@router.get("/api/images/{image_id}", response_model=schemas.Image)
+async def get_image(image_id: int, db: Annotated[Session, Depends(get_db)]) -> Image:
+    """Return the full metadata for a single local image (used by the crop/matte dialogs)."""
+    db_image = db.get(Image, image_id)
+    if not db_image:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+    return db_image
 
 
 @router.post("/api/images/{image_id}/crop", status_code=status.HTTP_200_OK)

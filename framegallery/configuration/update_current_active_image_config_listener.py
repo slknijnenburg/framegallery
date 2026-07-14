@@ -3,7 +3,7 @@ import logging
 
 from blinker import signal
 
-from framegallery.models import Image
+from framegallery.libraries.base import PhotoRef
 from framegallery.repository.config_repository import ConfigKey, ConfigRepository
 
 logger = logging.getLogger("framegallery")
@@ -17,10 +17,10 @@ class UpdateCurrentActiveImageConfigListener:
         self._active_image_updated_signal = signal("active_image_updated")
         self._active_image_updated_signal.connect(self._on_active_image_updated)
 
-    async def _on_active_image_updated(self, _: object, active_image: Image) -> None:
+    async def _on_active_image_updated(self, _: object, active_photo: PhotoRef) -> None:
         """Update the current active image configuration in the database."""
-        logger.debug("Updating current active image in config to %s", active_image.id)
-        self._config_repository.set(ConfigKey.CURRENT_ACTIVE_IMAGE, active_image.id)
+        logger.debug("Updating current active image in config to %s", active_photo.composite_id)
+        self._config_repository.set(ConfigKey.CURRENT_ACTIVE_IMAGE, active_photo.composite_id)
         self._config_repository.set(
             ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, datetime.datetime.now(tz=datetime.UTC).isoformat()
         )

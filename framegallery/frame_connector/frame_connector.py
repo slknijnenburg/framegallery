@@ -9,6 +9,7 @@ import os
 import traceback
 import uuid
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import websockets
 from blinker import signal
@@ -18,9 +19,11 @@ from samsungtvws.async_remote import SamsungTVWSAsyncRemote
 
 from framegallery.aspect_ratio import get_aspect_ratio
 from framegallery.config import settings
-from framegallery.image_manipulation import get_cropped_image_dimensions, read_file_data
+from framegallery.libraries.base import PhotoBytes, PhotoRef
 from framegallery.logging_config import setup_logging
-from framegallery.models import Image
+
+if TYPE_CHECKING:
+    from framegallery.libraries.manager import LibraryManager
 
 api_version = "4.3.4.0"
 logger = setup_logging(log_level=settings.log_level)
@@ -54,6 +57,9 @@ class FrameConnector:
         self._latest_content_id = None
         self._tv_is_online = False
         self._connected = False
+
+        # Set during application startup; used to resolve photo bytes from any library.
+        self.library_manager: LibraryManager | None = None
 
         self._active_image_updated_signal = signal("active_image_updated")
 
@@ -176,8 +182,8 @@ class FrameConnector:
             )
             return bool(self._tv.art_mode)
 
-    async def _on_active_image_updated(self, _: object, active_image: Image) -> None:
-        logger.info("Updating active image on TV (via slideshow signal): %s", active_image.filepath)
+    async def _on_active_image_updated(self, _: object, active_photo: PhotoRef) -> None:  # noqa: PLR0911, C901
+        logger.info("Updating active image on TV (via slideshow signal): %s", active_photo.composite_id)
 
         # Upload the image to the TV
         try:
@@ -189,7 +195,10 @@ class FrameConnector:
                 return
 
             logger.debug("_on_active_image_updated: TV connected, uploading image")
-            data = await self._upload_image(active_image)
+            photo_bytes = await self._fetch_photo_bytes(active_photo)
+            if photo_bytes is None:
+                return
+            data = await self._upload_photo(active_photo, photo_bytes)
         except websockets.exceptions.ConnectionClosedError:
             logger.exception("Connection to TV is closed, perhaps the TV is off?")
             await self.close()
@@ -221,21 +230,26 @@ class FrameConnector:
         else:
             logger.error("Slideshow image upload failed, data is None.")
 
-    async def activate_image(self, image: Image) -> None:
-        """Activate an image on the Frame TV, uploading if necessary."""
-        logger.info("Activating image: %s via explicit request.", image.filepath)
+    async def activate_image(self, photo: PhotoRef) -> None:
+        """Activate a photo on the Frame TV, uploading if necessary."""
+        logger.info("Activating photo: %s via explicit request.", photo.composite_id)
 
         # Check connection status first
         if not self._connected or not self._tv_is_online:
             logger.error("TV not connected, cannot activate image.")
             return
 
-        # Always upload the image (potentially cropped) to get the latest content_id
-        logger.info("Uploading image %s to ensure it's available...", image.filepath)
+        photo_bytes = await self._fetch_photo_bytes(photo)
+        if photo_bytes is None:
+            logger.error("Could not fetch bytes for photo %s", photo.composite_id)
+            return
 
-        uploaded_data = await self._upload_image(image)
+        # Always upload the photo (potentially cropped) to get the latest content_id
+        logger.info("Uploading photo %s to ensure it's available...", photo.composite_id)
+
+        uploaded_data = await self._upload_photo(photo, photo_bytes)
         if not uploaded_data:
-            logger.error("Upload failed for image %s", image.filepath)
+            logger.error("Upload failed for photo %s", photo.composite_id)
             return
 
         content_id = uploaded_data.get("content_id")
@@ -246,33 +260,35 @@ class FrameConnector:
         else:
             logger.error("Upload completed but did not return a content_id.")
 
-    async def _upload_image(self, image: Image) -> dict | None:
-        """Upload image to TV and return the uploaded file details as provided by the television."""
-        logger.info("Uploading image %s to TV", image.filepath)
-
-        file_data, file_type = read_file_data(image)
-        if file_type is None:
-            logger.error("File type not determined for image %s, canceling file upload", image.filepath)
+    async def _fetch_photo_bytes(self, photo: PhotoRef) -> PhotoBytes | None:
+        """Resolve the raw image bytes for a photo through the library manager."""
+        if self.library_manager is None:
+            logger.error("FrameConnector has no library_manager; cannot fetch photo bytes.")
+            return None
+        try:
+            return await self.library_manager.fetch_bytes(photo.composite_id)
+        except Exception:
+            logger.exception("Failed to fetch bytes for photo %s", photo.composite_id)
             return None
 
-        cropped_width, cropped_height = get_cropped_image_dimensions(image)
-        cropped_width_aspect_width, cropped_width_aspect_height = get_aspect_ratio(cropped_width, cropped_height)
+    async def _upload_photo(self, photo: PhotoRef, photo_bytes: PhotoBytes) -> dict | None:
+        """Upload photo bytes to TV and return the uploaded file details as provided by the television."""
+        logger.info("Uploading photo %s to TV", photo.composite_id)
 
-        logger.info("Cropped image dimensions: %s:%s", cropped_width, cropped_height)
-        logger.info("Cropped image aspect ratio: %s:%s", cropped_width_aspect_width, cropped_width_aspect_height)
+        file_data = photo_bytes.data
+        file_type = photo_bytes.file_type_suffix
 
-        matte = (
-            "none"
-            if (
-                cropped_width_aspect_width == self.IDEAL_ASPECT_RATIO_WIDTH
-                and cropped_width_aspect_height == self.IDEAL_ASPECT_RATIO_HEIGHT
-            )
-            else "shadowbox_black"
-        )
+        # Pick the matte from the final (post-crop) dimensions; a 16:9 photo needs no matte,
+        # anything else (or unknown dimensions) gets a shadowbox so it isn't stretched.
+        matte = "shadowbox_black"
+        if photo_bytes.width and photo_bytes.height:
+            aspect_width, aspect_height = get_aspect_ratio(photo_bytes.width, photo_bytes.height)
+            if aspect_width == self.IDEAL_ASPECT_RATIO_WIDTH and aspect_height == self.IDEAL_ASPECT_RATIO_HEIGHT:
+                matte = "none"
 
         logger.info(
             "Going to upload %s with file_type %s and filesize: %d",
-            image.filepath,
+            photo.composite_id,
             file_type,
             len(file_data),
         )

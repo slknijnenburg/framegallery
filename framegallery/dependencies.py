@@ -5,9 +5,11 @@ from sqlalchemy.orm import Session
 
 from framegallery.database import get_db
 from framegallery.frame_connector.frame_connector import FrameConnector
+from framegallery.libraries.manager import LibraryManager
 from framegallery.repository.config_repository import ConfigRepository
 from framegallery.repository.filter_repository import FilterRepository
 from framegallery.repository.image_repository import ImageRepository
+from framegallery.repository.library_repository import LibraryRepository
 from framegallery.slideshow.slideshow import Slideshow
 
 
@@ -26,13 +28,21 @@ def get_filter_repository(db: Annotated[Session, Depends(get_db)]) -> FilterRepo
     return FilterRepository(db)
 
 
+def get_library_repository(db: Annotated[Session, Depends(get_db)]) -> LibraryRepository:
+    """Get the library repository."""
+    return LibraryRepository(db)
+
+
+def get_library_manager(request: Request) -> LibraryManager:
+    """Get the shared LibraryManager instance from app state."""
+    return request.app.state.library_manager
+
+
 def get_slideshow_instance(
-    image_repository: Annotated[ImageRepository, Depends(get_image_repository)],
-    config_repository: Annotated[ConfigRepository, Depends(get_config_repository)],
-    filter_repository: Annotated[FilterRepository, Depends(get_filter_repository)],
+    library_manager: Annotated[LibraryManager, Depends(get_library_manager)],
 ) -> Slideshow:
     """Get the slideshow instance."""
-    return Slideshow(image_repository, config_repository, filter_repository)
+    return Slideshow(library_manager)
 
 
 def get_frame_connector(request: Request) -> FrameConnector:

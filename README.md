@@ -174,3 +174,55 @@ Images with an aspect ratio of 3:2 (e.g. 1920x1280) can also be configured with 
 Images with an aspect ratio of 4:3 (e.g. 1920x1440) can also be configured with a matte. When using "none" the image will be cropped to 1920x1080
 
 It actually seems you can select any matte style for any image, as long the slideshow mode is disabled.
+
+## Photo Libraries
+
+The slideshow can draw photos from multiple **libraries** at once, managed on the **Libraries** page.
+
+- **Local Gallery** — the always-present default library, backed by the `images/` folder and the SQLite database.
+Its selection is controlled by the active [filter](#).
+- **Immich** — one or more external [Immich](https://immich.app) servers.
+Add one on the Libraries page by entering the server's base URL (e.g. `http://immich.local:2283`) and an API key,
+testing the connection, and selecting one or more albums.
+
+Each enabled library has a **weight**.
+The slideshow picks a source with probability proportional to `weight × (number of matching photos)`,
+so with equal weights every photo across all libraries is equally likely (a true random pick over the union).
+Increase a library's weight to make it appear more often relative to its size.
+
+External photos are fetched **on demand**: when a photo is chosen, its bytes are downloaded from the source
+just-in-time and uploaded to the TV. Nothing is mirrored locally. If a library is unreachable, it is skipped for
+that tick and the slideshow continues with the other libraries.
+
+Each library on the Libraries page shows a live status chip — its number of matching photos, `0 matching photos`,
+or `Unavailable: …` when the server can't be reached. A warning banner appears when no enabled library has any
+photos, so the "nothing to display" condition is visible in the UI rather than only in the server logs.
+
+### Immich API keys
+
+Create an API key in Immich under *Account Settings → API Keys*. It needs read access to albums and assets plus the
+ability to download originals:
+
+| Permission | Used for |
+|---|---|
+| `album.read` | Listing albums and reading album contents |
+| `asset.read` | Reading asset metadata (dimensions, filename) |
+| `asset.download` | Downloading the original photo to send to the TV |
+| `server.about` | Reporting the Immich version on "Test connection" (optional) |
+
+The minimal set is `album.read`, `asset.read`, `asset.download`. An unrestricted key also works. (Immich versions
+older than ~v1.118 have all-or-nothing keys, so any valid key works there.)
+
+The key is stored in the application's SQLite database (in the mounted `data/` volume, alongside the TV auth token)
+and is **never returned by the API** — treat the `data/` directory as sensitive. Because it is stored, you don't
+need to re-enter it to change a library's album selection: opening a saved library reloads its albums with the
+stored key, and you only type a key when you want to rotate it.
+
+Crop and matte editing are only available for local images; external photos are displayed as-is (16:9 photos
+without a matte, others with a shadowbox).
+
+### How album selection works with Immich
+
+Recent Immich releases stopped embedding assets in `GET /api/albums/{id}`, so album contents are enumerated with
+`POST /api/search/metadata` (paged), and the union across the selected albums is de-duplicated. A random asset is
+chosen client-side rather than via Immich's `/search/random`, which has been unreliable across releases.

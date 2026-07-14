@@ -22,20 +22,28 @@ from framegallery.config import settings
 from framegallery.configuration.update_current_active_image_config_listener import (
     UpdateCurrentActiveImageConfigListener,
 )
-from framegallery.database import get_db
-from framegallery.dependencies import get_config_repository, get_filter_repository, get_slideshow_instance
+from framegallery.database import SessionLocal, get_db
+from framegallery.dependencies import (
+    get_config_repository,
+    get_filter_repository,
+    get_library_manager,
+    get_slideshow_instance,
+)
 from framegallery.frame_connector.frame_connector import FrameConnector, api_version
 from framegallery.frame_connector.status import SlideshowStatus, Status
 from framegallery.importer2.importer import Importer
+from framegallery.libraries.manager import LibraryManager
 from framegallery.logging_config import setup_logging
 from framegallery.migrations import run_migrations
 from framegallery.repository.config_repository import ConfigKey, ConfigRepository
 from framegallery.repository.filter_repository import FilterRepository
-from framegallery.repository.image_repository import ImageRepository
 from framegallery.routers import config_router, filters_router
 from framegallery.routers.images import router as images_router
+from framegallery.routers.libraries import router as libraries_router
+from framegallery.routers.photos import build_active_photo
+from framegallery.routers.photos import router as photos_router
 from framegallery.routers.tv_files import router as tv_files_router
-from framegallery.schemas import ConfigResponse, Filter, Image
+from framegallery.schemas import ActivePhoto, ConfigResponse, Filter
 from framegallery.slideshow.slideshow import Slideshow
 from framegallery.sse.slideshow_signal_listener import SlideshowSignalSSEListener
 
@@ -57,10 +65,18 @@ async def run_importer_periodically(db: Session) -> None:
 
 
 async def update_slideshow_periodically(slideshow: Slideshow) -> None:
-    """Update the slideshow periodically."""
+    """
+    Update the slideshow periodically.
+
+    A single failing tick (e.g. an unreachable library) must never kill the loop, so any
+    exception is logged and the loop continues on the next interval.
+    """
     while True:
         logger.debug("Updating slideshow")
-        await slideshow.update_slideshow()
+        try:
+            await slideshow.update_slideshow()
+        except Exception:
+            logger.exception("Slideshow update failed; will retry next interval")
         await asyncio.sleep(settings.slideshow_interval)
 
 
@@ -90,8 +106,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     logger.info("Proceeding with application initialization after migrations...")
 
+    # The LibraryManager blends photos across all enabled libraries. It opens its own short-lived
+    # sessions via SessionLocal, so it is safe to share across background tasks and requests.
+    library_manager = LibraryManager(SessionLocal)
+    app.state.library_manager = library_manager
+
     # Initialize FrameConnector within lifespan
     frame_connector = FrameConnector(settings.tv_ip_address, settings.tv_port)
+    frame_connector.library_manager = library_manager
     app.state.frame_connector = frame_connector  # Store in app state
 
     # Call startup logic for the connector
@@ -104,10 +126,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     background_tasks.add(image_importer)
     image_importer.add_done_callback(background_tasks.discard)
 
-    image_repository = ImageRepository(db)
-    config_repository = ConfigRepository(db)
-    filter_repository = FilterRepository(db)
-    slideshow = get_slideshow_instance(image_repository, config_repository, filter_repository)
+    slideshow = Slideshow(library_manager)
     logger.info("Scheduling the slideshow updater")
     slideshow_updater = asyncio.create_task(update_slideshow_periodically(slideshow))
     background_tasks.add(slideshow_updater)
@@ -134,6 +153,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.cleanup_service = cleanup_service
 
     yield
+
+    # Shutdown: close any long-lived library clients (e.g. Immich HTTP pools).
+    await library_manager.aclose()
 
 
 logger.info("logger - Before FastAPI launch")
@@ -305,17 +327,19 @@ async def get_albums() -> dict:
 @app.post("/api/active-art/{image_id}")
 async def select_art(
     image_id: int,
-    db: Annotated[Session, Depends(get_db)],
     slideshow: Annotated[Slideshow, Depends(get_slideshow_instance)],
-) -> Image:
-    """Set the active item."""
-    image = crud.get_image_by_id(db, image_id)
-    if not image:
+    manager: Annotated[LibraryManager, Depends(get_library_manager)],
+) -> ActivePhoto:
+    """Set the active item to a specific local image."""
+    composite_id = f"local:{image_id}"
+    described = await manager.describe(composite_id)
+    if described is None:
         raise HTTPException(status_code=404, detail=f"Image with ID {image_id} not found")
 
-    await slideshow.set_slideshow_active_image(image)
+    photo, source_type = described
+    await slideshow.set_slideshow_active_image(photo)
 
-    return image
+    return build_active_photo(photo, source_type)
 
 
 @app.get("/api/slideshow")
@@ -415,13 +439,16 @@ async def slideshow_events(request: Request) -> EventSourceResponse:
 async def get_settings(
     db: Annotated[Session, Depends(get_db)],
     filter_repository: Annotated[FilterRepository, Depends(get_filter_repository)],
+    manager: Annotated[LibraryManager, Depends(get_library_manager)],
 ) -> ConfigResponse:
     """Get the current settings."""
     config_repo = ConfigRepository(db)
-    active_image_id = config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE, default_value=None).value
-    active_image = crud.get_image_by_id(db, int(active_image_id)) if active_image_id else None
-    if active_image:
-        active_image = Image.model_validate(active_image)
+    active_photo: ActivePhoto | None = None
+    active_composite_id = config_repo.get_or(ConfigKey.CURRENT_ACTIVE_IMAGE, default_value=None).value
+    if active_composite_id:
+        described = await manager.describe(active_composite_id)
+        if described is not None:
+            active_photo = build_active_photo(*described)
 
     active_filter = None
     active_filter_id = config_repo.get_or(ConfigKey.ACTIVE_FILTER, default_value=None).value
@@ -433,7 +460,7 @@ async def get_settings(
     config = {
         "slideshow_enabled": config_repo.get_or(ConfigKey.SLIDESHOW_ENABLED, default_value=True).value,
         "slideshow_interval": settings.slideshow_interval,
-        "current_active_image": active_image,
+        "current_active_photo": active_photo,
         "current_active_image_since": config_repo.get_or(
             ConfigKey.CURRENT_ACTIVE_IMAGE_SINCE, default_value=None
         ).value,
@@ -445,9 +472,18 @@ async def get_settings(
 
 
 @app.post("/api/images/next")
-async def next_image(slideshow: Annotated[Slideshow, Depends(get_slideshow_instance)]) -> Image:
+async def next_image(
+    slideshow: Annotated[Slideshow, Depends(get_slideshow_instance)],
+    manager: Annotated[LibraryManager, Depends(get_library_manager)],
+) -> ActivePhoto | None:
     """Advance to the next image in the slideshow."""
-    return await slideshow.update_slideshow()
+    photo = await slideshow.update_slideshow()
+    if photo is None:
+        return None
+    described = await manager.describe(photo.composite_id)
+    if described is None:
+        return build_active_photo(photo, "local")
+    return build_active_photo(*described)
 
 
 # Include routers for modular API endpoints
@@ -455,6 +491,8 @@ app.include_router(filters_router)
 app.include_router(config_router)
 app.include_router(images_router)
 app.include_router(tv_files_router)
+app.include_router(photos_router)
+app.include_router(libraries_router)
 
 
 # Defines a route handler for `/*` essentially.

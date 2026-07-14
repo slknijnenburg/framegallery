@@ -3,7 +3,7 @@ import logging
 
 from blinker import signal
 
-from framegallery.models import Image
+from framegallery.libraries.base import PhotoRef
 
 logger = logging.getLogger("framegallery")
 
@@ -16,9 +16,14 @@ class SlideshowSignalSSEListener:
         self._active_image_updated_signal = signal("active_image_updated")
         self._active_image_updated_signal.connect(self._on_active_image_updated)
 
-    async def _on_active_image_updated(self, _: object, active_image: Image) -> None:
+    async def _on_active_image_updated(self, _: object, active_photo: PhotoRef) -> None:
         """Handle the active_image_updated signal and put event onto the SSE queue."""
         if self._event_queue:
-            event_data = {"event": "slideshow_update", "imageId": active_image.id}
+            event_data = {
+                "event": "slideshow_update",
+                "photoId": active_photo.composite_id,
+                "libraryId": active_photo.library_id,
+                "externalId": active_photo.external_id,
+            }
             await self._event_queue.put(event_data)
             logger.info("SlideshowSignalSSEListener: Put event on queue: %s", event_data)

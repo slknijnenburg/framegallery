@@ -37,12 +37,29 @@ class Filter(BaseModel):
     query: str
 
 
+class ActivePhoto(BaseModel):
+    """Pydantic model for the currently active photo, from any library."""
+
+    library_id: str
+    external_id: str
+    composite_id: str
+    source_type: str
+    is_local: bool
+    bytes_url: str
+    filename: str | None = None
+    width: int | None = None
+    height: int | None = None
+    aspect_width: int | None = None
+    aspect_height: int | None = None
+    keywords: list[str] | None = None
+
+
 class ConfigResponse(BaseModel):
     """Pydantic model for the response of the /config endpoint."""
 
     slideshow_enabled: bool
     slideshow_interval: int
-    current_active_image: Image | None
+    current_active_photo: ActivePhoto | None
     current_active_image_since: str | None
     active_filter: Filter | None
     auto_cleanup_enabled: bool
@@ -75,6 +92,80 @@ class CropData(BaseModel):
     y: float = Field(..., ge=0, le=100, description="The y coordinate of the crop area as a percentage.")
     width: float = Field(..., gt=0, le=100, description="The width of the crop area as a percentage.")
     height: float = Field(..., gt=0, le=100, description="The height of the crop area as a percentage.")
+
+
+class AlbumSummary(BaseModel):
+    """Pydantic model for an album offered by an external library."""
+
+    id: str
+    name: str
+    photo_count: int | None = None
+
+
+class LibrarySummary(BaseModel):
+    """API-facing view of a configured library. Never exposes the stored API key."""
+
+    id: int
+    library_id: str
+    name: str
+    source_type: str
+    enabled: bool
+    weight: float
+    is_local: bool
+    has_api_key: bool
+    base_url: str | None = None
+    album_ids: list[str] = Field(default_factory=list)
+    filter_id: int | None = None
+
+
+class LibraryStatus(BaseModel):
+    """Live health/count of a library, for surfacing problems in the UI."""
+
+    id: int
+    library_id: str
+    enabled: bool
+    count: int | None = None
+    error: str | None = None
+
+
+class LibraryCreate(BaseModel):
+    """Payload for creating an external (Immich) library."""
+
+    name: str
+    source_type: str = "immich"
+    base_url: str
+    api_key: str
+    album_ids: list[str] = Field(default_factory=list)
+    enabled: bool = True
+    weight: float = 1.0
+
+
+class LibraryUpdate(BaseModel):
+    """Payload for updating a library. Fields left unset are unchanged."""
+
+    name: str | None = None
+    enabled: bool | None = None
+    weight: float | None = None
+    base_url: str | None = None
+    # Only sent when the user wants to change the key; omitted keeps the stored one.
+    api_key: str | None = None
+    album_ids: list[str] | None = None
+    filter_id: int | None = None
+
+
+class ImmichConnectionRequest(BaseModel):
+    """Payload for testing an Immich connection or listing its albums."""
+
+    base_url: str
+    api_key: str
+
+
+class ConnectionTestResult(BaseModel):
+    """Result of probing an Immich server."""
+
+    ok: bool
+    version: str | None = None
+    error: str | None = None
 
 
 class TvFileResponse(BaseModel):

@@ -77,10 +77,10 @@ const SettingsStatus: React.FC = () => {
             <Typography
               variant="body2"
               noWrap
-              title={settings.current_active_image?.filename || 'None'}
+              title={settings.current_active_photo?.filename || 'None'}
               sx={{ textOverflow: 'ellipsis', overflow: 'hidden', flexGrow: 1, minWidth: 0 }}
             >
-              {settings.current_active_image?.filename || 'None'}
+              {settings.current_active_photo?.filename || 'None'}
             </Typography>
           </Stack>
 

@@ -4,24 +4,25 @@ import '@testing-library/jest-dom';
 import SettingsStatus from '../../src/components/SettingsStatus';
 import { useSettings } from '../../src/SettingsContext';
 import { Settings } from '../../src/models/Settings';
-import Image from '../../src/models/Image';
+import ActivePhoto from '../../src/models/Photo';
 import { Filter } from '../../src/components/Filters/Filter';
 
 jest.mock('../../src/SettingsContext');
 const mockUseSettings = useSettings as jest.MockedFunction<typeof useSettings>;
 const mockUpdateSetting = jest.fn();
 
-const mockImage: Image = {
-    id: 1,
+const mockPhoto: ActivePhoto = {
+    library_id: 'local',
+    external_id: '1',
+    composite_id: 'local:1',
+    source_type: 'local',
+    is_local: true,
+    bytes_url: '/api/photos/local/1/bytes',
     filename: 'active-image.jpg',
-    filepath: '/path/to/active-image.jpg',
-    filetype: 'image/jpeg',
-    thumbnail_path: '/path/to/thumb.jpg',
     width: 1920,
     height: 1080,
     aspect_width: 16,
     aspect_height: 9,
-    matte_id: 'shadowbox_black',
 };
 
 const mockFilter: Filter = {
@@ -33,7 +34,7 @@ const mockFilter: Filter = {
 const mockSettings: Settings = {
   slideshow_enabled: true,
   slideshow_interval: 30,
-  current_active_image: mockImage,
+  current_active_photo: mockPhoto,
   current_active_image_since: '2023-10-27T10:00:00Z',
   active_filter: mockFilter,
 };
@@ -70,7 +71,7 @@ describe('SettingsStatus Component', () => {
     expect(screen.getByText('On')).toBeInTheDocument();
     expect(screen.getByTestId('CheckCircleIcon')).toBeInTheDocument();
 
-    expect(screen.getByText(mockSettings.current_active_image.filename)).toBeInTheDocument();
+    expect(screen.getByText(mockSettings.current_active_photo!.filename!)).toBeInTheDocument();
 
     // Check Active Filter (Check visible elements)
     expect(screen.getByText(mockSettings.active_filter!.name)).toBeInTheDocument();
