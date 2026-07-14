@@ -14,7 +14,11 @@ from framegallery import crud, database, models
 from framegallery.config import settings
 from framegallery.logging_config import setup_logging
 
-logger = setup_logging(log_level=settings.log_level)
+logger = setup_logging(
+    log_level=settings.log_level,
+    websocket_log_level=settings.websocket_log_level,
+    logs_path=settings.logs_path,
+)
 register_heif_opener()  # HEIF support
 
 

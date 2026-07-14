@@ -47,7 +47,11 @@ from framegallery.schemas import ActivePhoto, ConfigResponse, Filter
 from framegallery.slideshow.slideshow import Slideshow
 from framegallery.sse.slideshow_signal_listener import SlideshowSignalSSEListener
 
-logger = setup_logging(log_level=settings.log_level)
+logger = setup_logging(
+    log_level=settings.log_level,
+    websocket_log_level=settings.websocket_log_level,
+    logs_path=settings.logs_path,
+)
 
 background_tasks = set()
 

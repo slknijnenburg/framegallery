@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     filesystem_refresh_interval: int = 600
     slideshow_interval: int = 180
     log_level: str = "DEBUG"
+    # Log level for the WebSocket libraries (``websockets``/``samsungtvws``) that
+    # power the Samsung Frame connection. Kept separate from ``log_level`` because
+    # they emit very noisy ping/pong/keepalive messages at DEBUG. Raise to DEBUG
+    # only when debugging the TV connection.
+    websocket_log_level: str = "WARNING"
     images_path: str = "./images"
     data_path: str = "./data"
     logs_path: str = "./logs"
@@ -35,5 +40,9 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-logger = setup_logging(log_level=settings.log_level)
+logger = setup_logging(
+    log_level=settings.log_level,
+    websocket_log_level=settings.websocket_log_level,
+    logs_path=settings.logs_path,
+)
 logger.warning("Settings at boot: %s", settings.model_dump())
