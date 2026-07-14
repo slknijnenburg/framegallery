@@ -121,6 +121,10 @@ tv_client_name=FrameGallery   # device name registered on the TV; keep stable to
 gallery_path="./images"
 db_url="sqlite:///./data/framegallery.db"
 log_level=INFO
+# Log level for the WebSocket libraries (websockets/samsungtvws) driving the TV
+# connection. Kept separate from log_level because they emit very noisy
+# ping/pong/keepalive messages at DEBUG. Raise to DEBUG only to debug the TV link.
+websocket_log_level=WARNING
 slideshow_interval=180
 filesystem_refresh_interval=600
 

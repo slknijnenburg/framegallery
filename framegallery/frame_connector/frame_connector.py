@@ -28,7 +28,11 @@ if TYPE_CHECKING:
     from framegallery.libraries.manager import LibraryManager
 
 api_version = "4.3.4.0"
-logger = setup_logging(log_level=settings.log_level)
+logger = setup_logging(
+    log_level=settings.log_level,
+    websocket_log_level=settings.websocket_log_level,
+    logs_path=settings.logs_path,
+)
 
 
 class TvNotConnectedError(Exception):
