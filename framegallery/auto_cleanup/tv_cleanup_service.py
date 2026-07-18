@@ -3,10 +3,12 @@ import logging
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from framegallery.config import settings
+from framegallery.frame_connector.processors import ProcessorKind
 from framegallery.repository.config_repository import ConfigKey, ConfigRepository
 
 if TYPE_CHECKING:
-    from framegallery.frame_connector.frame_connector import FrameConnector
+    from framegallery.frame_connector.processors import UploadProcessor
 
 logger = logging.getLogger("framegallery")
 
@@ -14,7 +16,7 @@ logger = logging.getLogger("framegallery")
 class TvCleanupService:
     """Service for automatically cleaning up old TV files to prevent memory buildup."""
 
-    def __init__(self, frame_connector: "FrameConnector", config_repository: ConfigRepository) -> None:
+    def __init__(self, frame_connector: "UploadProcessor", config_repository: ConfigRepository) -> None:
         self._frame_connector = frame_connector
         self._config_repository = config_repository
         self._cleanup_interval = 3600  # 1 hour in seconds
@@ -44,9 +46,12 @@ class TvCleanupService:
 
     def _is_cleanup_enabled(self) -> bool:
         """Check if auto-cleanup is enabled in the configuration."""
+        # The batch_slideshow processor keeps a whole batch (~50) resident and manages
+        # its own eviction, so the "keep 3 newest" cleanup must never run in that mode.
+        if settings.upload_processor == ProcessorKind.BATCH_SLIDESHOW.value:
+            return False
         try:
-            config = self._config_repository.get_or(ConfigKey.AUTO_CLEANUP_ENABLED, default_value=False)
-            return config.value == "true" if isinstance(config.value, str) else bool(config.value)
+            return self._config_repository.get_bool(ConfigKey.AUTO_CLEANUP_ENABLED, default=False)
         except Exception:
             logger.exception("Error checking auto-cleanup configuration, defaulting to disabled")
             return False

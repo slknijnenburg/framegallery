@@ -29,7 +29,7 @@ from framegallery.dependencies import (
     get_library_manager,
     get_slideshow_instance,
 )
-from framegallery.frame_connector.frame_connector import FrameConnector, api_version
+from framegallery.frame_connector.processors import ProcessorKind, UploadProcessor, api_version, build_processor
 from framegallery.frame_connector.status import SlideshowStatus, Status
 from framegallery.importer2.importer import Importer
 from framegallery.libraries.manager import LibraryManager
@@ -68,17 +68,60 @@ async def run_importer_periodically(db: Session) -> None:
         await asyncio.sleep(settings.filesystem_refresh_interval)
 
 
-async def update_slideshow_periodically(slideshow: Slideshow) -> None:
+def _should_push_slideshow_tick() -> bool:
+    """
+    Decide whether the periodic loop should push a new active image this tick.
+
+    - In ``batch_slideshow`` mode the TV owns rotation, so the app must never push
+      per-tick (it would fight the TV's own slideshow).
+    - Otherwise honour the ``SLIDESHOW_ENABLED`` config flag. This is read from a
+      fresh session each tick so runtime enable/disable takes effect immediately.
+    """
+    if settings.upload_processor == ProcessorKind.BATCH_SLIDESHOW.value:
+        return False
+    with SessionLocal() as db:
+        return ConfigRepository(db).get_bool(ConfigKey.SLIDESHOW_ENABLED, default=True)
+
+
+async def _wait_for_processor_connection(
+    processor: UploadProcessor,
+    timeout: float = 30.0,  # noqa: ASYNC109 -- wall-clock poll budget, not a per-op timeout
+    poll_interval: float = 0.5,
+) -> bool:
+    """
+    Wait (up to ``timeout`` s) for the processor to establish its TV connection.
+
+    On startup the TV connection is established asynchronously and takes a couple of
+    seconds; without this wait the first slideshow push races the connection and is
+    dropped, leaving the display unchanged until the next interval.
+    """
+    waited = 0.0
+    while waited < timeout:
+        if processor.is_connected:
+            return True
+        await asyncio.sleep(poll_interval)
+        waited += poll_interval
+    return False
+
+
+async def update_slideshow_periodically(slideshow: Slideshow, processor: UploadProcessor) -> None:
     """
     Update the slideshow periodically.
 
     A single failing tick (e.g. an unreachable library) must never kill the loop, so any
     exception is logged and the loop continues on the next interval.
     """
+    # Let the TV connection settle before the first push so the initial image appears
+    # promptly after a restart instead of waiting a full interval.
+    if not await _wait_for_processor_connection(processor):
+        logger.info("TV not connected yet; slideshow will start pushing once it connects")
     while True:
-        logger.debug("Updating slideshow")
         try:
-            await slideshow.update_slideshow()
+            if _should_push_slideshow_tick():
+                logger.debug("Updating slideshow")
+                await slideshow.update_slideshow()
+            else:
+                logger.debug("Slideshow tick skipped (disabled or TV-managed rotation)")
         except Exception:
             logger.exception("Slideshow update failed; will retry next interval")
         await asyncio.sleep(settings.slideshow_interval)
@@ -115,13 +158,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     library_manager = LibraryManager(SessionLocal)
     app.state.library_manager = library_manager
 
-    # Initialize FrameConnector within lifespan
-    frame_connector = FrameConnector(settings.tv_ip_address, settings.tv_port)
-    frame_connector.library_manager = library_manager
-    app.state.frame_connector = frame_connector  # Store in app state
+    # Build the configured upload processor within lifespan. The processor owns the
+    # TV connection and its reconnection pinger; the strategy is chosen at startup
+    # via settings.upload_processor (see framegallery/frame_connector/processors/).
+    upload_processor = build_processor(
+        ProcessorKind(settings.upload_processor),
+        settings.tv_ip_address,
+        settings.tv_port,
+        library_manager,
+    )
+    app.state.upload_processor = upload_processor  # Store in app state
 
-    # Call startup logic for the connector
-    await frame_connector.get_active_item_details()
+    # Call startup logic for the processor
+    await upload_processor.get_active_item_details()
 
     # Create a database session and run the importer periodically
     db = next(get_db())
@@ -132,7 +181,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     slideshow = Slideshow(library_manager)
     logger.info("Scheduling the slideshow updater")
-    slideshow_updater = asyncio.create_task(update_slideshow_periodically(slideshow))
+    slideshow_updater = asyncio.create_task(update_slideshow_periodically(slideshow, upload_processor))
     background_tasks.add(slideshow_updater)
     slideshow_updater.add_done_callback(background_tasks.discard)
 
@@ -148,7 +197,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.slideshow_signal_sse_listener = SlideshowSignalSSEListener(slideshow_event_queue)
 
     # Start TV auto-cleanup service
-    cleanup_service = TvCleanupService(frame_connector, config_repository)
+    cleanup_service = TvCleanupService(upload_processor, config_repository)
     logger.info("Scheduling the TV auto-cleanup service")
     cleanup_task = asyncio.create_task(cleanup_service.run_periodic_cleanup())
     background_tasks.add(cleanup_task)
@@ -158,7 +207,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     yield
 
-    # Shutdown: close any long-lived library clients (e.g. Immich HTTP pools).
+    # Shutdown: close the TV connection (whichever processor is active), cancel the
+    # background loops, and close any long-lived library clients (e.g. Immich pools).
+    try:
+        await upload_processor.shutdown()
+    except Exception:
+        logger.exception("Error shutting down upload processor")
+
+    for task in list(background_tasks):
+        task.cancel()
+    await asyncio.gather(*background_tasks, return_exceptions=True)
+
     await library_manager.aclose()
 
 
@@ -350,8 +409,8 @@ async def select_art(
 async def get_slideshow_status(db: Annotated[Session, Depends(get_db)]) -> SlideshowStatus:
     """Get the current slideshow status."""
     config_repo = ConfigRepository(db)
-    slideshow_status = config_repo.get_or(ConfigKey.SLIDESHOW_ENABLED, default_value=True)
-    return SlideshowStatus(enabled=slideshow_status.value == "true", interval=settings.slideshow_interval)
+    enabled = config_repo.get_bool(ConfigKey.SLIDESHOW_ENABLED, default=True)
+    return SlideshowStatus(enabled=enabled, interval=settings.slideshow_interval)
 
 
 @app.post("/api/slideshow/enable")

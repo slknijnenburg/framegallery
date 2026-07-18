@@ -3,8 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
-from framegallery.dependencies import get_frame_connector
-from framegallery.frame_connector.frame_connector import FrameConnector, TvConnectionTimeoutError
+from framegallery.dependencies import get_upload_processor
+from framegallery.frame_connector.processors import TvConnectionTimeoutError, UploadProcessor
 from framegallery.logging_config import setup_logging
 from framegallery.schemas import TvFileResponse
 
@@ -51,14 +51,14 @@ def _raise_cleanup_failed(message: str) -> None:
 
 @router.get("/api/tv/files", status_code=status.HTTP_200_OK)
 async def list_tv_files(
-    frame_connector: Annotated[FrameConnector, Depends(get_frame_connector)],
+    frame_connector: Annotated[UploadProcessor, Depends(get_upload_processor)],
     category: str = "MY-C0002",
 ) -> list[TvFileResponse]:
     """
     List all files available on the Samsung Frame TV.
 
     Args:
-        frame_connector: Injected FrameConnector instance
+        frame_connector: Injected UploadProcessor instance
         category: The image folder/category on the TV (default: "MY-C0002" for user content)
 
     Returns:
@@ -71,7 +71,7 @@ async def list_tv_files(
     try:
         logger.info("Fetching TV files for category: %s", category)
 
-        # Call the FrameConnector's list_files method
+        # Call the processor's list_files method
         tv_files = await frame_connector.list_files(category=category)
 
         if tv_files is None:
@@ -116,14 +116,14 @@ async def list_tv_files(
 @router.delete("/api/tv/files/{content_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_tv_file(
     content_id: str,
-    frame_connector: Annotated[FrameConnector, Depends(get_frame_connector)],
+    frame_connector: Annotated[UploadProcessor, Depends(get_upload_processor)],
 ) -> None:
     """
     Delete a file from the Samsung Frame TV.
 
     Args:
         content_id: The content ID of the file to delete
-        frame_connector: Injected FrameConnector instance
+        frame_connector: Injected UploadProcessor instance
 
     Raises:
         HTTPException: 503 if TV is unavailable, 404 if file not found, 500 for other errors
@@ -160,14 +160,14 @@ async def delete_tv_file(
 @router.post("/api/tv/files/delete", status_code=status.HTTP_200_OK)
 async def delete_tv_files(
     request: DeleteFilesRequest,
-    frame_connector: Annotated[FrameConnector, Depends(get_frame_connector)],
+    frame_connector: Annotated[UploadProcessor, Depends(get_upload_processor)],
 ) -> DeleteFilesResponse:
     """
     Delete multiple files from the Samsung Frame TV.
 
     Args:
         request: Request containing list of content IDs to delete
-        frame_connector: Injected FrameConnector instance
+        frame_connector: Injected UploadProcessor instance
 
     Returns:
         DeleteFilesResponse with deletion results
@@ -182,7 +182,7 @@ async def delete_tv_files(
     try:
         logger.info("Deleting %d TV files: %s", len(request.content_ids), request.content_ids)
 
-        # Call the FrameConnector's delete_files method
+        # Call the processor's delete_files method
         results = await frame_connector.delete_files(request.content_ids)
 
         if results is None:
