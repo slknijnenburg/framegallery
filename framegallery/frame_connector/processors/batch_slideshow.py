@@ -12,9 +12,12 @@ upload/delete churn), which makes it a useful comparison point when diagnosing c
 
 MVP behaviour: evict-all-refill. On connect it wipes MY-C0002, uploads a fresh batch of
 ``settings.batch_size`` photos, tracks their ``composite_id -> content_id`` mapping in
-memory, and enables the TV's shuffle rotation. The mapping is not persisted, so a restart
+memory, and enables the TV's shuffle slideshow. The mapping is not persisted, so a restart
 re-uploads the batch (the batch is disposable). Auto-cleanup is skipped in this mode
 (``TvCleanupService`` would otherwise delete all but the 3 newest).
+
+"Rotation" throughout this module refers to the slideshow cycling through images, NOT
+physical rotation of the TV panel — see ``_enable_tv_rotation`` for the full note.
 """
 
 from __future__ import annotations
@@ -132,7 +135,16 @@ class BatchSlideshowProcessor(SingleAsyncProcessor):
 
     async def _enable_tv_rotation(self) -> None:
         """
-        Turn on the TV's built-in shuffle rotation over the resident batch.
+        Turn on the TV's built-in shuffle slideshow over the resident batch.
+
+        NOTE ON NAMING: despite the name, ``set_auto_rotation_status`` has nothing to
+        do with physically rotating the panel (the motorised auto-rotating wall mount).
+        In Samsung's Art Mode API "auto rotation" means *rotating through the images* —
+        i.e. the slideshow auto-advancing the displayed artwork every N minutes.
+        ``set_auto_rotation_status`` and ``set_slideshow_status`` are two firmware-era
+        names for that same slideshow feature (identical payloads: interval in minutes +
+        shuffle flag + category). Physical panel orientation is a separate, read-only
+        request (``get_current_rotation``) that this app never calls.
 
         The library's per-request timeout is short (~2s) and the TV is congested
         right after an upload burst, so the enable calls often time out (surfacing
@@ -144,8 +156,8 @@ class BatchSlideshowProcessor(SingleAsyncProcessor):
         # Give the TV a moment to finish digesting the uploads before we ask it to rotate.
         await asyncio.sleep(_ROTATION_SETTLE_SECONDS)
 
-        # Both calls target the same behaviour via different APIs; firmwares differ on
-        # which one they honour, so we try both. Success on either is enough.
+        # Both calls enable the same slideshow via different API names; firmwares differ
+        # on which one they honour, so we try both. Success on either is enough.
         auto_ok = await self._enable_rotation_call(
             "set_auto_rotation_status",
             lambda: self._tv.set_auto_rotation_status(duration=minutes, type=True, category=_ROTATION_CATEGORY),
