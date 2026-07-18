@@ -95,10 +95,38 @@ async def test_enable_tv_rotation_sets_shuffle(processor: BatchSlideshowProcesso
     monkeypatch.setattr(batch_slideshow.settings, "batch_rotation_minutes", 5)
     processor._tv.get_auto_rotation_status = AsyncMock(return_value={"value": "5"})  # noqa: SLF001
 
-    await processor._enable_tv_rotation()  # noqa: SLF001
+    with patch.object(batch_slideshow.asyncio, "sleep", new=AsyncMock()):
+        await processor._enable_tv_rotation()  # noqa: SLF001
 
     processor._tv.set_auto_rotation_status.assert_awaited_once_with(duration=5, type=True, category=2)  # noqa: SLF001
     processor._tv.set_slideshow_status.assert_awaited_once_with(duration=5, type=True, category=2)  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_enable_tv_rotation_retries_transient_failure(processor: BatchSlideshowProcessor) -> None:
+    """A transient timeout on the enable call (AssertionError) is retried, not fatal."""
+    # First attempt raises (mirrors samsungtvws' `assert data` on a timed-out request),
+    # second attempt succeeds.
+    processor._tv.set_auto_rotation_status = AsyncMock(side_effect=[AssertionError, None])  # noqa: SLF001
+    processor._tv.set_slideshow_status = AsyncMock(return_value=None)  # noqa: SLF001
+    processor._tv.get_auto_rotation_status = AsyncMock(return_value={"value": "3"})  # noqa: SLF001
+
+    with patch.object(batch_slideshow.asyncio, "sleep", new=AsyncMock()):
+        await processor._enable_tv_rotation()  # noqa: SLF001
+
+    assert processor._tv.set_auto_rotation_status.await_count == 2  # noqa: SLF001, PLR2004
+
+
+@pytest.mark.asyncio
+async def test_enable_rotation_call_gives_up_after_max_attempts(processor: BatchSlideshowProcessor) -> None:
+    """_enable_rotation_call returns False after exhausting all attempts."""
+    always_fails = AsyncMock(side_effect=AssertionError)
+
+    with patch.object(batch_slideshow.asyncio, "sleep", new=AsyncMock()):
+        ok = await processor._enable_rotation_call("set_auto_rotation_status", always_fails)  # noqa: SLF001
+
+    assert ok is False
+    assert always_fails.await_count == batch_slideshow._ROTATION_ATTEMPTS  # noqa: SLF001
 
 
 def test_cleanup_disabled_in_batch_mode(monkeypatch) -> None:  # noqa: ANN001

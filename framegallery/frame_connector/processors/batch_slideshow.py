@@ -19,6 +19,7 @@ re-uploads the batch (the batch is disposable). Auto-cleanup is skipped in this 
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 from framegallery.config import settings
@@ -26,12 +27,20 @@ from framegallery.frame_connector.processors.base import ProcessorKind
 from framegallery.frame_connector.processors.single_async import SingleAsyncProcessor, logger
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from framegallery.libraries.base import PhotoRef
     from framegallery.libraries.manager import LibraryManager
 
 # The TV category for user-uploaded content; also the rotation category (MY-C000{2}).
 _USER_CATEGORY = "MY-C0002"
 _ROTATION_CATEGORY = 2
+
+# The TV is sluggish right after a batch of uploads, so give it a moment before
+# enabling rotation, then retry the (2s-timeout) calls a few times before giving up.
+_ROTATION_SETTLE_SECONDS = 5
+_ROTATION_ATTEMPTS = 4
+_ROTATION_RETRY_DELAY = 3
 
 
 class BatchSlideshowProcessor(SingleAsyncProcessor):
@@ -122,22 +131,65 @@ class BatchSlideshowProcessor(SingleAsyncProcessor):
         )
 
     async def _enable_tv_rotation(self) -> None:
-        """Turn on the TV's built-in shuffle rotation over the resident batch."""
-        minutes = max(1, settings.batch_rotation_minutes)
-        # Both calls are best-effort: firmwares differ on which rotation API they
-        # honour, so we try both and don't let a rejection abort the batch.
-        try:
-            await self._tv.set_auto_rotation_status(duration=minutes, type=True, category=_ROTATION_CATEGORY)
-        except Exception:  # noqa: BLE001 -- best-effort; log and continue
-            logger.exception("batch_slideshow: set_auto_rotation_status failed")
-        try:
-            await self._tv.set_slideshow_status(duration=minutes, type=True, category=_ROTATION_CATEGORY)
-        except Exception:  # noqa: BLE001 -- best-effort; log and continue
-            logger.exception("batch_slideshow: set_slideshow_status failed")
+        """
+        Turn on the TV's built-in shuffle rotation over the resident batch.
 
-        # Read the state back so the logs show what the firmware actually accepted.
-        try:
-            status = await self._tv.get_auto_rotation_status()
-            logger.info("batch_slideshow: auto-rotation status now: %s", status)
-        except Exception:  # noqa: BLE001 -- diagnostic read-back only
-            logger.debug("batch_slideshow: could not read back auto-rotation status")
+        The library's per-request timeout is short (~2s) and the TV is congested
+        right after an upload burst, so the enable calls often time out (surfacing
+        as an AssertionError inside samsungtvws). We let the TV settle, then retry
+        each call a few times, and finally read the status back to confirm.
+        """
+        minutes = max(1, settings.batch_rotation_minutes)
+
+        # Give the TV a moment to finish digesting the uploads before we ask it to rotate.
+        await asyncio.sleep(_ROTATION_SETTLE_SECONDS)
+
+        # Both calls target the same behaviour via different APIs; firmwares differ on
+        # which one they honour, so we try both. Success on either is enough.
+        auto_ok = await self._enable_rotation_call(
+            "set_auto_rotation_status",
+            lambda: self._tv.set_auto_rotation_status(duration=minutes, type=True, category=_ROTATION_CATEGORY),
+        )
+        slideshow_ok = await self._enable_rotation_call(
+            "set_slideshow_status",
+            lambda: self._tv.set_slideshow_status(duration=minutes, type=True, category=_ROTATION_CATEGORY),
+        )
+
+        confirmed = await self._read_rotation_status()
+        if confirmed is not None:
+            logger.info("batch_slideshow: TV rotation confirmed active: %s", confirmed)
+        elif auto_ok or slideshow_ok:
+            logger.info(
+                "batch_slideshow: rotation enabled (set_auto_rotation_status=%s, set_slideshow_status=%s); "
+                "status read-back unavailable",
+                auto_ok,
+                slideshow_ok,
+            )
+        else:
+            logger.warning(
+                "batch_slideshow: could not enable TV rotation after %d attempts; the batch is uploaded "
+                "but the TV may not be rotating. It often works on the next run once the TV has settled.",
+                _ROTATION_ATTEMPTS,
+            )
+
+    async def _enable_rotation_call(self, name: str, call: Callable[[], Awaitable[object]]) -> bool:
+        """Invoke a rotation-enable coroutine factory with bounded retries; return success."""
+        for attempt in range(1, _ROTATION_ATTEMPTS + 1):
+            try:
+                await call()
+            except Exception as exc:  # noqa: BLE001 -- retry transient TV timeouts (AssertionError etc.)
+                logger.debug("batch_slideshow: %s attempt %d/%d failed: %s", name, attempt, _ROTATION_ATTEMPTS, exc)
+                if attempt < _ROTATION_ATTEMPTS:
+                    await asyncio.sleep(_ROTATION_RETRY_DELAY)
+            else:
+                return True
+        return False
+
+    async def _read_rotation_status(self) -> dict | None:
+        """Read the TV's rotation status back (either API), or None if unavailable."""
+        for getter in (self._tv.get_auto_rotation_status, self._tv.get_slideshow_status):
+            try:
+                return await getter()
+            except Exception:  # noqa: BLE001, S112 -- diagnostic read-back; fall through to the other getter
+                continue
+        return None
