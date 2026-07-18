@@ -204,7 +204,9 @@ class SyncThreadProcessor(UploadProcessor):
         file_type = photo_bytes.file_type_suffix
 
         try:
-            data = await self._run_tv_op(
+            # NOTE: the *synchronous* SamsungTVArt.upload() returns the new content_id
+            # as a plain string (or None), unlike the async client which returns a dict.
+            content_id = await self._run_tv_op(
                 lambda art: art.upload(file_data, file_type=file_type, matte=matte, portrait_matte="none"),
                 description=f"upload {photo.composite_id}",
                 timeout=self.UPLOAD_TIMEOUT,
@@ -213,11 +215,10 @@ class SyncThreadProcessor(UploadProcessor):
             logger.exception("sync_thread: upload failed for %s", photo.composite_id)
             return
 
-        if not data or not data.get("content_id"):
-            logger.error("sync_thread: upload completed but did not return a content_id.")
+        if not content_id:
+            logger.error("sync_thread: upload of %s returned no content_id", photo.composite_id)
             return
 
-        content_id = data["content_id"]
         try:
             await self._run_tv_op(
                 lambda art: art.select_image(content_id, "MY-C0002"),

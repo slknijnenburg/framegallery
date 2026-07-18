@@ -151,8 +151,9 @@ async def test_apply_active_image_uploads_activates_deletes(processor: SyncThrea
 
     async def fake_run(fn, *, description, timeout):  # noqa: ANN001, ANN202, ARG001, ASYNC109
         calls.append(description)
+        # The sync SamsungTVArt.upload() returns the content_id as a bare string.
         if description.startswith("upload"):
-            return {"content_id": "MY-F0009"}
+            return "MY-F0009"
         return None
 
     processor._run_tv_op = fake_run  # noqa: SLF001
