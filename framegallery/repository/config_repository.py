@@ -39,6 +39,19 @@ class ConfigRepository:
 
         return value_from_db
 
+    def get_bool(self, key: ConfigKey, *, default: bool = False) -> bool:
+        """
+        Get a configuration value interpreted as a boolean.
+
+        Boolean values are stored as the JSON strings ``"true"``/``"false"`` (see
+        ``set``), but an unset key falls back to the raw ``default`` bool. This
+        helper normalises both cases so callers don't scatter ``value == "true"``.
+        """
+        value = self.get_or(key, default_value=default).value
+        if isinstance(value, str):
+            return value.strip().lower() == "true"
+        return bool(value)
+
     def set(self, key: ConfigKey, value: any) -> Config:
         """Set a configuration value by its key."""
         config = self.get_or(key)

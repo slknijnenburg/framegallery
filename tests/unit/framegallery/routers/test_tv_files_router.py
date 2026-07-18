@@ -5,8 +5,8 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from framegallery.dependencies import get_frame_connector
-from framegallery.frame_connector.frame_connector import FrameConnector, TvConnectionTimeoutError
+from framegallery.dependencies import get_upload_processor
+from framegallery.frame_connector.processors import TvConnectionTimeoutError, UploadProcessor
 from framegallery.main import app
 
 # Test constants
@@ -22,28 +22,28 @@ def client() -> TestClient:
 
 
 @pytest.fixture
-def mock_frame_connector() -> FrameConnector:
-    """Create a mock FrameConnector."""
-    mock_connector = MagicMock(spec=FrameConnector)
+def mock_frame_connector() -> UploadProcessor:
+    """Create a mock UploadProcessor."""
+    mock_connector = MagicMock(spec=UploadProcessor)
     mock_connector.list_files = AsyncMock()
     return mock_connector
 
 
 @pytest.fixture(autouse=True)
-def override_get_frame_connector(mock_frame_connector: FrameConnector) -> Generator[None, None, None]:
-    """Replace the actual get_frame_connector with one that returns our mock."""
+def override_get_upload_processor(mock_frame_connector: UploadProcessor) -> Generator[None, None, None]:
+    """Replace the actual get_upload_processor with one that returns our mock."""
 
-    def _override_get_frame_connector() -> FrameConnector:
+    def _override_get_upload_processor() -> UploadProcessor:
         return mock_frame_connector
 
-    app.dependency_overrides[get_frame_connector] = _override_get_frame_connector
+    app.dependency_overrides[get_upload_processor] = _override_get_upload_processor
     yield  # Allow tests to run
     # Clean up the override after tests
-    app.dependency_overrides.pop(get_frame_connector, None)
+    app.dependency_overrides.pop(get_upload_processor, None)
 
 
 @pytest.mark.asyncio
-async def test_list_tv_files_success(client: TestClient, mock_frame_connector: FrameConnector) -> None:
+async def test_list_tv_files_success(client: TestClient, mock_frame_connector: UploadProcessor) -> None:
     """Test successfully listing TV files."""
     # Mock TV response data
     mock_tv_files = [
@@ -102,7 +102,7 @@ async def test_list_tv_files_success(client: TestClient, mock_frame_connector: F
 
 
 @pytest.mark.asyncio
-async def test_list_tv_files_with_custom_category(client: TestClient, mock_frame_connector: FrameConnector) -> None:
+async def test_list_tv_files_with_custom_category(client: TestClient, mock_frame_connector: UploadProcessor) -> None:
     """Test listing TV files with a custom category."""
     mock_tv_files = [
         {
@@ -129,7 +129,7 @@ async def test_list_tv_files_with_custom_category(client: TestClient, mock_frame
 
 
 @pytest.mark.asyncio
-async def test_list_tv_files_empty_result(client: TestClient, mock_frame_connector: FrameConnector) -> None:
+async def test_list_tv_files_empty_result(client: TestClient, mock_frame_connector: UploadProcessor) -> None:
     """Test listing TV files when no files are available."""
     mock_frame_connector.list_files.return_value = []
 
@@ -145,7 +145,7 @@ async def test_list_tv_files_empty_result(client: TestClient, mock_frame_connect
 
 
 @pytest.mark.asyncio
-async def test_list_tv_files_tv_unavailable(client: TestClient, mock_frame_connector: FrameConnector) -> None:
+async def test_list_tv_files_tv_unavailable(client: TestClient, mock_frame_connector: UploadProcessor) -> None:
     """Test listing TV files when TV is unavailable."""
     # When TV is unavailable, list_files returns None
     mock_frame_connector.list_files.return_value = None
@@ -161,7 +161,7 @@ async def test_list_tv_files_tv_unavailable(client: TestClient, mock_frame_conne
 
 
 @pytest.mark.asyncio
-async def test_list_tv_files_timeout_error(client: TestClient, mock_frame_connector: FrameConnector) -> None:
+async def test_list_tv_files_timeout_error(client: TestClient, mock_frame_connector: UploadProcessor) -> None:
     """Test listing TV files when TV connection times out."""
     mock_frame_connector.list_files.side_effect = TvConnectionTimeoutError("Timeout")
 
@@ -176,7 +176,7 @@ async def test_list_tv_files_timeout_error(client: TestClient, mock_frame_connec
 
 
 @pytest.mark.asyncio
-async def test_list_tv_files_unexpected_error(client: TestClient, mock_frame_connector: FrameConnector) -> None:
+async def test_list_tv_files_unexpected_error(client: TestClient, mock_frame_connector: UploadProcessor) -> None:
     """Test listing TV files when an unexpected error occurs."""
     mock_frame_connector.list_files.side_effect = Exception("Unexpected error")
 
@@ -191,7 +191,7 @@ async def test_list_tv_files_unexpected_error(client: TestClient, mock_frame_con
 
 
 @pytest.mark.asyncio
-async def test_list_tv_files_missing_fields(client: TestClient, mock_frame_connector: FrameConnector) -> None:
+async def test_list_tv_files_missing_fields(client: TestClient, mock_frame_connector: UploadProcessor) -> None:
     """Test listing TV files with missing optional fields."""
     # Mock response with minimal required fields and some missing optional fields
     mock_tv_files = [
@@ -229,7 +229,7 @@ async def test_list_tv_files_missing_fields(client: TestClient, mock_frame_conne
 
 
 @pytest.mark.asyncio
-async def test_list_tv_files_field_mapping(client: TestClient, mock_frame_connector: FrameConnector) -> None:
+async def test_list_tv_files_field_mapping(client: TestClient, mock_frame_connector: UploadProcessor) -> None:
     """Test that fields are properly mapped from TV response to API response."""
     mock_tv_files = [
         {

@@ -1,33 +1,35 @@
 """
-The FrameConnector provides a signal handler for the `active_image_updated` signal, and will
-update the active image on the Frame TV when the signal is emitted.
+The ``single_async`` upload processor.
+
+This is the original FrameGallery behaviour: a persistent async ``SamsungTVAsyncArt``
+WebSocket that, on each ``active_image_updated`` signal, uploads one image, activates
+it (``select_image``), and deletes the previously-active image.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
-import os
 import traceback
 import uuid
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import websockets
-from blinker import signal
-from icmplib import ping
 from samsungtvws.async_art import ArtChannelEmitCommand, SamsungTVAsyncArt
-from samsungtvws.async_remote import SamsungTVWSAsyncRemote
 
-from framegallery.aspect_ratio import get_aspect_ratio
 from framegallery.config import settings
+from framegallery.frame_connector.processors.base import (
+    ProcessorKind,
+    TvConnectionTimeoutError,
+    TvNotConnectedError,
+    UploadProcessor,
+)
 from framegallery.logging_config import setup_logging
 
 if TYPE_CHECKING:
     from framegallery.libraries.base import PhotoBytes, PhotoRef
     from framegallery.libraries.manager import LibraryManager
 
-api_version = "4.3.4.0"
 logger = setup_logging(
     log_level=settings.log_level,
     websocket_log_level=settings.websocket_log_level,
@@ -35,42 +37,14 @@ logger = setup_logging(
 )
 
 
-class TvNotConnectedError(Exception):
-    """Exception raised when the TV is not connected."""
+class SingleAsyncProcessor(UploadProcessor):
+    """Push one active image at a time over a persistent async WebSocket."""
 
+    kind = ProcessorKind.SINGLE_ASYNC
 
-class TvConnectionTimeoutError(TvNotConnectedError):
-    """Exception raised when the TV connection times out."""
-
-
-class FrameConnector:
-    """A class that connects to the Frame TV and updates the active image on the TV."""
-
-    IDEAL_ASPECT_RATIO_HEIGHT = 9
-    IDEAL_ASPECT_RATIO_WIDTH = 16
-
-    def __init__(self, ip_address: str, port: int) -> None:
+    def __init__(self, ip_address: str, port: int, library_manager: LibraryManager | None = None) -> None:
+        super().__init__(ip_address, port, library_manager)
         self._tv: SamsungTVAsyncArt | None = None
-        self._ip_address = ip_address
-        self._port = port
-        self._pid = os.getpid()
-        # Persist the auth token in the data directory (a mounted volume in
-        # Docker) under a stable filename so it survives restarts. A per-PID
-        # token file meant the token was never reused and every boot re-paired.
-        self._token_file = Path(settings.data_path) / "tv-token.txt"
-        self._background_tasks = set()
-
-        self._latest_content_id = None
-        self._tv_is_online = False
-        self._connected = False
-
-        # Set during application startup; used to resolve photo bytes from any library.
-        self.library_manager: LibraryManager | None = None
-
-        self._active_image_updated_signal = signal("active_image_updated")
-
-        # Check if the TV is available on the network. If it is, the connection sequence will be started.
-        self._start_reconnection_pinger()
 
     async def open(self) -> None:
         """Open a connection to the TV and start listening to the slideshow update events."""
@@ -87,66 +61,15 @@ class FrameConnector:
             raise TvConnectionTimeoutError from e
 
         self._connected = True
-        self._active_image_updated_signal.connect(self._on_active_image_updated)
+        self._on_active_image_signal_connect()
 
     async def close(self) -> None:
         """Close the connection to the TV, and (re)start the reconnection pinger."""
-        await self._tv.close()
+        if self._tv is not None:
+            await self._tv.close()
         self._connected = False
-        self._active_image_updated_signal.disconnect(self._on_active_image_updated)
+        self._on_active_image_signal_disconnect()
         self._start_reconnection_pinger()
-
-    def _start_reconnection_pinger(self) -> None:
-        """Start the reconnection timer."""
-        logger.info("Starting reconnection timer")
-        pinger = asyncio.create_task(self._reconnect_ping())
-        self._background_tasks.add(pinger)
-        pinger.add_done_callback(self._background_tasks.discard)
-
-    async def _reconnect_ping(self) -> None:
-        """Ping the TV to check if it is online."""
-        while True:
-            try:
-                response = ping(self._ip_address, count=1, timeout=2, privileged=False)
-                if not response.is_alive:
-                    logger.debug("Ping to %s failed, retrying in 10 seconds", self._ip_address)
-                    self._tv_is_online = False
-                else:
-                    logger.info("Ping to %s successful, reconnecting to the TV.", self._ip_address)
-                    self._tv_is_online = True
-                    await self.reconnect()
-                    break
-
-            except Exception:
-                logger.exception("Error during ping.")
-            await asyncio.sleep(10)
-
-    async def _ensure_token(self) -> None:
-        """
-        Ensure a valid auth token is persisted before opening the art channel.
-
-        Recent Frame firmware (incl. 2023 models after an OS update) no longer
-        completes first-time pairing on the art-app channel: it just times out
-        with `ms.channel.timeOut`. The token must instead be obtained on the
-        standard remote-control channel, which shows the on-screen "Allow"
-        prompt and returns a token we can reuse for the art-app channel.
-
-        On the very first run the user must accept the prompt on the TV; the
-        token is then written to `self._token_file` and reused silently after.
-        """
-        remote = SamsungTVWSAsyncRemote(
-            host=self._ip_address,
-            port=self._port,
-            name=settings.tv_client_name,
-            token_file=str(self._token_file),
-            timeout=30,
-        )
-        try:
-            # open() triggers the prompt (first run) and persists the token via
-            # the base connection's _check_for_token on ms.channel.connect.
-            await remote.open()
-        finally:
-            await remote.close()
 
     async def reconnect(self) -> None:
         """Reconnect to the TV."""
@@ -188,8 +111,9 @@ class FrameConnector:
             )
             return bool(self._tv.art_mode)
 
-    async def _on_active_image_updated(self, _: object, active_photo: PhotoRef) -> None:  # noqa: PLR0911, C901
-        logger.info("Updating active image on TV (via slideshow signal): %s", active_photo.composite_id)
+    async def apply_active_image(self, photo: PhotoRef) -> None:  # noqa: PLR0911, C901
+        """Upload the given photo to the TV, activate it, and delete the previous one."""
+        logger.info("Updating active image on TV (via slideshow signal): %s", photo.composite_id)
 
         # Upload the image to the TV
         try:
@@ -200,11 +124,11 @@ class FrameConnector:
                 logger.debug("TV is not in art-mode, skipping image update.")
                 return
 
-            logger.debug("_on_active_image_updated: TV connected, uploading image")
-            photo_bytes = await self._fetch_photo_bytes(active_photo)
+            logger.debug("apply_active_image: TV connected, uploading image")
+            photo_bytes = await self._fetch_photo_bytes(photo)
             if photo_bytes is None:
                 return
-            data = await self._upload_photo(active_photo, photo_bytes)
+            data = await self._upload_photo(photo, photo_bytes)
         except websockets.exceptions.ConnectionClosedError:
             logger.exception("Connection to TV is closed, perhaps the TV is off?")
             await self.close()
@@ -236,61 +160,13 @@ class FrameConnector:
         else:
             logger.error("Slideshow image upload failed, data is None.")
 
-    async def activate_image(self, photo: PhotoRef) -> None:
-        """Activate a photo on the Frame TV, uploading if necessary."""
-        logger.info("Activating photo: %s via explicit request.", photo.composite_id)
-
-        # Check connection status first
-        if not self._connected or not self._tv_is_online:
-            logger.error("TV not connected, cannot activate image.")
-            return
-
-        photo_bytes = await self._fetch_photo_bytes(photo)
-        if photo_bytes is None:
-            logger.error("Could not fetch bytes for photo %s", photo.composite_id)
-            return
-
-        # Always upload the photo (potentially cropped) to get the latest content_id
-        logger.info("Uploading photo %s to ensure it's available...", photo.composite_id)
-
-        uploaded_data = await self._upload_photo(photo, photo_bytes)
-        if not uploaded_data:
-            logger.error("Upload failed for photo %s", photo.composite_id)
-            return
-
-        content_id = uploaded_data.get("content_id")
-
-        if content_id:
-            logger.info("Upload successful (content_id: %s), activating image...", content_id)
-            await self._activate_image(content_id)
-        else:
-            logger.error("Upload completed but did not return a content_id.")
-
-    async def _fetch_photo_bytes(self, photo: PhotoRef) -> PhotoBytes | None:
-        """Resolve the raw image bytes for a photo through the library manager."""
-        if self.library_manager is None:
-            logger.error("FrameConnector has no library_manager; cannot fetch photo bytes.")
-            return None
-        try:
-            return await self.library_manager.fetch_bytes(photo.composite_id)
-        except Exception:
-            logger.exception("Failed to fetch bytes for photo %s", photo.composite_id)
-            return None
-
     async def _upload_photo(self, photo: PhotoRef, photo_bytes: PhotoBytes) -> dict | None:
         """Upload photo bytes to TV and return the uploaded file details as provided by the television."""
         logger.info("Uploading photo %s to TV", photo.composite_id)
 
         file_data = photo_bytes.data
         file_type = photo_bytes.file_type_suffix
-
-        # Pick the matte from the final (post-crop) dimensions; a 16:9 photo needs no matte,
-        # anything else (or unknown dimensions) gets a shadowbox so it isn't stretched.
-        matte = "shadowbox_black"
-        if photo_bytes.width and photo_bytes.height:
-            aspect_width, aspect_height = get_aspect_ratio(photo_bytes.width, photo_bytes.height)
-            if aspect_width == self.IDEAL_ASPECT_RATIO_WIDTH and aspect_height == self.IDEAL_ASPECT_RATIO_HEIGHT:
-                matte = "none"
+        matte = self._compute_matte(photo_bytes)
 
         logger.info(
             "Going to upload %s with file_type %s and filesize: %d",
@@ -327,58 +203,10 @@ class FrameConnector:
         logger.info("Deleting image %s", content_id)
         await self._tv.delete(content_id)
 
-    async def tv_keepalive(self) -> None:
-        """Keep WebSocket connection alive."""
-        while True:
-            if not self._tv.connection:
-                logger.warning("Should be reconnecting to TV")
-            else:
-                logger.warning("No need to reconnect to TV")
-            await asyncio.sleep(10)  # Adjust interval as needed
-
     async def go_to_standby(self) -> None:
         """Close the connector when the TV goes to standby."""
         logger.info("TV is going to standby")
         await self.close()
-
-    def _transform_file_data(self, file_data: dict) -> dict:
-        """Transform TV file data into standardized format."""
-        # Extract content ID for display name
-        content_id = file_data.get("content_id", "Unknown")
-
-        # Generate file_name from content_id (e.g., "MY_F33145" -> "MY_F33145")
-        file_name = content_id
-
-        # Determine file type from content_type and other indicators
-        content_type = file_data.get("content_type", "mobile")
-        # Default to JPEG for mobile uploads, Samsung Art for preinstalled content
-        file_type = "SAMSUNG_ART" if content_type == "preinstall" else "JPEG"
-
-        file_info = {
-            "content_id": content_id,
-            "category_id": file_data.get("category_id"),
-            "file_name": file_name,
-            "file_type": file_type,
-            "file_size": file_data.get("file_size"),
-            "date": file_data.get("image_date"),
-            "thumbnail_available": True,  # Frame TV typically has thumbnails for all images
-            "matte": file_data.get("matte_id"),
-        }
-
-        # Include any additional metadata fields from the TV
-        for key, value in file_data.items():
-            if key not in file_info:
-                file_info[key] = value
-
-        return file_info
-
-    def _filter_files_by_category(self, files: list[dict], category: str | None) -> list[dict]:
-        """Filter files by category and transform them."""
-        return [
-            self._transform_file_data(file_data)
-            for file_data in files
-            if file_data.get("category_id") == category or category is None
-        ]
 
     async def _get_available_files_with_timeout(
         self, category: str | None = None, timeout_seconds: int = 10

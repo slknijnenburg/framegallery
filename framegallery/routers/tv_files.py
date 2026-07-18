@@ -3,8 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
-from framegallery.dependencies import get_frame_connector
-from framegallery.frame_connector.frame_connector import FrameConnector, TvConnectionTimeoutError
+from framegallery.dependencies import get_upload_processor
+from framegallery.frame_connector.processors import TvConnectionTimeoutError, UploadProcessor
 from framegallery.logging_config import setup_logging
 from framegallery.schemas import TvFileResponse
 
@@ -51,7 +51,7 @@ def _raise_cleanup_failed(message: str) -> None:
 
 @router.get("/api/tv/files", status_code=status.HTTP_200_OK)
 async def list_tv_files(
-    frame_connector: Annotated[FrameConnector, Depends(get_frame_connector)],
+    frame_connector: Annotated[UploadProcessor, Depends(get_upload_processor)],
     category: str = "MY-C0002",
 ) -> list[TvFileResponse]:
     """
@@ -116,7 +116,7 @@ async def list_tv_files(
 @router.delete("/api/tv/files/{content_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_tv_file(
     content_id: str,
-    frame_connector: Annotated[FrameConnector, Depends(get_frame_connector)],
+    frame_connector: Annotated[UploadProcessor, Depends(get_upload_processor)],
 ) -> None:
     """
     Delete a file from the Samsung Frame TV.
@@ -160,7 +160,7 @@ async def delete_tv_file(
 @router.post("/api/tv/files/delete", status_code=status.HTTP_200_OK)
 async def delete_tv_files(
     request: DeleteFilesRequest,
-    frame_connector: Annotated[FrameConnector, Depends(get_frame_connector)],
+    frame_connector: Annotated[UploadProcessor, Depends(get_upload_processor)],
 ) -> DeleteFilesResponse:
     """
     Delete multiple files from the Samsung Frame TV.

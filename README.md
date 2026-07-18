@@ -127,6 +127,11 @@ log_level=INFO
 websocket_log_level=WARNING
 slideshow_interval=180
 filesystem_refresh_interval=600
+# Upload-processor strategy for pushing images to the TV (applied at startup —
+# restart to change). One of: single_async (default), sync_thread, batch_slideshow.
+# Useful for A/B testing which mechanism your TV tolerates without crashing. See
+# the "Upload processors" section below.
+upload_processor=single_async
 
 # Docker Volume Mount Paths (customize for your setup)
 IMAGES_PATH=./images
@@ -178,6 +183,33 @@ Images with an aspect ratio of 3:2 (e.g. 1920x1280) can also be configured with 
 Images with an aspect ratio of 4:3 (e.g. 1920x1440) can also be configured with a matte. When using "none" the image will be cropped to 1920x1080
 
 It actually seems you can select any matte style for any image, as long the slideshow mode is disabled.
+
+## Upload processors
+
+The way images are pushed to the TV is pluggable, selected at startup with the `upload_processor`
+setting (restart to apply).
+This exists mainly as a diagnostic tool: some Frame TVs crash in Art Mode during uploads/photo
+changes, and switching the mechanism helps isolate the cause.
+
+| `upload_processor` | Behaviour |
+|---|---|
+| `single_async` (default) | Persistent async WebSocket. On each slideshow tick, uploads one image, activates it, and deletes the previously-active image. |
+| `sync_thread` | Same one-image-at-a-time behaviour, but via the synchronous `samsungtvws` client run in a background thread, with idle-connection recycling, Wake-on-LAN before retry, and bounded retries. |
+| `batch_slideshow` | Uploads a batch of images to the TV once and hands rotation to the TV's own slideshow; the app stops pushing an image every interval. |
+
+If you experience TV crashes, try switching from `single_async` to `sync_thread` (or
+`batch_slideshow`) and observe whether the crashes stop.
+
+Related settings:
+
+| Variable | Default | Applies to | Description |
+|---|---|---|---|
+| `tv_mac_address` | *(unset)* | `sync_thread` | TV MAC address; when set, a Wake-on-LAN packet is sent before retrying a failed connection (`arp -n <tv-ip>` to find it). |
+| `batch_size` | `50` | `batch_slideshow` | How many images to upload to the TV in one batch. |
+| `batch_rotation_minutes` | `3` | `batch_slideshow` | The TV's own rotation interval, in whole minutes (the TV API only accepts minutes, so `slideshow_interval` does not apply in this mode). |
+
+In `batch_slideshow` mode the app-driven slideshow loop and the TV auto-cleanup service are
+both suppressed, since the TV owns rotation and the processor manages its own batch.
 
 ## Photo Libraries
 

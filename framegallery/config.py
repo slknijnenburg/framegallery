@@ -28,6 +28,21 @@ class Settings(BaseSettings):
     images_path: str = "./images"
     data_path: str = "./data"
     logs_path: str = "./logs"
+    # Which upload-processor strategy to use for pushing images to the TV. One of
+    # "single_async" (default; async WebSocket, one image at a time), "sync_thread"
+    # (synchronous client in a thread, with idle-recycle/Wake-on-LAN/retries), or
+    # "batch_slideshow" (upload a batch once and let the TV rotate them). Applied at
+    # startup; change it and restart to A/B test which mechanism the TV tolerates.
+    upload_processor: str = "single_async"
+    # TV MAC address, used by the "sync_thread" processor to send a Wake-on-LAN
+    # packet before retrying a failed connection. Optional; find it with
+    # `arp -n <tv-ip>`. Only helps when the TV is asleep, not for art-mode crashes.
+    tv_mac_address: str | None = None
+    # "batch_slideshow" processor: how many images to upload to the TV in one batch,
+    # and the TV's own rotation interval in whole minutes (the TV API only accepts
+    # minutes, so the 180s slideshow_interval doesn't apply in this mode).
+    batch_size: int = 50
+    batch_rotation_minutes: int = 3
 
     @property
     def database_path(self) -> str:

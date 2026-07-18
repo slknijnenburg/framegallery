@@ -4,7 +4,7 @@ from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
 from framegallery.database import get_db
-from framegallery.frame_connector.frame_connector import FrameConnector
+from framegallery.frame_connector.processors import UploadProcessor
 from framegallery.libraries.manager import LibraryManager
 from framegallery.repository.config_repository import ConfigRepository
 from framegallery.repository.filter_repository import FilterRepository
@@ -45,6 +45,6 @@ def get_slideshow_instance(
     return Slideshow(library_manager)
 
 
-def get_frame_connector(request: Request) -> FrameConnector:
-    """Get the FrameConnector instance from app state."""
-    return request.app.state.frame_connector
+def get_upload_processor(request: Request) -> UploadProcessor:
+    """Get the active UploadProcessor instance from app state."""
+    return request.app.state.upload_processor

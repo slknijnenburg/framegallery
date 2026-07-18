@@ -1,14 +1,12 @@
-"""Unit tests for FrameConnector.list_files() method."""
+"""Unit tests for SingleAsyncProcessor.list_files() method."""
 
 from unittest.mock import AsyncMock, patch
 
 import pytest
 import websockets.exceptions
 
-from framegallery.frame_connector.frame_connector import (
-    FrameConnector,
-    TvConnectionTimeoutError,
-)
+from framegallery.frame_connector.processors.base import TvConnectionTimeoutError
+from framegallery.frame_connector.processors.single_async import SingleAsyncProcessor
 
 # Constants for test expectations
 EXPECTED_MY_C0002_FILES = 2  # Expected number of files in MY-C0002 category
@@ -16,10 +14,10 @@ EXPECTED_ALL_FILES = 2  # Expected number of files when no category filter is ap
 
 
 @pytest.fixture
-def frame_connector() -> FrameConnector:
-    """Create a FrameConnector instance for testing."""
-    with patch("framegallery.frame_connector.frame_connector.asyncio.create_task"):
-        connector = FrameConnector("192.168.1.100", 8001)
+def frame_connector() -> SingleAsyncProcessor:
+    """Create a SingleAsyncProcessor instance for testing."""
+    with patch("framegallery.frame_connector.processors.base.asyncio.create_task"):
+        connector = SingleAsyncProcessor("192.168.1.100", 8001)
         connector._tv = AsyncMock()  # noqa: SLF001
         connector._connected = True  # noqa: SLF001
         connector._tv_is_online = True  # noqa: SLF001
@@ -27,7 +25,7 @@ def frame_connector() -> FrameConnector:
 
 
 @pytest.mark.asyncio
-async def test_list_files_success(frame_connector: FrameConnector) -> None:
+async def test_list_files_success(frame_connector: SingleAsyncProcessor) -> None:
     """Test successful retrieval of files from TV."""
     mock_tv_response = [
         {
@@ -79,7 +77,7 @@ async def test_list_files_success(frame_connector: FrameConnector) -> None:
 
 
 @pytest.mark.asyncio
-async def test_list_files_with_specific_category(frame_connector: FrameConnector) -> None:
+async def test_list_files_with_specific_category(frame_connector: SingleAsyncProcessor) -> None:
     """Test retrieval of files for a specific category."""
     mock_tv_response = [
         {
@@ -108,7 +106,7 @@ async def test_list_files_with_specific_category(frame_connector: FrameConnector
 
 
 @pytest.mark.asyncio
-async def test_list_files_no_category_filter(frame_connector: FrameConnector) -> None:
+async def test_list_files_no_category_filter(frame_connector: SingleAsyncProcessor) -> None:
     """Test retrieval of all files when category is None."""
     mock_tv_response = [
         {
@@ -132,7 +130,7 @@ async def test_list_files_no_category_filter(frame_connector: FrameConnector) ->
 
 
 @pytest.mark.asyncio
-async def test_list_files_tv_not_connected(frame_connector: FrameConnector) -> None:
+async def test_list_files_tv_not_connected(frame_connector: SingleAsyncProcessor) -> None:
     """Test behavior when TV is not connected."""
     frame_connector._connected = False  # noqa: SLF001
 
@@ -143,7 +141,7 @@ async def test_list_files_tv_not_connected(frame_connector: FrameConnector) -> N
 
 
 @pytest.mark.asyncio
-async def test_list_files_tv_offline(frame_connector: FrameConnector) -> None:
+async def test_list_files_tv_offline(frame_connector: SingleAsyncProcessor) -> None:
     """Test behavior when TV is offline."""
     frame_connector._tv_is_online = False  # noqa: SLF001
 
@@ -154,7 +152,7 @@ async def test_list_files_tv_offline(frame_connector: FrameConnector) -> None:
 
 
 @pytest.mark.asyncio
-async def test_list_files_empty_response(frame_connector: FrameConnector) -> None:
+async def test_list_files_empty_response(frame_connector: SingleAsyncProcessor) -> None:
     """Test handling of empty response from TV."""
     frame_connector._get_available_files_with_timeout = AsyncMock(return_value=[])  # noqa: SLF001
 
@@ -164,7 +162,7 @@ async def test_list_files_empty_response(frame_connector: FrameConnector) -> Non
 
 
 @pytest.mark.asyncio
-async def test_list_files_none_response(frame_connector: FrameConnector) -> None:
+async def test_list_files_none_response(frame_connector: SingleAsyncProcessor) -> None:
     """Test handling of None response from TV."""
     frame_connector._get_available_files_with_timeout = AsyncMock(return_value=None)  # noqa: SLF001
 
@@ -174,7 +172,7 @@ async def test_list_files_none_response(frame_connector: FrameConnector) -> None
 
 
 @pytest.mark.asyncio
-async def test_list_files_connection_closed_error(frame_connector: FrameConnector) -> None:
+async def test_list_files_connection_closed_error(frame_connector: SingleAsyncProcessor) -> None:
     """Test handling of connection closed error."""
     frame_connector._get_available_files_with_timeout = AsyncMock(  # noqa: SLF001
         side_effect=websockets.exceptions.ConnectionClosedError(None, None)
@@ -188,7 +186,7 @@ async def test_list_files_connection_closed_error(frame_connector: FrameConnecto
 
 
 @pytest.mark.asyncio
-async def test_list_files_timeout_error(frame_connector: FrameConnector) -> None:
+async def test_list_files_timeout_error(frame_connector: SingleAsyncProcessor) -> None:
     """Test handling of timeout error."""
     frame_connector._get_available_files_with_timeout = AsyncMock(side_effect=TimeoutError())  # noqa: SLF001
 
@@ -197,7 +195,7 @@ async def test_list_files_timeout_error(frame_connector: FrameConnector) -> None
 
 
 @pytest.mark.asyncio
-async def test_list_files_generic_exception(frame_connector: FrameConnector) -> None:
+async def test_list_files_generic_exception(frame_connector: SingleAsyncProcessor) -> None:
     """Test handling of generic exceptions."""
     frame_connector._get_available_files_with_timeout = AsyncMock(side_effect=Exception("Unknown error"))  # noqa: SLF001
 
@@ -207,7 +205,7 @@ async def test_list_files_generic_exception(frame_connector: FrameConnector) -> 
 
 
 @pytest.mark.asyncio
-async def test_list_files_field_mapping(frame_connector: FrameConnector) -> None:
+async def test_list_files_field_mapping(frame_connector: SingleAsyncProcessor) -> None:
     """Test that fields are properly mapped from different possible names."""
     mock_tv_response = [
         {
