@@ -185,9 +185,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Shutdown: close the TV connection (whichever processor is active), cancel the
     # background loops, and close any long-lived library clients (e.g. Immich pools).
     try:
-        await upload_processor.close()
+        await upload_processor.shutdown()
     except Exception:
-        logger.exception("Error closing upload processor during shutdown")
+        logger.exception("Error shutting down upload processor")
 
     for task in list(background_tasks):
         task.cancel()

@@ -77,6 +77,8 @@ class UploadProcessor(abc.ABC):
         self.library_manager: LibraryManager | None = library_manager
 
         self._background_tasks: set[asyncio.Task] = set()
+        self._pinger_task: asyncio.Task | None = None
+        self._shutting_down = False
         self._tv_is_online = False
         self._connected = False
         self._latest_content_id: str | None = None
@@ -133,12 +135,39 @@ class UploadProcessor(abc.ABC):
         """Return the TV's current active item, if the processor supports it."""
         return None
 
+    async def shutdown(self) -> None:
+        """
+        Tear down for application shutdown.
+
+        Cancels the reconnection pinger and closes the connection *without* re-arming
+        the pinger (``close()`` re-arms it during normal operation, but a restart
+        mid-shutdown would leave a pending task and trigger reconnect attempts as the
+        app stops). Call this from the lifespan teardown instead of ``close()``.
+        """
+        self._shutting_down = True
+        for task in list(self._background_tasks):
+            task.cancel()
+        if self._background_tasks:
+            await asyncio.gather(*self._background_tasks, return_exceptions=True)
+        await self.close()
+
     # --- shared machinery (transport-agnostic) ---
 
     def _start_reconnection_pinger(self) -> None:
-        """Start the reconnection timer that reconnects once the TV is reachable."""
+        """
+        Start the reconnection timer that reconnects once the TV is reachable.
+
+        Idempotent: does nothing while shutting down, or if a pinger is already
+        running. ``close()`` and the error paths both call this, so without the
+        guard overlapping calls would spawn multiple concurrent pingers.
+        """
+        if self._shutting_down:
+            return
+        if self._pinger_task is not None and not self._pinger_task.done():
+            return
         logger.info("Starting reconnection timer")
         pinger = asyncio.create_task(self._reconnect_ping())
+        self._pinger_task = pinger
         self._background_tasks.add(pinger)
         pinger.add_done_callback(self._background_tasks.discard)
 
@@ -146,7 +175,9 @@ class UploadProcessor(abc.ABC):
         """Ping the TV until it is online, then reconnect once and stop."""
         while True:
             try:
-                response = ping(self._ip_address, count=1, timeout=2, privileged=False)
+                # icmplib.ping() is blocking, so run it in a worker thread to avoid
+                # stalling the event loop (up to the ping timeout) on every cycle.
+                response = await asyncio.to_thread(ping, self._ip_address, count=1, timeout=2, privileged=False)
                 if not response.is_alive:
                     logger.debug("Ping to %s failed, retrying in 10 seconds", self._ip_address)
                     self._tv_is_online = False

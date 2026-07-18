@@ -58,7 +58,7 @@ async def list_tv_files(
     List all files available on the Samsung Frame TV.
 
     Args:
-        frame_connector: Injected FrameConnector instance
+        frame_connector: Injected UploadProcessor instance
         category: The image folder/category on the TV (default: "MY-C0002" for user content)
 
     Returns:
@@ -71,7 +71,7 @@ async def list_tv_files(
     try:
         logger.info("Fetching TV files for category: %s", category)
 
-        # Call the FrameConnector's list_files method
+        # Call the processor's list_files method
         tv_files = await frame_connector.list_files(category=category)
 
         if tv_files is None:
@@ -123,7 +123,7 @@ async def delete_tv_file(
 
     Args:
         content_id: The content ID of the file to delete
-        frame_connector: Injected FrameConnector instance
+        frame_connector: Injected UploadProcessor instance
 
     Raises:
         HTTPException: 503 if TV is unavailable, 404 if file not found, 500 for other errors
@@ -167,7 +167,7 @@ async def delete_tv_files(
 
     Args:
         request: Request containing list of content IDs to delete
-        frame_connector: Injected FrameConnector instance
+        frame_connector: Injected UploadProcessor instance
 
     Returns:
         DeleteFilesResponse with deletion results
@@ -182,7 +182,7 @@ async def delete_tv_files(
     try:
         logger.info("Deleting %d TV files: %s", len(request.content_ids), request.content_ids)
 
-        # Call the FrameConnector's delete_files method
+        # Call the processor's delete_files method
         results = await frame_connector.delete_files(request.content_ids)
 
         if results is None:
