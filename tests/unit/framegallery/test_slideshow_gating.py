@@ -1,6 +1,8 @@
 """Tests for the periodic slideshow-tick gating (GAP 1: SLIDESHOW_ENABLED)."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from framegallery import main
 from framegallery.repository.config_repository import ConfigKey
@@ -43,3 +45,24 @@ def test_single_async_disabled_skips(monkeypatch) -> None:  # noqa: ANN001
         patch.object(main, "ConfigRepository", return_value=fake_repo),
     ):
         assert main._should_push_slideshow_tick() is False  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_wait_for_processor_returns_true_when_connected() -> None:
+    """The startup wait returns immediately once the processor is connected."""
+    processor = MagicMock()
+    processor.is_connected = True
+
+    assert await main._wait_for_processor_connection(processor, timeout=5) is True  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_wait_for_processor_times_out_when_never_connected() -> None:
+    """The startup wait gives up after the timeout if the TV never connects."""
+    processor = MagicMock()
+    processor.is_connected = False
+
+    with patch.object(main.asyncio, "sleep", new=AsyncMock()):
+        result = await main._wait_for_processor_connection(processor, timeout=1.0, poll_interval=0.5)  # noqa: SLF001
+
+    assert result is False

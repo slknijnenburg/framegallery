@@ -29,7 +29,7 @@ from framegallery.dependencies import (
     get_library_manager,
     get_slideshow_instance,
 )
-from framegallery.frame_connector.processors import ProcessorKind, api_version, build_processor
+from framegallery.frame_connector.processors import ProcessorKind, UploadProcessor, api_version, build_processor
 from framegallery.frame_connector.status import SlideshowStatus, Status
 from framegallery.importer2.importer import Importer
 from framegallery.libraries.manager import LibraryManager
@@ -83,13 +83,38 @@ def _should_push_slideshow_tick() -> bool:
         return ConfigRepository(db).get_bool(ConfigKey.SLIDESHOW_ENABLED, default=True)
 
 
-async def update_slideshow_periodically(slideshow: Slideshow) -> None:
+async def _wait_for_processor_connection(
+    processor: UploadProcessor,
+    timeout: float = 30.0,  # noqa: ASYNC109 -- wall-clock poll budget, not a per-op timeout
+    poll_interval: float = 0.5,
+) -> bool:
+    """
+    Wait (up to ``timeout`` s) for the processor to establish its TV connection.
+
+    On startup the TV connection is established asynchronously and takes a couple of
+    seconds; without this wait the first slideshow push races the connection and is
+    dropped, leaving the display unchanged until the next interval.
+    """
+    waited = 0.0
+    while waited < timeout:
+        if processor.is_connected:
+            return True
+        await asyncio.sleep(poll_interval)
+        waited += poll_interval
+    return False
+
+
+async def update_slideshow_periodically(slideshow: Slideshow, processor: UploadProcessor) -> None:
     """
     Update the slideshow periodically.
 
     A single failing tick (e.g. an unreachable library) must never kill the loop, so any
     exception is logged and the loop continues on the next interval.
     """
+    # Let the TV connection settle before the first push so the initial image appears
+    # promptly after a restart instead of waiting a full interval.
+    if not await _wait_for_processor_connection(processor):
+        logger.info("TV not connected yet; slideshow will start pushing once it connects")
     while True:
         try:
             if _should_push_slideshow_tick():
@@ -156,7 +181,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     slideshow = Slideshow(library_manager)
     logger.info("Scheduling the slideshow updater")
-    slideshow_updater = asyncio.create_task(update_slideshow_periodically(slideshow))
+    slideshow_updater = asyncio.create_task(update_slideshow_periodically(slideshow, upload_processor))
     background_tasks.add(slideshow_updater)
     slideshow_updater.add_done_callback(background_tasks.discard)
 
