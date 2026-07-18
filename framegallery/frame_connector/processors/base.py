@@ -83,6 +83,12 @@ class UploadProcessor(abc.ABC):
         self._connected = False
         self._latest_content_id: str | None = None
 
+        # Deduplicate the reconnection-failure logging: a wedged TV can fail every
+        # 10s for hours, so only the first occurrence of a given error gets a full
+        # traceback; repeats are collapsed to a single-line warning.
+        self._reconnect_failures = 0
+        self._last_reconnect_error: str | None = None
+
         self._active_image_updated_signal = signal("active_image_updated")
 
         # Check if the TV is available on the network; if so the connection sequence starts.
@@ -173,6 +179,9 @@ class UploadProcessor(abc.ABC):
 
     async def _reconnect_ping(self) -> None:
         """Ping the TV until it is online, then reconnect once and stop."""
+        # Fresh campaign: the first failure below should always get a full traceback.
+        self._reconnect_failures = 0
+        self._last_reconnect_error = None
         while True:
             try:
                 # icmplib.ping() is blocking, so run it in a worker thread to avoid
@@ -185,10 +194,33 @@ class UploadProcessor(abc.ABC):
                     logger.info("Ping to %s successful, reconnecting to the TV.", self._ip_address)
                     self._tv_is_online = True
                     await self.reconnect()
+                    self._reconnect_failures = 0
+                    self._last_reconnect_error = None
                     break
-            except Exception:
-                logger.exception("Error during ping.")
+            except Exception as exc:  # noqa: BLE001 -- retry loop must survive any connection error
+                self._log_reconnect_failure(exc)
             await asyncio.sleep(10)
+
+    def _log_reconnect_failure(self, exc: Exception) -> None:
+        """
+        Log a reconnection failure, collapsing repeats to avoid traceback spam.
+
+        A wedged TV can reject the connection every 10s indefinitely. The first
+        occurrence of a given error is logged with a full traceback; identical
+        repeats are collapsed to a single-line warning with a running count.
+        """
+        signature = f"{type(exc).__name__}: {exc}"
+        if signature != self._last_reconnect_error:
+            self._last_reconnect_error = signature
+            self._reconnect_failures = 1
+            logger.exception("Error connecting to TV; will keep retrying every 10s.")
+        else:
+            self._reconnect_failures += 1
+            logger.warning(
+                "Still unable to connect to TV after %d attempts (%s); retrying every 10s.",
+                self._reconnect_failures,
+                signature,
+            )
 
     async def _ensure_token(self) -> None:
         """

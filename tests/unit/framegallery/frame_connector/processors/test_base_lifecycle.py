@@ -1,6 +1,7 @@
 """Lifecycle tests for the shared UploadProcessor machinery (pinger + shutdown)."""
 
 import asyncio
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -46,6 +47,45 @@ def test_start_pinger_noop_while_shutting_down() -> None:
     with patch(_CREATE_TASK) as create_task:
         proc._start_reconnection_pinger()  # noqa: SLF001
         create_task.assert_not_called()
+
+
+def _log_failure(proc: SingleAsyncProcessor, exc: Exception) -> None:
+    """Invoke the failure logger from a real exception context (so exc_info is set)."""
+    try:
+        raise exc
+    except type(exc) as caught:
+        proc._log_reconnect_failure(caught)  # noqa: SLF001
+
+
+def test_reconnect_failure_logs_traceback_once_then_warns(caplog) -> None:  # noqa: ANN001
+    """The first reconnect failure logs a traceback; identical repeats collapse to warnings."""
+    proc = _build_processor()
+
+    with caplog.at_level(logging.WARNING, logger="framegallery"):
+        _log_failure(proc, OSError("boom"))
+        _log_failure(proc, OSError("boom"))
+        _log_failure(proc, OSError("boom"))
+
+    errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    # First occurrence -> one ERROR (with traceback); the two repeats -> WARNINGs.
+    assert len(errors) == 1
+    assert errors[0].exc_info is not None
+    assert errors[0].exc_info[0] is OSError
+    assert len(warnings) == 2  # noqa: PLR2004
+    assert proc._reconnect_failures == 3  # noqa: SLF001, PLR2004
+
+
+def test_reconnect_failure_new_error_logs_traceback_again(caplog) -> None:  # noqa: ANN001
+    """A different error signature resets the dedup and logs a fresh traceback."""
+    proc = _build_processor()
+
+    with caplog.at_level(logging.WARNING, logger="framegallery"):
+        _log_failure(proc, OSError("boom"))
+        _log_failure(proc, RuntimeError("different"))
+
+    errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(errors) == 2  # noqa: PLR2004 -- each distinct error gets its own traceback
 
 
 @pytest.mark.asyncio
