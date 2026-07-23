@@ -145,6 +145,7 @@ async def test_apply_active_image_uploads_activates_deletes(processor: SyncThrea
     photo = SimpleNamespace(composite_id="local:1")
     photo_bytes = SimpleNamespace(data=b"x", file_type_suffix="jpg", width=1920, height=1080)
     processor._fetch_photo_bytes = AsyncMock(return_value=photo_bytes)  # noqa: SLF001
+    processor._settle = AsyncMock()  # noqa: SLF001 -- don't actually sleep in the test
     processor._latest_content_id = "MY-OLD"  # noqa: SLF001
 
     calls: list[str] = []
@@ -164,6 +165,56 @@ async def test_apply_active_image_uploads_activates_deletes(processor: SyncThrea
     assert any(d.startswith("select MY-F0009") for d in calls)
     assert any(d.startswith("delete MY-OLD") for d in calls)
     assert processor._latest_content_id == "MY-F0009"  # noqa: SLF001
+    # The TV settles between commands: once before select, once before delete.
+    settles_before_select_and_delete = 2
+    assert processor._settle.await_count == settles_before_select_and_delete  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_apply_active_image_settles_before_switching(processor: SyncThreadProcessor) -> None:
+    """The settle pause is inserted after upload and before select_image."""
+    photo = SimpleNamespace(composite_id="local:1")
+    photo_bytes = SimpleNamespace(data=b"x", file_type_suffix="jpg", width=1920, height=1080)
+    processor._fetch_photo_bytes = AsyncMock(return_value=photo_bytes)  # noqa: SLF001
+    processor._latest_content_id = None  # noqa: SLF001 -- no previous image, so no delete
+
+    events: list[str] = []
+    processor._settle = AsyncMock(side_effect=lambda: events.append("settle"))  # noqa: SLF001
+
+    async def fake_run(fn, *, description, timeout):  # noqa: ANN001, ANN202, ARG001, ASYNC109
+        events.append(description.split()[0])
+        return "MY-F0009" if description.startswith("upload") else None
+
+    processor._run_tv_op = fake_run  # noqa: SLF001
+
+    await processor.apply_active_image(photo)
+
+    # Upload happens, then the settle pause, then the switch.
+    assert events == ["upload", "settle", "select"]
+
+
+@pytest.mark.asyncio
+async def test_settle_sleeps_when_delay_positive(processor: SyncThreadProcessor, monkeypatch) -> None:  # noqa: ANN001
+    """_settle sleeps for tv_command_delay seconds when it is positive."""
+    monkeypatch.setattr("framegallery.frame_connector.processors.base.settings.tv_command_delay", 1.5)
+    sleep = AsyncMock()
+    monkeypatch.setattr("framegallery.frame_connector.processors.base.asyncio.sleep", sleep)
+
+    await processor._settle()  # noqa: SLF001
+
+    sleep.assert_awaited_once_with(1.5)
+
+
+@pytest.mark.asyncio
+async def test_settle_is_noop_when_delay_zero(processor: SyncThreadProcessor, monkeypatch) -> None:  # noqa: ANN001
+    """_settle does not sleep when the delay is disabled (0)."""
+    monkeypatch.setattr("framegallery.frame_connector.processors.base.settings.tv_command_delay", 0)
+    sleep = AsyncMock()
+    monkeypatch.setattr("framegallery.frame_connector.processors.base.asyncio.sleep", sleep)
+
+    await processor._settle()  # noqa: SLF001
+
+    sleep.assert_not_called()
 
 
 @pytest.mark.asyncio

@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     # packet before retrying a failed connection. Optional; find it with
     # `arp -n <tv-ip>`. Only helps when the TV is asleep, not for art-mode crashes.
     tv_mac_address: str | None = None
+    # Settle delay (seconds) inserted between consecutive TV commands in the
+    # single-image processors (single_async / sync_thread): after upload before
+    # select_image, and before deleting the previous image. The Frame needs a moment
+    # to finish digesting an upload before it reliably accepts the follow-up command;
+    # issuing them back-to-back can crash Art Mode back to regular TV. Set to 0 to
+    # disable (original back-to-back behaviour).
+    tv_command_delay: float = 5.0
     # "batch_slideshow" processor: how many images to upload to the TV in one batch,
     # and the TV's own rotation interval in whole minutes (the TV API only accepts
     # minutes, so the 180s slideshow_interval doesn't apply in this mode).
