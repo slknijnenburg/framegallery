@@ -132,6 +132,10 @@ filesystem_refresh_interval=600
 # Useful for A/B testing which mechanism your TV tolerates without crashing. See
 # the "Upload processors" section below.
 upload_processor=single_async
+# Settle delay (seconds) between consecutive TV commands in the single-image
+# processors (single_async/sync_thread). Guards against Art Mode crashing when the
+# switch command is sent before the TV has finished digesting the upload. 0 disables.
+tv_command_delay=5.0
 
 # Docker Volume Mount Paths (customize for your setup)
 IMAGES_PATH=./images
@@ -205,6 +209,7 @@ Related settings:
 | Variable | Default | Applies to | Description |
 |---|---|---|---|
 | `tv_mac_address` | *(unset)* | `sync_thread` | TV MAC address; when set, a Wake-on-LAN packet is sent before retrying a failed connection (`arp -n <tv-ip>` to find it). |
+| `tv_command_delay` | `5.0` | `single_async`, `sync_thread` | Settle delay in seconds inserted between consecutive TV commands: after `upload` before `select_image`, and before deleting the previous image. The Frame needs a moment to finish digesting an upload before it reliably accepts the next command; issuing them back-to-back can crash Art Mode back to regular TV. Set to `0` for the original back-to-back behaviour. |
 | `batch_size` | `50` | `batch_slideshow` | How many images to upload to the TV in one batch. |
 | `batch_rotation_minutes` | `3` | `batch_slideshow` | The TV's own rotation interval, in whole minutes (the TV API only accepts minutes, so `slideshow_interval` does not apply in this mode). |
 

@@ -220,12 +220,16 @@ class SyncThreadProcessor(UploadProcessor):
             return
 
         try:
+            # Give the TV a moment to finish processing the upload before switching
+            # to it: activating too soon can crash Art Mode back to regular TV.
+            await self._settle()
             await self._run_tv_op(
                 lambda art: art.select_image(content_id, "MY-C0002"),
                 description=f"select {content_id}",
                 timeout=self.OP_TIMEOUT,
             )
             if self._latest_content_id is not None:
+                await self._settle()
                 await self._run_tv_op(
                     lambda art: art.delete(self._latest_content_id),
                     description=f"delete {self._latest_content_id}",

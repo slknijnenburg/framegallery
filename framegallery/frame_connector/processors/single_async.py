@@ -148,11 +148,14 @@ class SingleAsyncProcessor(UploadProcessor):
             await self.close()
             return
 
-        # Make uploaded image active
+        # Make uploaded image active. Give the TV a moment to finish processing the
+        # upload before switching to it: activating too soon can crash Art Mode.
         if data and data.get("content_id"):
+            await self._settle()
             await self._activate_image(data["content_id"])
             # Delete previously active image
             if self._latest_content_id is not None:
+                await self._settle()
                 await self._delete_image(self._latest_content_id)
             self._latest_content_id = data["content_id"]
         elif data:

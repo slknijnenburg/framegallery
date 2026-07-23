@@ -294,6 +294,18 @@ class UploadProcessor(abc.ABC):
             if file_data.get("category_id") == category or category is None
         ]
 
+    async def _settle(self) -> None:
+        """
+        Pause briefly between consecutive TV commands.
+
+        The Frame needs a moment to finish digesting an upload before it will
+        reliably accept the follow-up ``select_image``/``delete``; issuing them
+        back-to-back can crash Art Mode back to regular TV. Controlled by
+        ``settings.tv_command_delay`` (seconds); a value of 0 disables the pause.
+        """
+        if settings.tv_command_delay > 0:
+            await asyncio.sleep(settings.tv_command_delay)
+
     def _compute_matte(self, photo_bytes: PhotoBytes) -> str:
         """
         Pick the matte from the final (post-crop) dimensions.
