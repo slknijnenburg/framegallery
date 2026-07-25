@@ -33,7 +33,6 @@ def _to_summary(library: Library) -> LibrarySummary:
         has_api_key=bool(config.get("api_key")),
         base_url=config.get("base_url"),
         album_ids=config.get("album_ids", []),
-        filter_id=config.get("filter_id"),
     )
 
 
@@ -109,8 +108,6 @@ def update_library(
         config["api_key"] = payload.api_key
     if payload.album_ids is not None:
         config["album_ids"] = payload.album_ids
-    if payload.filter_id is not None:
-        config["filter_id"] = payload.filter_id
     library.config = config
 
     return _to_summary(library_repository.save(library))

@@ -32,7 +32,7 @@ def db_session() -> Generator[Session, None, None]:
                 source_type="local",
                 enabled=True,
                 weight=1.0,
-                config={"filter_id": None},
+                config={},
             )
         )
         session.commit()

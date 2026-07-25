@@ -76,6 +76,7 @@ class Library(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     # Relative selection weight; the effective probability is weight * matching_photo_count.
     weight: Mapped[float] = mapped_column(Float, default=1.0)
-    # Per-source configuration. local: {"filter_id": int|null};
+    # Per-source configuration. local: {} — its selection follows the globally active filter
+    # (config.active_filter), set from the Filters page.
     # immich: {"base_url": str, "api_key": str, "album_ids": [str, ...]}.
     config: Mapped[dict] = mapped_column(JSON, default=dict)
