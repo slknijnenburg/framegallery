@@ -10,6 +10,7 @@ from framegallery.libraries.immich_client import ImmichClient
 from framegallery.libraries.immich_library import ImmichLibrary
 from framegallery.libraries.local_library import LocalLibrary
 from framegallery.models import Library as LibraryModel
+from framegallery.repository.config_repository import ConfigKey, ConfigRepository
 from framegallery.repository.filter_repository import FilterRepository
 from framegallery.repository.image_repository import ImageRepository
 
@@ -37,10 +38,18 @@ def _close_client_soon(client: ImmichClient) -> None:
 
 
 def _build_local(row: LibraryModel, session: Session, image_repository: ImageRepository) -> LocalLibrary:
-    filter_id = row.config.get("filter_id") if row.config else None
+    """
+    Build the local library, driven by the globally active filter.
+
+    The active filter lives in ``config.active_filter`` because that is what the Filters page
+    writes when you star a filter, and it is the only filter selection the UI exposes. Reading it
+    here (rather than from a per-library ``filter_id``) keeps a single source of truth, so starring
+    a filter takes effect on the next slideshow pick.
+    """
+    active_filter_id = ConfigRepository(session).get_or(ConfigKey.ACTIVE_FILTER, default_value=None).value
     filter_query: str | None = None
-    if filter_id is not None:
-        stored_filter = FilterRepository(session).get_filter(int(filter_id))
+    if active_filter_id not in (None, ""):
+        stored_filter = FilterRepository(session).get_filter(int(active_filter_id))
         filter_query = stored_filter.query if stored_filter is not None else None
     return LocalLibrary(image_repository, session, filter_query, row.library_id)
 

@@ -10,7 +10,6 @@ export interface LibrarySummary {
   has_api_key: boolean;
   base_url?: string | null;
   album_ids: string[];
-  filter_id?: number | null;
 }
 
 export interface LibraryCreate {
@@ -30,7 +29,6 @@ export interface LibraryUpdate {
   base_url?: string;
   api_key?: string;
   album_ids?: string[];
-  filter_id?: number | null;
 }
 
 export interface LibraryStatus {

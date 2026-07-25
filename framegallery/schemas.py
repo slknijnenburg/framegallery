@@ -115,7 +115,6 @@ class LibrarySummary(BaseModel):
     has_api_key: bool
     base_url: str | None = None
     album_ids: list[str] = Field(default_factory=list)
-    filter_id: int | None = None
 
 
 class LibraryStatus(BaseModel):
@@ -150,7 +149,6 @@ class LibraryUpdate(BaseModel):
     # Only sent when the user wants to change the key; omitted keeps the stored one.
     api_key: str | None = None
     album_ids: list[str] | None = None
-    filter_id: int | None = None
 
 
 class ImmichConnectionRequest(BaseModel):

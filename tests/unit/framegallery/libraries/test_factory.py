@@ -8,6 +8,7 @@ from framegallery.libraries.factory import build_library
 from framegallery.libraries.immich_library import ImmichLibrary
 from framegallery.libraries.local_library import LocalLibrary
 from framegallery.models import Base, Filter, Library
+from framegallery.repository.config_repository import ConfigKey, ConfigRepository
 from framegallery.repository.image_repository import ImageRepository
 
 
@@ -27,22 +28,54 @@ def db_session(engine: Engine) -> Session:
         session.rollback()
 
 
-def test_build_local_library_with_filter(db_session: Session) -> None:
-    """A local row resolves its configured filter's query into a LocalLibrary."""
-    filter_row = Filter(name="wide", query='{"combinator":"and","rules":[]}')
-    db_session.add(filter_row)
-    db_session.commit()
-    row = Library(
+def _local_row() -> Library:
+    return Library(
         library_id="local",
         name="Local",
         source_type="local",
         enabled=True,
         weight=1.0,
-        config={"filter_id": filter_row.id},
+        config={},
     )
 
-    library = build_library(row, db_session, ImageRepository(db_session), {})
+
+def test_build_local_library_uses_active_filter(db_session: Session) -> None:
+    """The local library picks up the globally active filter's query."""
+    filter_row = Filter(name="wide", query='{"combinator":"and","rules":[]}')
+    db_session.add(filter_row)
+    db_session.commit()
+    ConfigRepository(db_session).set(ConfigKey.ACTIVE_FILTER, str(filter_row.id))
+
+    library = build_library(_local_row(), db_session, ImageRepository(db_session), {})
     assert isinstance(library, LocalLibrary)
+    assert library._filter_query == filter_row.query  # noqa: SLF001
+
+
+def test_build_local_library_follows_active_filter_change(db_session: Session) -> None:
+    """Starring a different filter changes local selection on the next build (regression)."""
+    all_photos = Filter(name="All", query='{"combinator":"and","rules":[]}')
+    holiday = Filter(
+        name="Sicily",
+        query='{"combinator":"and","rules":[{"field":"directory","operator":"contains","value":"sicily"}]}',
+    )
+    db_session.add_all([all_photos, holiday])
+    db_session.commit()
+    config_repository = ConfigRepository(db_session)
+
+    config_repository.set(ConfigKey.ACTIVE_FILTER, str(all_photos.id))
+    first = build_library(_local_row(), db_session, ImageRepository(db_session), {})
+    config_repository.set(ConfigKey.ACTIVE_FILTER, str(holiday.id))
+    second = build_library(_local_row(), db_session, ImageRepository(db_session), {})
+
+    assert first._filter_query == all_photos.query  # noqa: SLF001
+    assert second._filter_query == holiday.query  # noqa: SLF001
+
+
+def test_build_local_library_without_active_filter(db_session: Session) -> None:
+    """With no filter starred, the local library selects from the whole gallery."""
+    library = build_library(_local_row(), db_session, ImageRepository(db_session), {})
+    assert isinstance(library, LocalLibrary)
+    assert library._filter_query is None  # noqa: SLF001
 
 
 def test_build_immich_library_and_cache_reuse(db_session: Session) -> None:
