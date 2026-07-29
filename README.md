@@ -88,7 +88,7 @@ Or using Docker Compose:
 
 ```bash
 # Update docker-compose.yml to use the pre-built image
-docker-compose up -d
+docker compose up -d
 ```
 
 #### Building Locally
@@ -163,8 +163,19 @@ DATA_PATH=/home/user/framegallery-data
 LOGS_PATH=/var/log/framegallery
 
 # Then run normally
-docker-compose up -d
+docker compose up -d
 ```
+
+#### Log Rotation
+
+Logs are written to two places, and both are capped so they cannot grow without bound:
+
+- `$LOGS_PATH/framegallery.log` is rotated by the application at midnight UTC, keeping 7 days of history (`framegallery.log.YYYY-MM-DD`).
+- The container's stdout is captured by Docker and capped by the `logging` options in `docker-compose.yml` (7 files of 20 MB).
+
+Note that the Docker-side limits only apply when the container is **recreated** (`docker compose up -d`); `docker compose restart` reuses the existing container and its current log settings.
+
+Running at `log_level=DEBUG` produces roughly 15k lines per day, the bulk of it HTTP client chatter from `httpcore`/`urllib3`. Set `log_level=INFO` to reduce this substantially; `websocket_log_level` remains a separate knob so the TV connection can still be debugged independently.
 
 #### Database Migrations
 

@@ -17,3 +17,14 @@ services:
       - ${LOGS_PATH:-./logs}:/app/logs
     env_file: .env
     restart: unless-stopped
+
+    # Cap Docker's capture of stdout. The app also writes ./logs/framegallery.log,
+    # which rotates itself (see framegallery/logging_config.py); this bounds the
+    # json-file copy, which otherwise grows for the whole lifetime of the container.
+    # Note these options only take effect when the container is recreated
+    # (`docker compose up -d`), not on `docker compose restart`.
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "7"
