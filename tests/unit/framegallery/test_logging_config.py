@@ -1,5 +1,6 @@
 """Tests for the log-file rotation and handler de-duplication in setup_logging()."""
 
+import io
 import logging
 import sys
 from collections.abc import Iterator
@@ -37,6 +38,17 @@ def _stream_handlers(root_logger: logging.Logger) -> list[logging.Handler]:
         h
         for h in root_logger.handlers
         if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler) and h.stream is sys.stdout
+    ]
+
+
+def _console_handlers(root_logger: logging.Logger) -> list[logging.Handler]:
+    """Return handlers writing to either standard stream, whoever attached them."""
+    return [
+        h
+        for h in root_logger.handlers
+        if isinstance(h, logging.StreamHandler)
+        and not isinstance(h, logging.FileHandler)
+        and h.stream in (sys.stdout, sys.stderr)
     ]
 
 
@@ -101,10 +113,25 @@ def test_repeated_calls_do_not_duplicate_handlers(clean_root_logger: logging.Log
     assert len(_stream_handlers(clean_root_logger)) == 1
 
 
-def test_foreign_root_handler_does_not_block_ours(clean_root_logger: logging.Logger, tmp_path) -> None:  # noqa: ANN001
-    """An unrelated handler on the root logger must not suppress our own."""
-    foreign = logging.StreamHandler(sys.stderr)
-    clean_root_logger.addHandler(foreign)
+def test_existing_console_handler_is_not_duplicated(clean_root_logger: logging.Logger, tmp_path) -> None:  # noqa: ANN001
+    """
+    A console handler on the other standard stream already serves the console.
+
+    logging.basicConfig() attaches a stderr handler, for instance. Adding ours on top
+    would emit every record twice and double the Docker log this rotation bounds.
+    """
+    clean_root_logger.addHandler(logging.StreamHandler(sys.stderr))
+
+    setup_logging(log_level="DEBUG", logs_path=str(tmp_path))
+
+    assert len(_file_handlers(clean_root_logger)) == 1
+    assert len(_console_handlers(clean_root_logger)) == 1
+    assert len(_stream_handlers(clean_root_logger)) == 0
+
+
+def test_non_console_handler_does_not_block_ours(clean_root_logger: logging.Logger, tmp_path) -> None:  # noqa: ANN001
+    """A handler writing somewhere other than a console is no substitute for stdout."""
+    clean_root_logger.addHandler(logging.StreamHandler(io.StringIO()))
 
     setup_logging(log_level="DEBUG", logs_path=str(tmp_path))
 

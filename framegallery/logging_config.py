@@ -43,15 +43,23 @@ def setup_logging(
     # record *and* both try to roll it over at midnight, fighting over the inode.
     #
     # Both checks match on the handler's target rather than just its class, so a
-    # foreign handler on the root logger (pytest's caplog, a file handler for some
-    # other file) neither satisfies nor blocks our own. Note logging.FileHandler
-    # subclasses StreamHandler, hence the explicit exclusion in the stdout check.
+    # foreign handler on the root logger neither satisfies nor blocks our own. Note
+    # logging.FileHandler subclasses StreamHandler, hence the explicit exclusion in
+    # the console check.
+    #
+    # The console check accepts a handler on *either* standard stream: something else
+    # attaching one (logging.basicConfig() adds a stderr handler, for instance) means
+    # the console is already served, and adding ours would emit every record twice --
+    # doubling the very Docker log this rotation is meant to bound. A handler writing
+    # somewhere other than a console (pytest's caplog, an in-memory buffer) is not a
+    # substitute, so it must not suppress ours.
+    console_streams = (sys.stdout, sys.stderr)
     log_file_path = os.path.abspath(log_file)  # noqa: PTH100 -- must match FileHandler.baseFilename
     has_file_handler = any(
         isinstance(h, logging.FileHandler) and h.baseFilename == log_file_path for h in root_logger.handlers
     )
     has_stream_handler = any(
-        isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler) and h.stream is sys.stdout
+        isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler) and h.stream in console_streams
         for h in root_logger.handlers
     )
 
@@ -68,7 +76,7 @@ def setup_logging(
         file_handler.setLevel(level)
         root_logger.addHandler(file_handler)
 
-    # Stream handler (stdout): captured by Docker, capped in docker-compose.yml.
+    # Console handler (stdout): captured by Docker, capped in docker-compose.yml.
     if not has_stream_handler:
         stream_handler = logging.StreamHandler(sys.stdout)
         stream_handler.setFormatter(formatter)

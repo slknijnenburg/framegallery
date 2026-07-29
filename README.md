@@ -88,7 +88,7 @@ Or using Docker Compose:
 
 ```bash
 # Update docker-compose.yml to use the pre-built image
-docker-compose up -d
+docker compose up -d
 ```
 
 #### Building Locally
@@ -163,7 +163,7 @@ DATA_PATH=/home/user/framegallery-data
 LOGS_PATH=/var/log/framegallery
 
 # Then run normally
-docker-compose up -d
+docker compose up -d
 ```
 
 #### Log Rotation
