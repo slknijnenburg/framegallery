@@ -6,9 +6,24 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from framegallery.frame_connector.processors import base
 from framegallery.frame_connector.processors.single_async import SingleAsyncProcessor
 
 _CREATE_TASK = "framegallery.frame_connector.processors.base.asyncio.create_task"
+
+
+@pytest.fixture(autouse=True)
+def _stub_config_io(monkeypatch) -> None:  # noqa: ANN001
+    """
+    Answer the processor's config reads without touching a real database.
+
+    Construction restores the TV content bookkeeping; against an absent database that
+    logs warnings, which would pollute the caplog assertions below.
+    """
+    monkeypatch.setattr(base, "read_bool_setting", lambda *_, **__: False)
+    monkeypatch.setattr(base, "read_json_setting", lambda _key, default=None: default)
+    monkeypatch.setattr(base, "read_str_setting", lambda _key, default=None: default)
+    monkeypatch.setattr(base, "write_setting", lambda *_, **__: True)
 
 
 def _build_processor() -> SingleAsyncProcessor:

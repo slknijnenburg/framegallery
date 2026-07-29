@@ -22,6 +22,11 @@ class ConfigKey(Enum):
     ACTIVE_FILTER = "active_filter"
     AUTO_CLEANUP_ENABLED = "auto_cleanup_enabled"
     TV_WATCH_MODE_ENABLED = "tv_watch_mode_enabled"
+    # Bookkeeping for images this app has put on the TV: the one currently displayed,
+    # and any we still owe the TV a delete for. Persisted so a restart cannot lose
+    # track of them (see UploadProcessor.record_uploaded).
+    LATEST_TV_CONTENT_ID = "latest_tv_content_id"
+    PENDING_TV_DELETIONS = "pending_tv_deletions"
 
 
 class ConfigRepository:
@@ -107,3 +112,72 @@ def read_bool_setting(key: ConfigKey, *, default: bool = False) -> bool:
     except SQLAlchemyError:
         logger.warning("Could not read setting %s; falling back to %s", key.value, default, exc_info=True)
         return default
+
+
+def read_str_setting(key: ConfigKey, *, default: str | None = None) -> str | None:
+    """
+    Read a string setting on a short-lived session of its own.
+
+    Separate from ``read_json_setting`` because ``ConfigRepository.set`` stores strings
+    verbatim and JSON-encodes everything else. Feeding a raw string such as
+    ``MY-F0009`` through ``json.loads`` raises, which would silently fall back to the
+    default -- so string-valued settings must be read back as-is.
+    """
+    from framegallery.database import SessionLocal  # noqa: PLC0415
+
+    try:
+        with SessionLocal() as db:
+            config = ConfigRepository(db).get(key)
+    except SQLAlchemyError:
+        logger.warning("Could not read setting %s; falling back to %s", key.value, default, exc_info=True)
+        return default
+
+    if config is None or config.value is None:
+        return default
+    return str(config.value)
+
+
+def read_json_setting(key: ConfigKey, *, default: Any = None) -> Any:  # noqa: ANN401 -- mirrors the stored JSON
+    """
+    Read a JSON-encoded setting on a short-lived session of its own.
+
+    Falls back to ``default`` if the key is unset, the database is unusable, or the
+    stored text is not valid JSON -- see ``read_bool_setting`` for why these callers
+    must not raise.
+    """
+    from framegallery.database import SessionLocal  # noqa: PLC0415
+
+    try:
+        with SessionLocal() as db:
+            config = ConfigRepository(db).get(key)
+            raw = config.value if config else None
+    except SQLAlchemyError:
+        logger.warning("Could not read setting %s; falling back to %s", key.value, default, exc_info=True)
+        return default
+
+    if raw is None:
+        return default
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError):
+        logger.warning("Setting %s holds invalid JSON (%r); falling back to %s", key.value, raw, default)
+        return default
+
+
+def write_setting(key: ConfigKey, value: Any) -> bool:  # noqa: ANN401 -- mirrors ConfigRepository.set
+    """
+    Write a setting on a short-lived session of its own; return whether it stuck.
+
+    Callers on the slideshow hot path must keep going when the write fails, but they
+    need to *know* it failed -- for the TV content bookkeeping, a lost write means an
+    image on the TV that nothing will remember to delete.
+    """
+    from framegallery.database import SessionLocal  # noqa: PLC0415
+
+    try:
+        with SessionLocal() as db:
+            ConfigRepository(db).set(key, value)
+    except SQLAlchemyError:
+        logger.warning("Could not persist setting %s", key.value, exc_info=True)
+        return False
+    return True
