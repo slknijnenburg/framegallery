@@ -59,3 +59,17 @@ def test_read_bool_setting_uses_its_own_session(engine: Engine, monkeypatch) -> 
         ConfigRepository(session).set(ConfigKey.TV_WATCH_MODE_ENABLED, value=True)
 
     assert read_bool_setting(ConfigKey.TV_WATCH_MODE_ENABLED, default=False) is True
+
+
+def test_read_bool_setting_falls_back_when_the_database_is_unusable(monkeypatch) -> None:  # noqa: ANN001
+    """
+    An unreadable database degrades to the default instead of raising.
+
+    This runs on the slideshow hot path via the upload processors, so a database that
+    is missing, locked or mid-migration must not take the push down with it.
+    """
+    broken_engine = create_engine("sqlite:///:memory:")  # no tables created
+    monkeypatch.setattr(database_module, "SessionLocal", sessionmaker(bind=broken_engine))
+
+    assert read_bool_setting(ConfigKey.TV_WATCH_MODE_ENABLED, default=False) is False
+    assert read_bool_setting(ConfigKey.SLIDESHOW_ENABLED, default=True) is True

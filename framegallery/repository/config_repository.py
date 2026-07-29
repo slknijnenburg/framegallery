@@ -1,11 +1,15 @@
 import json
+import logging
 from enum import Enum
 from typing import Any
 
 from sqlalchemy import delete, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from framegallery.models import Config
+
+logger = logging.getLogger("framegallery")
 
 
 class ConfigKey(Enum):
@@ -81,16 +85,25 @@ class ConfigRepository:
 
 def read_bool_setting(key: ConfigKey, *, default: bool = False) -> bool:
     """
-    Read a boolean setting on a short-lived session of its own.
+    Read a boolean setting on a short-lived session of its own, falling back to ``default``.
 
     For callers outside the request cycle -- background loops and the upload
     processors -- which have no session injected and must observe the *current*
     value on every check rather than one captured at startup, so that toggling a
     setting in the UI takes effect immediately.
+
+    These callers sit on the slideshow hot path, so a database that is missing,
+    locked or mid-migration must not propagate an exception and take the push down
+    with it. Any failure degrades to ``default``, which for every current caller is
+    the permissive value.
     """
     # Imported here rather than at module scope: framegallery.dependencies pulls in
     # the upload processors, which in turn read settings through this helper.
     from framegallery.database import SessionLocal  # noqa: PLC0415
 
-    with SessionLocal() as db:
-        return ConfigRepository(db).get_bool(key, default=default)
+    try:
+        with SessionLocal() as db:
+            return ConfigRepository(db).get_bool(key, default=default)
+    except SQLAlchemyError:
+        logger.warning("Could not read setting %s; falling back to %s", key.value, default, exc_info=True)
+        return default

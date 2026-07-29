@@ -7,8 +7,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from framegallery.frame_connector.processors import sync_thread
+from framegallery.frame_connector.processors import base, sync_thread
 from framegallery.frame_connector.processors.sync_thread import SyncThreadProcessor
+
+
+@pytest.fixture(autouse=True)
+def _tv_watch_mode_off(monkeypatch) -> None:  # noqa: ANN001
+    """Answer the TV-watch-mode lookup without touching a real database."""
+    monkeypatch.setattr(base, "read_bool_setting", lambda *_, **__: False)
 
 
 @pytest.fixture
