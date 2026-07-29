@@ -17,6 +17,7 @@ class ConfigKey(Enum):
     CURRENT_ACTIVE_IMAGE_SINCE = "current_active_image_since"
     ACTIVE_FILTER = "active_filter"
     AUTO_CLEANUP_ENABLED = "auto_cleanup_enabled"
+    TV_WATCH_MODE_ENABLED = "tv_watch_mode_enabled"
 
 
 class ConfigRepository:
@@ -76,3 +77,20 @@ class ConfigRepository:
     def has(self, key: ConfigKey) -> bool:
         """Check if a configuration value exists by its key."""
         return self.get(key) is not None
+
+
+def read_bool_setting(key: ConfigKey, *, default: bool = False) -> bool:
+    """
+    Read a boolean setting on a short-lived session of its own.
+
+    For callers outside the request cycle -- background loops and the upload
+    processors -- which have no session injected and must observe the *current*
+    value on every check rather than one captured at startup, so that toggling a
+    setting in the UI takes effect immediately.
+    """
+    # Imported here rather than at module scope: framegallery.dependencies pulls in
+    # the upload processors, which in turn read settings through this helper.
+    from framegallery.database import SessionLocal  # noqa: PLC0415
+
+    with SessionLocal() as db:
+        return ConfigRepository(db).get_bool(key, default=default)

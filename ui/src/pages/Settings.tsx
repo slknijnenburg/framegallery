@@ -16,6 +16,7 @@ import {
   Settings as SettingsIcon,
   CleaningServices as CleaningServicesIcon,
   Info as InfoIcon,
+  Tv as TvIcon,
 } from '@mui/icons-material';
 import { useSettings } from '../SettingsContext';
 import axios from 'axios';
@@ -51,6 +52,35 @@ const Settings: React.FC = () => {
     } catch (err) {
       console.error('Failed to update auto-cleanup setting:', err);
       setError('Failed to update auto-cleanup setting. Please try again.');
+    } finally {
+      setUpdating(false);
+    }
+  }, [refreshSettings]);
+
+  /**
+   * Handle TV watch mode toggle change.
+   */
+  const handleTvWatchModeChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const enabled = event.target.checked;
+    setUpdating(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await axios.post('/api/config/tv_watch_mode_enabled', {
+        value: enabled
+      });
+
+      await refreshSettings();
+
+      setSuccess(
+        enabled
+          ? 'TV watch mode enabled — the app will leave the TV alone'
+          : 'TV watch mode disabled — the slideshow will resume'
+      );
+    } catch (err) {
+      console.error('Failed to update TV watch mode setting:', err);
+      setError('Failed to update TV watch mode setting. Please try again.');
     } finally {
       setUpdating(false);
     }
@@ -114,6 +144,47 @@ const Settings: React.FC = () => {
             {success}
           </Alert>
         )}
+
+        {/* TV Watch Mode */}
+        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+          <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 2 }}>
+            <TvIcon sx={{ fontSize: 24, color: 'primary.main' }} />
+            <Typography variant="h6" component="h2">
+              TV Watch Mode
+            </Typography>
+          </Stack>
+
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Turn this on when you want to watch television. The app stops pushing images to the TV
+            and will never switch it back to Art Mode, so it cannot interrupt you mid-programme.
+            Turn it off again and the slideshow picks up where it left off.
+          </Typography>
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={settings.tv_watch_mode_enabled}
+                onChange={handleTvWatchModeChange}
+                disabled={updating}
+              />
+            }
+            label={
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <Typography>
+                  I&apos;m watching TV — leave the TV alone
+                </Typography>
+                {updating && <CircularProgress size={16} />}
+              </Stack>
+            }
+          />
+
+          {settings.tv_watch_mode_enabled && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              The slideshow is paused and Art Mode will not be restored automatically, including
+              after an Art Mode crash. Switch this off when you are done watching.
+            </Alert>
+          )}
+        </Paper>
 
         {/* TV Auto-cleanup Settings */}
         <Paper elevation={2} sx={{ p: 3, mb: 3 }}>

@@ -270,6 +270,22 @@ you sit down to watch something.
 | `art_mode_watchdog_enabled` | `true` | Enable the watchdog. With it off, nothing observes art mode and `/api/status` reports the art-mode fields as unknown. |
 | `art_mode_poll_interval` | `60` | Seconds between probes. |
 
+### TV Watch Mode
+
+The **Settings** page has a **TV Watch Mode** toggle for when you want to watch television
+and be certain the app will not interfere. While it is on:
+
+- no images are pushed to the TV at all, and
+- art mode is **never** restored — including immediately after our own writes, the one
+  case where the app would otherwise be confident it should intervene.
+
+It is checked *before* the art-mode state, so it does not depend on art-mode detection
+being accurate or up to date. Turn it off and the slideshow resumes on the next tick.
+
+This is a runtime setting stored in the database (`tv_watch_mode_enabled`), not an
+environment variable, so it can be toggled without a restart. It is also available at
+`GET`/`POST /api/config/tv_watch_mode_enabled`.
+
 ## Photo Libraries
 
 The slideshow can draw photos from multiple **libraries** at once, managed on the **Libraries** page.

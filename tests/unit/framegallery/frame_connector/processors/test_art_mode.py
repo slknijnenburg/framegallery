@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from framegallery.frame_connector.processors import base
 from framegallery.frame_connector.processors.sync_thread import SyncThreadProcessor
 
 
@@ -18,6 +19,16 @@ def processor() -> SyncThreadProcessor:
     proc._art = MagicMock()  # noqa: SLF001
     proc._last_used = time.monotonic()  # noqa: SLF001
     return proc
+
+
+@pytest.fixture(autouse=True)
+def _tv_watch_mode_off(monkeypatch) -> None:  # noqa: ANN001
+    """Turn TV watch mode off by default; the watch-mode tests override it."""
+    monkeypatch.setattr(base, "read_bool_setting", lambda *_, **__: False)
+
+
+def _enable_tv_watch_mode(monkeypatch) -> None:  # noqa: ANN001
+    monkeypatch.setattr(base, "read_bool_setting", lambda *_, **__: True)
 
 
 # --- gating ---
@@ -46,6 +57,51 @@ def test_unknown_after_a_failed_query_is_permissive(processor: SyncThreadProcess
     processor.note_art_mode(active=False)
     processor.note_art_mode(active=None)
     assert processor.art_mode_permits_upload() is True
+
+
+# --- TV watch mode ---
+
+
+def test_tv_watch_mode_blocks_uploads_even_in_art_mode(processor: SyncThreadProcessor, monkeypatch) -> None:  # noqa: ANN001
+    """
+    TV watch mode is a hard stop, independent of what art mode reports.
+
+    Checked before the art-mode state precisely so the toggle does not depend on
+    detection being accurate or up to date.
+    """
+    processor.note_art_mode(active=True)
+    _enable_tv_watch_mode(monkeypatch)
+
+    assert processor.art_mode_permits_upload() is False
+
+
+def test_tv_watch_mode_blocks_uploads_when_state_is_unknown(processor: SyncThreadProcessor, monkeypatch) -> None:  # noqa: ANN001
+    """The usual permissive fallback for an unknown state does not override the toggle."""
+    processor.note_art_mode(active=None)
+    _enable_tv_watch_mode(monkeypatch)
+
+    assert processor.art_mode_permits_upload() is False
+
+
+@pytest.mark.asyncio
+async def test_tv_watch_mode_suppresses_the_post_write_restore(
+    processor: SyncThreadProcessor,
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    """
+    Art mode is not restored while watching, even though we know we caused the drop.
+
+    This is the one place the app would otherwise be certain it should intervene; the
+    toggle deliberately outranks that certainty.
+    """
+    processor.get_art_mode = AsyncMock(return_value=False)
+    processor.set_art_mode = AsyncMock(return_value=True)
+    _enable_tv_watch_mode(monkeypatch)
+
+    await processor.verify_art_mode_after_write()
+
+    processor.set_art_mode.assert_not_awaited()
+    assert processor.art_mode_active is False
 
 
 # --- post-write verification ---

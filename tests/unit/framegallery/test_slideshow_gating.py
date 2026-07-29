@@ -18,33 +18,71 @@ def test_batch_mode_never_pushes(monkeypatch) -> None:  # noqa: ANN001
         session_local.assert_not_called()
 
 
+def _repo(*, slideshow_enabled: bool = True, tv_watch_mode: bool = False) -> MagicMock:
+    """Build a ConfigRepository stub that answers per key rather than uniformly."""
+    values = {
+        ConfigKey.SLIDESHOW_ENABLED: slideshow_enabled,
+        ConfigKey.TV_WATCH_MODE_ENABLED: tv_watch_mode,
+    }
+    fake_repo = MagicMock()
+    fake_repo.get_bool.side_effect = lambda key, **_: values[key]
+    return fake_repo
+
+
 def test_single_async_honours_enabled_flag(monkeypatch) -> None:  # noqa: ANN001
     """In single_async mode the tick follows the SLIDESHOW_ENABLED config flag."""
     monkeypatch.setattr(main.settings, "upload_processor", "single_async")
-
-    fake_repo = MagicMock()
-    fake_repo.get_bool.return_value = True
+    fake_repo = _repo(slideshow_enabled=True)
 
     with (
         patch.object(main, "SessionLocal"),
         patch.object(main, "ConfigRepository", return_value=fake_repo),
     ):
         assert main._should_push_slideshow_tick() is True  # noqa: SLF001
-        fake_repo.get_bool.assert_called_once_with(ConfigKey.SLIDESHOW_ENABLED, default=True)
+
+    fake_repo.get_bool.assert_any_call(ConfigKey.SLIDESHOW_ENABLED, default=True)
 
 
 def test_single_async_disabled_skips(monkeypatch) -> None:  # noqa: ANN001
     """When SLIDESHOW_ENABLED is false, the tick is skipped."""
     monkeypatch.setattr(main.settings, "upload_processor", "single_async")
 
-    fake_repo = MagicMock()
-    fake_repo.get_bool.return_value = False
+    with (
+        patch.object(main, "SessionLocal"),
+        patch.object(main, "ConfigRepository", return_value=_repo(slideshow_enabled=False)),
+    ):
+        assert main._should_push_slideshow_tick() is False  # noqa: SLF001
+
+
+def test_tv_watch_mode_skips_the_whole_tick(monkeypatch) -> None:  # noqa: ANN001
+    """
+    TV watch mode stops the tick outright, even with the slideshow enabled.
+
+    Skipping the whole tick (rather than only the push) matters: advancing the
+    slideshow would keep rewriting the active image and emitting SSE updates for
+    pictures nobody is looking at, drifting the UI out of step with the screen.
+    """
+    monkeypatch.setattr(main.settings, "upload_processor", "single_async")
+
+    with (
+        patch.object(main, "SessionLocal"),
+        patch.object(main, "ConfigRepository", return_value=_repo(slideshow_enabled=True, tv_watch_mode=True)),
+    ):
+        assert main._should_push_slideshow_tick() is False  # noqa: SLF001
+
+
+def test_tv_watch_mode_is_checked_before_the_slideshow_flag(monkeypatch) -> None:  # noqa: ANN001
+    """The watch-mode veto short-circuits, so SLIDESHOW_ENABLED is not even consulted."""
+    monkeypatch.setattr(main.settings, "upload_processor", "single_async")
+    fake_repo = _repo(slideshow_enabled=True, tv_watch_mode=True)
 
     with (
         patch.object(main, "SessionLocal"),
         patch.object(main, "ConfigRepository", return_value=fake_repo),
     ):
-        assert main._should_push_slideshow_tick() is False  # noqa: SLF001
+        main._should_push_slideshow_tick()  # noqa: SLF001
+
+    fake_repo.get_bool.assert_called_once_with(ConfigKey.TV_WATCH_MODE_ENABLED, default=False)
 
 
 @pytest.mark.asyncio

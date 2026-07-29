@@ -51,3 +51,25 @@ def set_auto_cleanup_enabled(
     """Set the auto-cleanup enabled status."""
     config_repository.set(ConfigKey.AUTO_CLEANUP_ENABLED, config_value.value)
     return config_value
+
+
+@router.get("/tv_watch_mode_enabled", response_model=schemas.ConfigValue)
+def get_tv_watch_mode_enabled(
+    config_repository: Annotated[ConfigRepository, Depends(get_config_repository)],
+) -> schemas.ConfigValue:
+    """Get the TV-watch-mode status."""
+    return schemas.ConfigValue(value=config_repository.get_bool(ConfigKey.TV_WATCH_MODE_ENABLED, default=False))
+
+
+@router.post("/tv_watch_mode_enabled", response_model=schemas.ConfigValue)
+def set_tv_watch_mode_enabled(
+    config_value: schemas.ConfigValue, config_repository: Annotated[ConfigRepository, Depends(get_config_repository)]
+) -> schemas.ConfigValue:
+    """
+    Set the TV-watch-mode status.
+
+    While on, the app pushes no images and never restores art mode: the TV belongs to
+    the viewer until they turn this back off.
+    """
+    config_repository.set(ConfigKey.TV_WATCH_MODE_ENABLED, config_value.value)
+    return config_value

@@ -16,6 +16,7 @@ from samsungtvws.rest import SamsungTVRest
 from framegallery.aspect_ratio import get_aspect_ratio
 from framegallery.config import settings
 from framegallery.logging_config import setup_logging
+from framegallery.repository.config_repository import ConfigKey, read_bool_setting
 
 if TYPE_CHECKING:
     from framegallery.libraries.base import PhotoBytes, PhotoRef
@@ -154,16 +155,32 @@ class UploadProcessor(abc.ABC):
         """Record the art-mode state observed by the watchdog or a post-write check."""
         self._art_mode_active = active
 
+    def tv_watch_mode_enabled(self) -> bool:
+        """
+        Whether the user has explicitly claimed the TV to watch television.
+
+        Read live from the database on every call rather than cached, so toggling it
+        in the UI takes effect on the next push instead of at the next poll.
+        """
+        return read_bool_setting(ConfigKey.TV_WATCH_MODE_ENABLED, default=False)
+
     def art_mode_permits_upload(self) -> bool:
         """
         Whether pushing an image to the TV is worthwhile right now.
 
-        Only a *known* "off" suppresses the push: while the TV is showing regular
-        television our uploads are invisible, and issuing them is what tends to wedge
-        the Frame in the first place. An unknown state (nothing has polled yet, or the
-        query failed) stays permissive so a watchdog problem can never silently freeze
-        the slideshow.
+        TV watch mode is a hard stop: the user has said the TV is theirs, so the app
+        stays off it entirely regardless of what art mode reports. This is checked
+        first precisely so the toggle does not depend on art-mode detection being
+        accurate or up to date.
+
+        Failing that, only a *known* art-mode "off" suppresses the push: while the TV
+        is showing regular television our uploads are invisible, and issuing them is
+        what tends to wedge the Frame in the first place. An unknown state (nothing has
+        polled yet, or the query failed) stays permissive so a watchdog problem can
+        never silently freeze the slideshow.
         """
+        if self.tv_watch_mode_enabled():
+            return False
         return self._art_mode_active is not False
 
     async def get_art_mode(self) -> bool | None:
@@ -221,6 +238,13 @@ class UploadProcessor(abc.ABC):
         active = await self.get_art_mode()
         self.note_art_mode(active=active)
         if active is not False:
+            return
+
+        # TV watch mode is an explicit instruction to leave the TV alone. Honour it
+        # even here, where we know we caused the drop: the user would rather keep
+        # watching than have the app claw the screen back.
+        if self.tv_watch_mode_enabled():
+            logger.info("Art mode is off after our write, but TV watch mode is on; leaving the TV alone.")
             return
 
         logger.warning(

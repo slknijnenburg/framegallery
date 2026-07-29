@@ -75,13 +75,20 @@ def _should_push_slideshow_tick() -> bool:
 
     - In ``batch_slideshow`` mode the TV owns rotation, so the app must never push
       per-tick (it would fight the TV's own slideshow).
+    - While TV watch mode is on the TV belongs to the viewer, so the whole tick is
+      skipped rather than merely suppressed at the push: advancing the slideshow
+      would keep rewriting the active image and emitting SSE updates for pictures
+      nobody is looking at, and the UI would drift out of step with the screen.
     - Otherwise honour the ``SLIDESHOW_ENABLED`` config flag. This is read from a
       fresh session each tick so runtime enable/disable takes effect immediately.
     """
     if settings.upload_processor == ProcessorKind.BATCH_SLIDESHOW.value:
         return False
     with SessionLocal() as db:
-        return ConfigRepository(db).get_bool(ConfigKey.SLIDESHOW_ENABLED, default=True)
+        config_repo = ConfigRepository(db)
+        if config_repo.get_bool(ConfigKey.TV_WATCH_MODE_ENABLED, default=False):
+            return False
+        return config_repo.get_bool(ConfigKey.SLIDESHOW_ENABLED, default=True)
 
 
 async def _wait_for_processor_connection(
@@ -565,6 +572,7 @@ async def get_settings(
         ).value,
         "active_filter": active_filter,
         "auto_cleanup_enabled": config_repo.get_or(ConfigKey.AUTO_CLEANUP_ENABLED, default_value=False).value,
+        "tv_watch_mode_enabled": config_repo.get_bool(ConfigKey.TV_WATCH_MODE_ENABLED, default=False),
     }
 
     return ConfigResponse(**config)
