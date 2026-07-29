@@ -50,6 +50,14 @@ class Settings(BaseSettings):
     # minutes, so the 180s slideshow_interval doesn't apply in this mode).
     batch_size: int = 50
     batch_rotation_minutes: int = 3
+    # Art-mode watchdog: periodically probe whether the TV is reachable and still in
+    # art mode, pausing slideshow pushes while it is showing regular television and
+    # rebuilding the connection when the art channel wedges. It never forces art mode
+    # back on from this poll -- between our own writes an "off" is indistinguishable
+    # from someone choosing to watch TV. Art mode is only restored immediately after
+    # our own writes, where we know we caused it.
+    art_mode_watchdog_enabled: bool = True
+    art_mode_poll_interval: int = 60
 
     @property
     def database_path(self) -> str:

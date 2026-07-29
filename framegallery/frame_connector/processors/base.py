@@ -11,10 +11,12 @@ from typing import TYPE_CHECKING
 from blinker import signal
 from icmplib import ping
 from samsungtvws.async_remote import SamsungTVWSAsyncRemote
+from samsungtvws.rest import SamsungTVRest
 
 from framegallery.aspect_ratio import get_aspect_ratio
 from framegallery.config import settings
 from framegallery.logging_config import setup_logging
+from framegallery.repository.config_repository import ConfigKey, read_bool_setting
 
 if TYPE_CHECKING:
     from framegallery.libraries.base import PhotoBytes, PhotoRef
@@ -66,6 +68,9 @@ class UploadProcessor(abc.ABC):
 
     IDEAL_ASPECT_RATIO_WIDTH = 16
     IDEAL_ASPECT_RATIO_HEIGHT = 9
+    # Timeout (seconds) for the REST power-state probe. Short: it is a LAN request to
+    # a TV that is either answering promptly or not answering at all.
+    REST_TIMEOUT = 5
 
     def __init__(self, ip_address: str, port: int, library_manager: LibraryManager | None = None) -> None:
         self._ip_address = ip_address
@@ -82,6 +87,10 @@ class UploadProcessor(abc.ABC):
         self._tv_is_online = False
         self._connected = False
         self._latest_content_id: str | None = None
+
+        # Last known art-mode state, refreshed by the ArtModeWatchdog and after our
+        # own writes. None means "not established yet"; see art_mode_permits_upload().
+        self._art_mode_active: bool | None = None
 
         # Deduplicate the reconnection-failure logging: a wedged TV can fail every
         # 10s for hours, so only the first occurrence of a given error gets a full
@@ -134,6 +143,130 @@ class UploadProcessor(abc.ABC):
     @abc.abstractmethod
     async def delete_files(self, content_ids: list[str]) -> dict[str, bool] | None:
         """Delete files from the TV, returning per-id success, or None if unavailable."""
+
+    # --- art mode ---
+
+    @property
+    def art_mode_active(self) -> bool | None:
+        """Last known art-mode state, or None if it has not been established yet."""
+        return self._art_mode_active
+
+    def note_art_mode(self, *, active: bool | None) -> None:
+        """Record the art-mode state observed by the watchdog or a post-write check."""
+        self._art_mode_active = active
+
+    def tv_watch_mode_enabled(self) -> bool:
+        """
+        Whether the user has explicitly claimed the TV to watch television.
+
+        Read live from the database on every call rather than cached, so toggling it
+        in the UI takes effect on the next push instead of at the next poll.
+        """
+        return read_bool_setting(ConfigKey.TV_WATCH_MODE_ENABLED, default=False)
+
+    def art_mode_permits_upload(self) -> bool:
+        """
+        Whether pushing an image to the TV is worthwhile right now.
+
+        TV watch mode is a hard stop: the user has said the TV is theirs, so the app
+        stays off it entirely regardless of what art mode reports. This is checked
+        first precisely so the toggle does not depend on art-mode detection being
+        accurate or up to date.
+
+        Failing that, only a *known* art-mode "off" suppresses the push: while the TV
+        is showing regular television our uploads are invisible, and issuing them is
+        what tends to wedge the Frame in the first place. An unknown state (nothing has
+        polled yet, or the query failed) stays permissive so a watchdog problem can
+        never silently freeze the slideshow.
+        """
+        if self.tv_watch_mode_enabled():
+            return False
+        return self._art_mode_active is not False
+
+    async def get_art_mode(self) -> bool | None:
+        """
+        Return whether the TV is in art mode, or None if it cannot be determined.
+
+        None specifically means "we could not ask" -- the art channel is unreachable
+        -- which is a different condition from a confident False, and the watchdog
+        treats the two very differently. Processors that own an art client override
+        this; the default reports "unknown".
+        """
+        return None
+
+    async def set_art_mode(self, *, enabled: bool) -> bool:
+        """
+        Ask the TV to enter or leave art mode; return whether the command was accepted.
+
+        Overridden by processors that own an art client.
+        """
+        _ = enabled
+        return False
+
+    async def is_tv_powered_on(self) -> bool | None:
+        """
+        Report the TV's power state over REST, or None if it is unreachable.
+
+        This deliberately avoids the art WebSocket: it is a plain HTTP GET to
+        ``/api/v2/``, so it still answers when the art channel has wedged. That makes
+        it the only probe that can tell "the whole TV is gone" apart from "the TV is
+        fine but art mode has crashed". ICMP is not a substitute -- a Frame in standby
+        still replies to ping.
+        """
+
+        def _probe() -> bool:
+            rest = SamsungTVRest(self._ip_address, self._port, self.REST_TIMEOUT)
+            return rest.rest_power_state()
+
+        try:
+            return await asyncio.to_thread(_probe)
+        except Exception:  # noqa: BLE001 -- any failure here means "unreachable", by design
+            logger.debug("REST power-state probe failed for %s", self._ip_address, exc_info=True)
+            return None
+
+    async def verify_art_mode_after_write(self) -> None:
+        """
+        Re-check art mode straight after our own TV writes, and restore it if it dropped.
+
+        This is the only path that force-enables art mode, and the timing is the whole
+        point: finding it off immediately after our upload/select/delete sequence means
+        *we* knocked the Frame out of art mode, so turning it back on cannot be fighting
+        someone who just picked up the remote. The periodic watchdog deliberately never
+        does this -- between writes an "off" is indistinguishable from a person choosing
+        to watch television, and the safe assumption there is that a human did it.
+        """
+        active = await self.get_art_mode()
+        self.note_art_mode(active=active)
+        if active is not False:
+            return
+
+        # TV watch mode is an explicit instruction to leave the TV alone. Honour it
+        # even here, where we know we caused the drop: the user would rather keep
+        # watching than have the app claw the screen back.
+        if self.tv_watch_mode_enabled():
+            logger.info("Art mode is off after our write, but TV watch mode is on; leaving the TV alone.")
+            return
+
+        logger.warning(
+            "Art mode dropped during our own TV commands -- the Frame fell back to "
+            "regular TV. Attempting to restore art mode."
+        )
+        if not await self.set_art_mode(enabled=True):
+            logger.error("Failed to restore art mode after write; the TV is left on regular TV.")
+            return
+
+        # The TV accepting set_artmode is not the same as it acting on it, so confirm
+        # rather than assuming -- otherwise a Frame that is wedged badly enough to
+        # ignore the command would still be reported as recovered.
+        restored = await self.get_art_mode()
+        self.note_art_mode(active=restored)
+        if restored:
+            logger.info("Art mode restored after write.")
+        else:
+            logger.error(
+                "Art mode restore was accepted but the TV is still not in art mode (now %s); it is left on regular TV.",
+                restored,
+            )
 
     # --- optional diagnostics ---
 

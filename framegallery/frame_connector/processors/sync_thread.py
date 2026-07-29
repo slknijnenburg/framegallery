@@ -194,6 +194,10 @@ class SyncThreadProcessor(UploadProcessor):
         if not self._connected:
             return
 
+        if not self.art_mode_permits_upload():
+            logger.debug("sync_thread: TV is not in art mode, skipping image update.")
+            return
+
         logger.info("sync_thread: updating active image on TV: %s", photo.composite_id)
 
         photo_bytes = await self._fetch_photo_bytes(photo)
@@ -239,6 +243,12 @@ class SyncThreadProcessor(UploadProcessor):
         except Exception:
             logger.exception("sync_thread: activate/cleanup failed for %s", content_id)
 
+        # Whether or not the sequence above succeeded, confirm the Frame is still in
+        # art mode: crashing out of it is exactly the failure this sequence provokes,
+        # and a failed select/delete makes that *more* likely, not less.
+        await self._settle()
+        await self.verify_art_mode_after_write()
+
     async def get_active_item_details(self) -> dict | None:
         """Get the current active item details from the TV."""
         if not self._connected:
@@ -250,6 +260,41 @@ class SyncThreadProcessor(UploadProcessor):
         except Exception:
             logger.exception("sync_thread: failed to get current active item")
             return None
+
+    # --- art mode ---
+
+    async def get_art_mode(self) -> bool | None:
+        """Query live art-mode state, or None if the art channel cannot answer."""
+        if not self._connected:
+            return None
+        try:
+            value = await self._run_tv_op(
+                lambda art: art.get_artmode(), description="get_artmode", timeout=self.OP_TIMEOUT
+            )
+        except Exception:  # noqa: BLE001 -- any failure means "cannot determine", by design
+            logger.debug("sync_thread: art-mode query failed", exc_info=True)
+            return None
+        if value is None:
+            # _run_tv_op yields None when it exhausts its retries without raising.
+            # That is "no answer", not "art mode is off": reporting False here would
+            # gate the slideshow off and trigger a spurious art-mode restore.
+            return None
+        return value == "on"
+
+    async def set_art_mode(self, *, enabled: bool) -> bool:
+        """Switch art mode on or off, reporting whether the command went through."""
+        if not self._connected:
+            return False
+        try:
+            await self._run_tv_op(
+                lambda art: art.set_artmode("on" if enabled else "off"),
+                description=f"set_artmode {'on' if enabled else 'off'}",
+                timeout=self.OP_TIMEOUT,
+            )
+        except Exception:
+            logger.exception("sync_thread: failed to set art mode to %s", enabled)
+            return False
+        return True
 
     # --- generic TV file ops ---
 

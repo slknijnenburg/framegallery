@@ -92,24 +92,44 @@ class SingleAsyncProcessor(UploadProcessor):
 
         return data
 
-    async def _is_art_mode_active(self) -> bool:
+    async def get_art_mode(self) -> bool | None:
         """
-        Return whether the TV is currently in art mode.
+        Return whether the TV is currently in art mode, or None if it cannot be asked.
 
-        The cached `self._tv.art_mode` flag is only updated from push events
-        (e.g. `art_mode_changed`), so it can be stale when the app connected
-        while the TV was already in art mode, or when a transition event was
-        missed. Query the live status and fall back to the cached flag only if
-        the query fails.
+        The cached ``self._tv.art_mode`` flag is only updated from push events (e.g.
+        ``art_mode_changed``), so it can be stale when the app connected while the TV
+        was already in art mode, or when a transition event was missed. Query the live
+        status instead, and report None rather than a cached guess when the query
+        fails: the watchdog distinguishes "art mode is off" from "the art channel is
+        not answering", and a stale flag would blur exactly that distinction.
         """
+        if self._tv is None or not self._connected:
+            return None
         try:
             return await self._tv.get_artmode() == "on"
         except (AssertionError, KeyError, OSError, websockets.exceptions.WebSocketException):
-            logger.debug(
-                "Live art-mode query failed; falling back to cached art_mode=%s",
-                self._tv.art_mode,
-            )
-            return bool(self._tv.art_mode)
+            logger.debug("Live art-mode query failed (cached art_mode=%s)", getattr(self._tv, "art_mode", None))
+            return None
+
+    async def set_art_mode(self, *, enabled: bool) -> bool:
+        """Switch art mode on or off, reporting whether the command went through."""
+        if self._tv is None or not self._connected:
+            return False
+        try:
+            await self._tv.set_artmode("on" if enabled else "off")
+        except (AssertionError, KeyError, OSError, websockets.exceptions.WebSocketException):
+            logger.exception("Failed to set art mode to %s", enabled)
+            return False
+        return True
+
+    async def _is_art_mode_active(self) -> bool:
+        """
+        Return whether art mode is active, treating an unanswerable query as active.
+
+        Kept permissive so a failed query never silently freezes the slideshow; the
+        watchdog is what turns a genuine "off" into a suppressed push.
+        """
+        return await self.get_art_mode() is not False
 
     async def apply_active_image(self, photo: PhotoRef) -> None:  # noqa: PLR0911, C901
         """Upload the given photo to the TV, activate it, and delete the previous one."""
@@ -162,6 +182,11 @@ class SingleAsyncProcessor(UploadProcessor):
             logger.error("Slideshow image upload completed but did not return a content_id.")
         else:
             logger.error("Slideshow image upload failed, data is None.")
+
+        # Confirm the Frame is still in art mode after our command sequence: crashing
+        # out of it is exactly what this sequence provokes.
+        await self._settle()
+        await self.verify_art_mode_after_write()
 
     async def _upload_photo(self, photo: PhotoRef, photo_bytes: PhotoBytes) -> dict | None:
         """Upload photo bytes to TV and return the uploaded file details as provided by the television."""
