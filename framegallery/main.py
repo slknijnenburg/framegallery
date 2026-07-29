@@ -29,6 +29,7 @@ from framegallery.dependencies import (
     get_library_manager,
     get_slideshow_instance,
 )
+from framegallery.frame_connector.art_mode_watchdog import ArtModeWatchdog, TvHealth
 from framegallery.frame_connector.processors import ProcessorKind, UploadProcessor, api_version, build_processor
 from framegallery.frame_connector.status import SlideshowStatus, Status
 from framegallery.importer2.importer import Importer
@@ -127,6 +128,27 @@ async def update_slideshow_periodically(slideshow: Slideshow, processor: UploadP
         await asyncio.sleep(settings.slideshow_interval)
 
 
+def _start_art_mode_watchdog(app: FastAPI, processor: UploadProcessor) -> None:
+    """
+    Start the art-mode watchdog and expose it on the app state.
+
+    It owns no TV connection of its own; it probes through the processor and keeps the
+    processor's cached art-mode state fresh, so the slideshow can be gated (and
+    /api/status served) without a TV round trip per push or per request.
+    """
+    if not settings.art_mode_watchdog_enabled:
+        app.state.art_mode_watchdog = None
+        logger.info("Art-mode watchdog is disabled")
+        return
+
+    watchdog = ArtModeWatchdog(processor, settings.art_mode_poll_interval)
+    app.state.art_mode_watchdog = watchdog
+    logger.info("Scheduling the art-mode watchdog")
+    task = asyncio.create_task(watchdog.run_periodic_probe())
+    background_tasks.add(task)
+    task.add_done_callback(background_tasks.discard)
+
+
 def _raise_migration_error() -> None:
     """Raise migration error."""
     msg = "Database migrations failed"
@@ -195,6 +217,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Instantiate and store the new SSE signal listener
     app.state.slideshow_signal_sse_listener = SlideshowSignalSSEListener(slideshow_event_queue)
+
+    _start_art_mode_watchdog(app, upload_processor)
 
     # Start TV auto-cleanup service
     cleanup_service = TvCleanupService(upload_processor, config_repository)
@@ -325,11 +349,23 @@ else:
 
 @app.get("/api/status")
 async def status() -> Status:
-    """Return the application state. Stubbed for now."""
+    """
+    Return the observed TV state.
+
+    Served from the art-mode watchdog's cached reading rather than probing the TV per
+    request, so polling this endpoint cannot add load to a Frame that is already
+    struggling. With the watchdog disabled there is nothing observing the TV, so the
+    art-mode fields report None (unknown) rather than inventing a value.
+    """
+    watchdog: ArtModeWatchdog | None = getattr(app.state, "art_mode_watchdog", None)
+    if watchdog is None:
+        return Status(tv_on=False, art_mode_supported=True, art_mode_active=None, api_version=api_version)
+
+    health = watchdog.health
     return Status(
-        tv_on=True,
+        tv_on=health not in (TvHealth.UNREACHABLE, TvHealth.STANDBY, TvHealth.UNKNOWN),
         art_mode_supported=True,
-        art_mode_active=True,
+        art_mode_active=app.state.upload_processor.art_mode_active,
         api_version=api_version,
     )
 

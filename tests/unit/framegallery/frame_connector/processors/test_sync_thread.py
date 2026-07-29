@@ -165,9 +165,10 @@ async def test_apply_active_image_uploads_activates_deletes(processor: SyncThrea
     assert any(d.startswith("select MY-F0009") for d in calls)
     assert any(d.startswith("delete MY-OLD") for d in calls)
     assert processor._latest_content_id == "MY-F0009"  # noqa: SLF001
-    # The TV settles between commands: once before select, once before delete.
-    settles_before_select_and_delete = 2
-    assert processor._settle.await_count == settles_before_select_and_delete  # noqa: SLF001
+    # The TV settles between commands: before select, before delete, and once more
+    # before the post-write art-mode check.
+    settles_before_select_delete_and_verify = 3
+    assert processor._settle.await_count == settles_before_select_delete_and_verify  # noqa: SLF001
 
 
 @pytest.mark.asyncio
@@ -189,8 +190,9 @@ async def test_apply_active_image_settles_before_switching(processor: SyncThread
 
     await processor.apply_active_image(photo)
 
-    # Upload happens, then the settle pause, then the switch.
-    assert events == ["upload", "settle", "select"]
+    # Upload happens, then the settle pause, then the switch. The trailing
+    # settle + get_artmode is the post-write art-mode verification.
+    assert events == ["upload", "settle", "select", "settle", "get_artmode"]
 
 
 @pytest.mark.asyncio

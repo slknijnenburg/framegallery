@@ -136,6 +136,10 @@ upload_processor=single_async
 # processors (single_async/sync_thread). Guards against Art Mode crashing when the
 # switch command is sent before the TV has finished digesting the upload. 0 disables.
 tv_command_delay=5.0
+# Art-mode watchdog: periodically checks whether the TV is reachable and still in art
+# mode. See the "Art-mode watchdog" section below.
+art_mode_watchdog_enabled=true
+art_mode_poll_interval=60
 
 # Docker Volume Mount Paths (customize for your setup)
 IMAGES_PATH=./images
@@ -226,6 +230,45 @@ Related settings:
 
 In `batch_slideshow` mode the app-driven slideshow loop and the TV auto-cleanup service are
 both suppressed, since the TV owns rotation and the processor manages its own batch.
+
+## Art-mode Watchdog
+
+The Frame leaves art mode for two very different reasons: somebody picks up the remote to
+watch television, or the art system crashes and the TV falls back to regular TV (typically
+Samsung TV Plus). Both look identical from the outside — `get_artmode` simply reports `off`.
+
+The watchdog therefore does **not** try to guess which happened. It probes on an interval and:
+
+- **Pauses slideshow pushes** while art mode is off. Uploads are invisible on regular TV, and
+  issuing them is itself a common way to wedge the Frame. Pushing resumes automatically when
+  art mode comes back — i.e. when you finish watching and switch back.
+- **Detects a wedged art channel and rebuilds the connection.** It probes power state over
+  REST (`/api/v2/`, a plain HTTP GET) *separately* from the art WebSocket. That is what
+  distinguishes "the TV is fine but art mode has crashed" from "the TV is gone entirely" —
+  a distinction ICMP cannot make, since a Frame in standby still answers ping.
+
+| Health | Meaning |
+|---|---|
+| `art_on` | Reachable and displaying art. The normal state. |
+| `tv_mode` | Reachable, art mode off. Someone is watching TV, or art mode crashed. |
+| `standby` | Reachable but powered down. Normal overnight. |
+| `art_unavailable` | REST answers but the art channel does not — the art system has wedged. |
+| `unreachable` | No response at all: powered off, rebooting, or off the network. |
+
+**Art mode is only forced back on immediately after our own writes.** After each
+upload/select/delete sequence the processor re-checks art mode; finding it off at that
+moment means *we* knocked the TV out of it, so restoring cannot be fighting a person who
+just reached for the remote. The periodic poll deliberately never restores art mode.
+
+The trade-off: an art-mode crash that happens *between* writes is indistinguishable from
+someone watching TV, so the Frame will stay on regular TV until you switch it back. Making
+the poll restore art mode too would close that gap at the cost of overriding you every time
+you sit down to watch something.
+
+| Variable | Default | Description |
+|---|---|---|
+| `art_mode_watchdog_enabled` | `true` | Enable the watchdog. With it off, nothing observes art mode and `/api/status` reports the art-mode fields as unknown. |
+| `art_mode_poll_interval` | `60` | Seconds between probes. |
 
 ## Photo Libraries
 
