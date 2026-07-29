@@ -16,6 +16,22 @@
       // Hold eslint and @eslint/js at v9 until eslint-plugin-react supports v10.
       "matchPackageNames": ["eslint", "@eslint/js"],
       "allowedVersions": "<10"
+    },
+    {
+      // TypeScript 7 is the Go rewrite, which did not carry over the compiler API
+      // that tooling uses to walk the AST and read type information; the replacement
+      // stable API is scheduled for 7.1. Both of this project's TypeScript consumers
+      // depend on that API: typescript-eslint refuses to load at all under TS 7
+      // ("typescript-eslint does not support TS 7.0"), so `npm run lint` exits 2, and
+      // ts-jest excludes it in its peer range (">=4.3 <7").
+      //
+      // Nothing here type-checks at build time either -- `npm run build` is `vite
+      // build`, and there is no typecheck script or tsc step in CI -- so v7's faster
+      // checking would gain us nothing today. Hold at v6 until typescript-eslint
+      // supports TS >=7.1, tracked at:
+      // https://github.com/typescript-eslint/typescript-eslint/issues/10940
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<7"
     }
   ]
 }
