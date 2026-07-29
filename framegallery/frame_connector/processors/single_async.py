@@ -131,7 +131,7 @@ class SingleAsyncProcessor(UploadProcessor):
         """
         return await self.get_art_mode() is not False
 
-    async def apply_active_image(self, photo: PhotoRef) -> None:  # noqa: PLR0911, C901
+    async def apply_active_image(self, photo: PhotoRef) -> None:  # noqa: PLR0911
         """Upload the given photo to the TV, activate it, and delete the previous one."""
         logger.info("Updating active image on TV (via slideshow signal): %s", photo.composite_id)
 
@@ -171,13 +171,12 @@ class SingleAsyncProcessor(UploadProcessor):
         # Make uploaded image active. Give the TV a moment to finish processing the
         # upload before switching to it: activating too soon can crash Art Mode.
         if data and data.get("content_id"):
+            # Take ownership before touching the TV again: if activating or deleting
+            # fails below, the new image must still be tracked rather than stranded.
+            self.record_uploaded(data["content_id"])
             await self._settle()
             await self._activate_image(data["content_id"])
-            # Delete previously active image
-            if self._latest_content_id is not None:
-                await self._settle()
-                await self._delete_image(self._latest_content_id)
-            self._latest_content_id = data["content_id"]
+            await self.drain_pending_deletions()
         elif data:
             logger.error("Slideshow image upload completed but did not return a content_id.")
         else:

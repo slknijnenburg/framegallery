@@ -16,7 +16,13 @@ from samsungtvws.rest import SamsungTVRest
 from framegallery.aspect_ratio import get_aspect_ratio
 from framegallery.config import settings
 from framegallery.logging_config import setup_logging
-from framegallery.repository.config_repository import ConfigKey, read_bool_setting
+from framegallery.repository.config_repository import (
+    ConfigKey,
+    read_bool_setting,
+    read_json_setting,
+    read_str_setting,
+    write_setting,
+)
 
 if TYPE_CHECKING:
     from framegallery.libraries.base import PhotoBytes, PhotoRef
@@ -71,6 +77,10 @@ class UploadProcessor(abc.ABC):
     # Timeout (seconds) for the REST power-state probe. Short: it is a LAN request to
     # a TV that is either answering promptly or not answering at all.
     REST_TIMEOUT = 5
+    # How many previously uploaded images to delete in one batched call per cycle, and
+    # the cap on the backlog we are prepared to remember.
+    PENDING_DELETION_BATCH = 20
+    MAX_PENDING_DELETIONS = 200
 
     def __init__(self, ip_address: str, port: int, library_manager: LibraryManager | None = None) -> None:
         self._ip_address = ip_address
@@ -86,7 +96,20 @@ class UploadProcessor(abc.ABC):
         self._shutting_down = False
         self._tv_is_online = False
         self._connected = False
-        self._latest_content_id: str | None = None
+
+        # Bookkeeping for images we have put on the TV, restored from the database so
+        # a restart does not abandon them. Before this was persisted, every restart
+        # stranded whichever image was live at the time: still on the TV, with nothing
+        # left able to identify or delete it. That was the largest single source of
+        # images the app lost track of.
+        self._latest_content_id: str | None = read_str_setting(ConfigKey.LATEST_TV_CONTENT_ID, default=None)
+        self._pending_deletions: list[str] = self._load_pending_deletions()
+        if self._pending_deletions:
+            logger.info(
+                "Restored %d TV image(s) still awaiting deletion: %s",
+                len(self._pending_deletions),
+                self._pending_deletions,
+            )
 
         # Last known art-mode state, refreshed by the ArtModeWatchdog and after our
         # own writes. None means "not established yet"; see art_mode_permits_upload().
@@ -143,6 +166,93 @@ class UploadProcessor(abc.ABC):
     @abc.abstractmethod
     async def delete_files(self, content_ids: list[str]) -> dict[str, bool] | None:
         """Delete files from the TV, returning per-id success, or None if unavailable."""
+
+    # --- TV content bookkeeping ---
+
+    def _load_pending_deletions(self) -> list[str]:
+        """Restore the pending-deletion list, tolerating anything unexpected on disk."""
+        stored = read_json_setting(ConfigKey.PENDING_TV_DELETIONS, default=[])
+        if not isinstance(stored, list):
+            logger.warning("Stored pending TV deletions were not a list (%r); starting empty", stored)
+            return []
+        return [item for item in stored if isinstance(item, str)]
+
+    def _persist_tracked_content(self) -> None:
+        """Persist the content bookkeeping, so a restart resumes where we left off."""
+        write_setting(ConfigKey.LATEST_TV_CONTENT_ID, self._latest_content_id)
+        write_setting(ConfigKey.PENDING_TV_DELETIONS, self._pending_deletions)
+
+    def record_uploaded(self, content_id: str) -> None:
+        """
+        Adopt a freshly uploaded image as the current one, queueing the previous for deletion.
+
+        Called *immediately* after a successful upload, before select_image. The
+        ordering is the point: previously this assignment sat at the end of the
+        select-then-delete block, so any failure in between skipped it and left the
+        new image on the TV with nothing tracking it. Recording first means every
+        image we put on the TV is accounted for, whatever happens next.
+        """
+        previous = self._latest_content_id
+        self._latest_content_id = content_id
+        if previous is not None and previous != content_id:
+            self._queue_for_deletion(previous)
+        self._persist_tracked_content()
+
+    def _queue_for_deletion(self, content_id: str) -> None:
+        """Add an id to the pending-deletion list, keeping it deduplicated and bounded."""
+        if content_id in self._pending_deletions:
+            return
+        self._pending_deletions.append(content_id)
+        if len(self._pending_deletions) > self.MAX_PENDING_DELETIONS:
+            # Deletes have been failing for a very long time; drop the oldest rather
+            # than growing without bound. The TV auto-cleanup service is the backstop
+            # for anything that falls out here.
+            dropped = self._pending_deletions[: -self.MAX_PENDING_DELETIONS]
+            self._pending_deletions = self._pending_deletions[-self.MAX_PENDING_DELETIONS :]
+            logger.error(
+                "Pending TV deletions exceeded %d; dropped %d id(s) that will need the "
+                "auto-cleanup sweep to remove: %s",
+                self.MAX_PENDING_DELETIONS,
+                len(dropped),
+                dropped,
+            )
+
+    async def drain_pending_deletions(self) -> None:
+        """
+        Delete the images we still owe the TV a delete for.
+
+        Uses a single batched delete rather than one command per image: every extra
+        command is another chance to wedge the Frame, and a wedged Frame is precisely
+        what leaves images behind. Ids that fail stay queued and are retried on the
+        next cycle, so a transient failure heals itself instead of orphaning.
+        """
+        if not self._pending_deletions:
+            return
+
+        # Settle here rather than at the call site so an empty queue costs nothing:
+        # tv_command_delay is measured in seconds, so pausing before a no-op would add
+        # that delay to every single slideshow tick.
+        await self._settle()
+
+        batch = self._pending_deletions[: self.PENDING_DELETION_BATCH]
+        logger.info("Deleting %d previously uploaded TV image(s): %s", len(batch), batch)
+        try:
+            results = await self.delete_files(batch)
+        except Exception:
+            logger.exception("Batched delete of previous TV images failed; will retry next cycle")
+            return
+
+        if results is None:
+            logger.warning("TV unavailable while deleting previous images; will retry next cycle")
+            return
+
+        deleted = {content_id for content_id, ok in results.items() if ok}
+        if deleted:
+            self._pending_deletions = [c for c in self._pending_deletions if c not in deleted]
+            self._persist_tracked_content()
+        failed = set(batch) - deleted
+        if failed:
+            logger.warning("Could not delete %d TV image(s); still queued: %s", len(failed), sorted(failed))
 
     # --- art mode ---
 

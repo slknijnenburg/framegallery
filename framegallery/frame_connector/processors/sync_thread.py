@@ -145,16 +145,28 @@ class SyncThreadProcessor(UploadProcessor):
         except Exception:
             logger.exception("sync_thread: failed to send Wake-on-LAN packet")
 
-    async def _run_tv_op(self, fn: Callable[[SamsungTVArt], Any], *, description: str, timeout: float) -> Any:  # noqa: ANN401, ASYNC109
+    async def _run_tv_op(
+        self,
+        fn: Callable[[SamsungTVArt], Any],
+        *,
+        description: str,
+        timeout: float,  # noqa: ASYNC109 -- per-op budget passed to asyncio.wait_for, not a delay
+        max_attempts: int | None = None,
+    ) -> Any:  # noqa: ANN401
         """
         Run a blocking TV operation in a thread, with recycle + bounded retries.
 
         Only one operation runs at a time (the sync client isn't concurrency-safe).
         A ``ResponseError`` is a definitive TV rejection and is not retried.
+
+        ``max_attempts`` overrides the default retry budget for operations that are
+        not safe to repeat -- notably uploads, where a retry can leave extra copies
+        on the TV (see ``apply_active_image``).
         """
+        attempts = self.MAX_ATTEMPTS if max_attempts is None else max_attempts
         async with self._op_lock:
             last_exc: Exception | None = None
-            for attempt in range(1, self.MAX_ATTEMPTS + 1):
+            for attempt in range(1, attempts + 1):
                 try:
                     await self._ensure_live_client()
                     assert self._art is not None  # noqa: S101 -- guaranteed by _ensure_live_client
@@ -169,18 +181,18 @@ class SyncThreadProcessor(UploadProcessor):
                         "sync_thread: TV op '%s' failed (attempt %d/%d): %s",
                         description,
                         attempt,
-                        self.MAX_ATTEMPTS,
+                        attempts,
                         exc,
                     )
                     await self._close_client()
-                    if attempt < self.MAX_ATTEMPTS:
+                    if attempt < attempts:
                         if attempt == 1:
                             self._wake_tv()
                         await asyncio.sleep(self.RETRY_DELAY * attempt)
                 else:
                     return result
 
-            logger.error("sync_thread: TV op '%s' giving up after %d attempts", description, self.MAX_ATTEMPTS)
+            logger.error("sync_thread: TV op '%s' giving up after %d attempt(s)", description, attempts)
             if isinstance(last_exc, TimeoutError):
                 raise TvConnectionTimeoutError from last_exc
             if last_exc is not None:
@@ -210,10 +222,17 @@ class SyncThreadProcessor(UploadProcessor):
         try:
             # NOTE: the *synchronous* SamsungTVArt.upload() returns the new content_id
             # as a plain string (or None), unlike the async client which returns a dict.
+            #
+            # Deliberately not retried. upload() streams the whole image over a
+            # separate socket and only then waits for the "image_added" reply, so a
+            # timeout usually means the TV *has* the image but we never learned its
+            # content_id. Retrying re-sends it, turning one failed cycle into up to
+            # three untracked copies. Better to skip this tick and try the next one.
             content_id = await self._run_tv_op(
                 lambda art: art.upload(file_data, file_type=file_type, matte=matte, portrait_matte="none"),
                 description=f"upload {photo.composite_id}",
                 timeout=self.UPLOAD_TIMEOUT,
+                max_attempts=1,
             )
         except Exception:
             logger.exception("sync_thread: upload failed for %s", photo.composite_id)
@@ -222,6 +241,10 @@ class SyncThreadProcessor(UploadProcessor):
         if not content_id:
             logger.error("sync_thread: upload of %s returned no content_id", photo.composite_id)
             return
+
+        # Take ownership of the new image before touching the TV again: if anything
+        # below fails, it must still be tracked rather than stranded on the TV.
+        self.record_uploaded(content_id)
 
         try:
             # Give the TV a moment to finish processing the upload before switching
@@ -232,16 +255,13 @@ class SyncThreadProcessor(UploadProcessor):
                 description=f"select {content_id}",
                 timeout=self.OP_TIMEOUT,
             )
-            if self._latest_content_id is not None:
-                await self._settle()
-                await self._run_tv_op(
-                    lambda art: art.delete(self._latest_content_id),
-                    description=f"delete {self._latest_content_id}",
-                    timeout=self.OP_TIMEOUT,
-                )
-            self._latest_content_id = content_id
         except Exception:
-            logger.exception("sync_thread: activate/cleanup failed for %s", content_id)
+            logger.exception("sync_thread: activating %s failed", content_id)
+
+        try:
+            await self.drain_pending_deletions()
+        except Exception:
+            logger.exception("sync_thread: deleting previous TV images failed")
 
         # Whether or not the sequence above succeeded, confirm the Frame is still in
         # art mode: crashing out of it is exactly the failure this sequence provokes,

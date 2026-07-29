@@ -231,6 +231,27 @@ Related settings:
 In `batch_slideshow` mode the app-driven slideshow loop and the TV auto-cleanup service are
 both suppressed, since the TV owns rotation and the processor manages its own batch.
 
+### Images left on the TV
+
+The single-image processors upload a photo, activate it, and delete the one it replaced,
+so the TV should only ever hold one of our images. Every image uploaded is tracked in the
+database (`latest_tv_content_id`, `pending_tv_deletions`) until the TV confirms it is gone:
+
+- **Tracking is persisted**, so a restart does not abandon whichever image was live at the
+  time. This was the largest source of leaks: each restart used to strand one image on the
+  TV with nothing able to identify or delete it.
+- **A new image is recorded before it is activated**, so a failed `select_image` or delete
+  cannot leave it untracked.
+- **Failed deletes stay queued** and are retried on the next slideshow tick, in a single
+  batched `delete_list` call rather than one command per image.
+- **Uploads are never retried.** `upload()` streams the whole image and only then waits for
+  the TV's reply, so a timeout usually means the TV *has* the image but we never learned
+  its id. Retrying re-sends it, turning one failed cycle into several untracked copies.
+
+Anything that still slips through — including images left by older versions — is swept up
+by the **TV Auto-cleanup** service on the Settings page, which keeps only the most recent
+few files. Use **Run Cleanup Now** there to clear an existing backlog in one go.
+
 ## Art-mode Watchdog
 
 The Frame leaves art mode for two very different reasons: somebody picks up the remote to

@@ -12,13 +12,16 @@ from framegallery.frame_connector.processors.sync_thread import SyncThreadProces
 
 
 @pytest.fixture(autouse=True)
-def _tv_watch_mode_off(monkeypatch) -> None:  # noqa: ANN001
-    """Answer the TV-watch-mode lookup without touching a real database."""
+def _stub_config_io(monkeypatch) -> None:  # noqa: ANN001
+    """Answer the processor's config reads/writes without touching a real database."""
     monkeypatch.setattr(base, "read_bool_setting", lambda *_, **__: False)
+    monkeypatch.setattr(base, "read_json_setting", lambda _key, default=None: default)
+    monkeypatch.setattr(base, "read_str_setting", lambda _key, default=None: default)
+    monkeypatch.setattr(base, "write_setting", lambda *_, **__: True)
 
 
 @pytest.fixture
-def processor() -> SyncThreadProcessor:
+def processor(_stub_config_io: None) -> SyncThreadProcessor:
     """Return a connected SyncThreadProcessor with a mocked sync art client."""
     with patch("framegallery.frame_connector.processors.base.asyncio.create_task"):
         proc = SyncThreadProcessor("192.168.1.100", 8002)
@@ -156,7 +159,7 @@ async def test_apply_active_image_uploads_activates_deletes(processor: SyncThrea
 
     calls: list[str] = []
 
-    async def fake_run(fn, *, description, timeout):  # noqa: ANN001, ANN202, ARG001, ASYNC109
+    async def fake_run(fn, *, description, timeout, max_attempts=None):  # noqa: ANN001, ANN202, ARG001, ASYNC109
         calls.append(description)
         # The sync SamsungTVArt.upload() returns the content_id as a bare string.
         if description.startswith("upload"):
@@ -169,10 +172,12 @@ async def test_apply_active_image_uploads_activates_deletes(processor: SyncThrea
 
     assert any(d.startswith("upload") for d in calls)
     assert any(d.startswith("select MY-F0009") for d in calls)
-    assert any(d.startswith("delete MY-OLD") for d in calls)
+    # The previous image is removed via the batched delete_list, not one delete per id.
+    assert any(d.startswith("delete_list") for d in calls)
     assert processor._latest_content_id == "MY-F0009"  # noqa: SLF001
-    # The TV settles between commands: before select, before delete, and once more
-    # before the post-write art-mode check.
+    assert processor._pending_deletions == []  # noqa: SLF001 -- MY-OLD was deleted
+    # The TV settles between commands: before select, before the delete batch, and
+    # once more before the post-write art-mode check.
     settles_before_select_delete_and_verify = 3
     assert processor._settle.await_count == settles_before_select_delete_and_verify  # noqa: SLF001
 
@@ -188,7 +193,7 @@ async def test_apply_active_image_settles_before_switching(processor: SyncThread
     events: list[str] = []
     processor._settle = AsyncMock(side_effect=lambda: events.append("settle"))  # noqa: SLF001
 
-    async def fake_run(fn, *, description, timeout):  # noqa: ANN001, ANN202, ARG001, ASYNC109
+    async def fake_run(fn, *, description, timeout, max_attempts=None):  # noqa: ANN001, ANN202, ARG001, ASYNC109
         events.append(description.split()[0])
         return "MY-F0009" if description.startswith("upload") else None
 

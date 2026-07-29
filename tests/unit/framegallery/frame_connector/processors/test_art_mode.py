@@ -25,6 +25,9 @@ def processor() -> SyncThreadProcessor:
 def _tv_watch_mode_off(monkeypatch) -> None:  # noqa: ANN001
     """Turn TV watch mode off by default; the watch-mode tests override it."""
     monkeypatch.setattr(base, "read_bool_setting", lambda *_, **__: False)
+    monkeypatch.setattr(base, "read_json_setting", lambda _key, default=None: default)
+    monkeypatch.setattr(base, "read_str_setting", lambda _key, default=None: default)
+    monkeypatch.setattr(base, "write_setting", lambda *_, **__: True)
 
 
 def _enable_tv_watch_mode(monkeypatch) -> None:  # noqa: ANN001
