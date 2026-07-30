@@ -1,15 +1,20 @@
 import { API_BASE_URL } from '../App';
 import { TvFile, TvCategory, TV_CATEGORIES } from '../models/TvFile';
 
-// Helper function to detect development mode
-const isDevelopmentMode = () => {
-  // Check for Jest environment (when window might not exist)
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  // Check hostname for development - covers both Vite dev server and general localhost usage
-  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+/**
+ * Build an absolute-path API URL.
+ *
+ * Requests go to a path relative to whatever origin is serving the app: in
+ * production the backend serves the UI itself, and in development the Vite dev
+ * server proxies /api through to it (see vite.config.ts). So there is no need to
+ * know the backend's host, and no need to branch on the environment.
+ *
+ * Note this deliberately does not use `new URL(path, API_BASE_URL)`: API_BASE_URL
+ * is the empty string, which is not a valid base and makes that constructor throw.
+ */
+const apiUrl = (path: string, params?: Record<string, string>): string => {
+  const query = params ? `?${new URLSearchParams(params)}` : '';
+  return `${API_BASE_URL}${path}${query}`;
 };
 
 /**
@@ -48,13 +53,7 @@ export const tvFilesService = {
    */
   async getTvFiles(category: TvCategory = TV_CATEGORIES.USER_CONTENT): Promise<TvFile[]> {
     try {
-      // Use direct backend URL in development, relative URL in production
-      const isDevelopment = isDevelopmentMode();
-      const baseUrl = isDevelopment ? 'http://localhost:7999' : API_BASE_URL;
-      const url = new URL('/api/tv/files', baseUrl);
-      url.searchParams.set('category', category);
-
-      const response = await fetch(url.toString());
+      const response = await fetch(apiUrl('/api/tv/files', { category }));
 
       if (!response.ok) {
         // Handle specific error cases
@@ -201,12 +200,7 @@ export const tvFilesService = {
    */
   async deleteTvFile(contentId: string): Promise<void> {
     try {
-      // Use direct backend URL in development, relative URL in production
-      const isDevelopment = isDevelopmentMode();
-      const baseUrl = isDevelopment ? 'http://localhost:7999' : API_BASE_URL;
-      const url = new URL(`/api/tv/files/${encodeURIComponent(contentId)}`, baseUrl);
-
-      const response = await fetch(url.toString(), {
+      const response = await fetch(apiUrl(`/api/tv/files/${encodeURIComponent(contentId)}`), {
         method: 'DELETE',
       });
 
@@ -278,12 +272,7 @@ export const tvFilesService = {
     }
 
     try {
-      // Use direct backend URL in development, relative URL in production
-      const isDevelopment = isDevelopmentMode();
-      const baseUrl = isDevelopment ? 'http://localhost:7999' : API_BASE_URL;
-      const url = new URL('/api/tv/files/delete', baseUrl);
-
-      const response = await fetch(url.toString(), {
+      const response = await fetch(apiUrl('/api/tv/files/delete'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

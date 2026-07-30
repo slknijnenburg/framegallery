@@ -8,7 +8,7 @@ global.fetch = mockFetch;
 
 describe('tvFilesService', () => {
   beforeEach(() => {
-    mockFetch.mockClear();
+    mockFetch.mockReset();
   });
 
   afterEach(() => {
@@ -16,7 +16,7 @@ describe('tvFilesService', () => {
   });
 
   describe('getTvFiles', () => {
-    it.skip('should fetch TV files successfully', async () => {
+    it('should fetch TV files successfully', async () => {
       const mockFiles = [
         {
           content_id: 'MY-F0001',
@@ -36,7 +36,7 @@ describe('tvFilesService', () => {
         statusText: 'OK',
         json: jest.fn().mockResolvedValue(mockFiles),
       };
-      mockFetch.mockResolvedValueOnce(mockResponse as Response);
+      mockFetch.mockResolvedValue(mockResponse as Response);
 
       const result = await tvFilesService.getTvFiles();
 
@@ -46,7 +46,7 @@ describe('tvFilesService', () => {
       );
     });
 
-    it.skip('should handle custom category parameter', async () => {
+    it('should handle custom category parameter', async () => {
       const mockFiles = [];
 
       const mockResponse = {
@@ -55,7 +55,7 @@ describe('tvFilesService', () => {
         statusText: 'OK',
         json: jest.fn().mockResolvedValue(mockFiles),
       };
-      mockFetch.mockResolvedValueOnce(mockResponse as Response);
+      mockFetch.mockResolvedValue(mockResponse as Response);
 
       await tvFilesService.getTvFiles(TV_CATEGORIES.ART_STORE);
 
@@ -64,8 +64,8 @@ describe('tvFilesService', () => {
       );
     });
 
-    it.skip('should throw TvServiceError for 503 status (TV unavailable)', async () => {
-      mockFetch.mockResolvedValueOnce({
+    it('should throw TvServiceError for 503 status (TV unavailable)', async () => {
+      mockFetch.mockResolvedValue({
         ok: false,
         status: 503,
         statusText: 'Service Unavailable',
@@ -86,8 +86,8 @@ describe('tvFilesService', () => {
       }
     });
 
-    it.skip('should throw TvServiceError for 500 status (server error)', async () => {
-      mockFetch.mockResolvedValueOnce({
+    it('should throw TvServiceError for 500 status (server error)', async () => {
+      mockFetch.mockResolvedValue({
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
@@ -108,8 +108,8 @@ describe('tvFilesService', () => {
       }
     });
 
-    it.skip('should throw TvServiceError for other HTTP errors', async () => {
-      mockFetch.mockResolvedValueOnce({
+    it('should throw TvServiceError for other HTTP errors', async () => {
+      mockFetch.mockResolvedValue({
         ok: false,
         status: 404,
         statusText: 'Not Found',
@@ -129,8 +129,8 @@ describe('tvFilesService', () => {
       }
     });
 
-    it.skip('should handle network errors', async () => {
-      mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'));
+    it('should handle network errors', async () => {
+      mockFetch.mockRejectedValue(new TypeError('fetch failed'));
 
       await expect(tvFilesService.getTvFiles()).rejects.toThrow(TvServiceError);
 
@@ -144,8 +144,8 @@ describe('tvFilesService', () => {
       }
     });
 
-    it.skip('should handle unexpected errors', async () => {
-      mockFetch.mockRejectedValueOnce(new Error('Unexpected error'));
+    it('should handle unexpected errors', async () => {
+      mockFetch.mockRejectedValue(new Error('Unexpected error'));
 
       await expect(tvFilesService.getTvFiles()).rejects.toThrow(TvServiceError);
 
@@ -180,12 +180,12 @@ describe('tvFilesService', () => {
       expect(tvFilesService.formatFileSize(1536)).toBe('1.5 KB');
     });
 
-    it.skip('should handle null values', () => {
+    it('should handle null values', () => {
       expect(tvFilesService.formatFileSize(null)).toBe('Unknown');
       expect(tvFilesService.formatFileSize(undefined as unknown as number | null)).toBe('Unknown');
     });
 
-    it.skip('should handle very large files', () => {
+    it('should handle very large files', () => {
       expect(tvFilesService.formatFileSize(5 * 1024 * 1024 * 1024)).toBe('5.0 GB');
     });
   });
@@ -198,16 +198,59 @@ describe('tvFilesService', () => {
       expect(result).toMatch(/Jan|15/);
     });
 
-    it.skip('should handle null dates', () => {
+    it('should handle null dates', () => {
       expect(tvFilesService.formatDate(null)).toBe('Unknown');
     });
 
-    it.skip('should handle invalid dates', () => {
+    it('should handle invalid dates', () => {
       expect(tvFilesService.formatDate('invalid-date')).toBe('Invalid Date');
     });
 
-    it.skip('should handle empty strings', () => {
+    it('should handle empty strings', () => {
       expect(tvFilesService.formatDate('')).toBe('Unknown');
+    });
+  });
+
+  describe('request URLs', () => {
+    /**
+     * These pin the fix for "URL constructor: is not a valid URL".
+     *
+     * The service used to build requests with `new URL(path, base)`, where base was
+     * API_BASE_URL ('') anywhere other than localhost. An empty string is not a valid
+     * base URL, so the constructor threw before any request was made -- meaning the
+     * TV Files page failed for every real deployment while working on a dev machine.
+     */
+    const okResponse = () =>
+      ({ ok: true, status: 200, statusText: 'OK', json: jest.fn().mockResolvedValue([]) }) as unknown as Response;
+
+    it('requests a relative path rather than a hardcoded origin', async () => {
+      mockFetch.mockResolvedValue(okResponse());
+
+      await tvFilesService.getTvFiles();
+
+      const requested = mockFetch.mock.calls[0][0] as string;
+      expect(requested.startsWith('/api/tv/files')).toBe(true);
+      expect(requested).not.toContain('localhost');
+      expect(requested).not.toContain('http');
+    });
+
+    it('encodes the category as a query parameter', async () => {
+      mockFetch.mockResolvedValue(okResponse());
+
+      await tvFilesService.getTvFiles(TV_CATEGORIES.ART_STORE);
+
+      expect(mockFetch.mock.calls[0][0]).toBe('/api/tv/files?category=MY-C0001');
+    });
+
+    it('builds relative paths for the delete endpoints too', async () => {
+      mockFetch.mockResolvedValue({ ok: true, status: 204, statusText: 'No Content' } as Response);
+      await tvFilesService.deleteTvFile('MY-F0001');
+      expect(mockFetch.mock.calls[0][0]).toBe('/api/tv/files/MY-F0001');
+
+      mockFetch.mockReset();
+      mockFetch.mockResolvedValue(okResponse());
+      await tvFilesService.deleteTvFiles(['MY-F0001']);
+      expect(mockFetch.mock.calls[0][0]).toBe('/api/tv/files/delete');
     });
   });
 });
