@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 
     from samsungtvws.art import SamsungTVArt
 
-    from framegallery.libraries.base import PhotoRef
+    from framegallery.libraries.base import PhotoBytes, PhotoRef
 
 logger = setup_logging(
     log_level=settings.log_level,
@@ -214,7 +214,24 @@ class SyncThreadProcessor(UploadProcessor):
 
         photo_bytes = await self._fetch_photo_bytes(photo)
         if photo_bytes is None:
+            # Nothing has touched the TV yet, so there is no art mode to re-check.
             return
+
+        try:
+            await self._push_to_tv(photo, photo_bytes)
+        finally:
+            # Everything in _push_to_tv touches the TV, so the art-mode check has to
+            # run on *every* exit path -- including a failed upload, which is the
+            # strongest signal available that we just knocked the Frame out of art
+            # mode. This previously sat at the end of the happy path, so an upload
+            # that failed returned early and skipped it, discarding the one piece of
+            # evidence that would have let us restore art mode instead of mistaking
+            # it for someone reaching for the remote.
+            await self._settle()
+            await self.verify_art_mode_after_write()
+
+    async def _push_to_tv(self, photo: PhotoRef, photo_bytes: PhotoBytes) -> None:
+        """Upload the photo, activate it, and clear out previously uploaded images."""
         matte = self._compute_matte(photo_bytes)
         file_data = photo_bytes.data
         file_type = photo_bytes.file_type_suffix
@@ -262,12 +279,6 @@ class SyncThreadProcessor(UploadProcessor):
             await self.drain_pending_deletions()
         except Exception:
             logger.exception("sync_thread: deleting previous TV images failed")
-
-        # Whether or not the sequence above succeeded, confirm the Frame is still in
-        # art mode: crashing out of it is exactly the failure this sequence provokes,
-        # and a failed select/delete makes that *more* likely, not less.
-        await self._settle()
-        await self.verify_art_mode_after_write()
 
     async def get_active_item_details(self) -> dict | None:
         """Get the current active item details from the TV."""

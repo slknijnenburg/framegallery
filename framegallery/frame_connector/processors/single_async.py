@@ -131,23 +131,37 @@ class SingleAsyncProcessor(UploadProcessor):
         """
         return await self.get_art_mode() is not False
 
-    async def apply_active_image(self, photo: PhotoRef) -> None:  # noqa: PLR0911
+    async def apply_active_image(self, photo: PhotoRef) -> None:
         """Upload the given photo to the TV, activate it, and delete the previous one."""
         logger.info("Updating active image on TV (via slideshow signal): %s", photo.composite_id)
 
-        # Upload the image to the TV
+        if not self._connected or not self._tv_is_online:
+            return
+
+        if not await self._is_art_mode_active():
+            logger.debug("TV is not in art-mode, skipping image update.")
+            return
+
+        logger.debug("apply_active_image: TV connected, uploading image")
+        photo_bytes = await self._fetch_photo_bytes(photo)
+        if photo_bytes is None:
+            # Nothing has touched the TV yet, so there is no art mode to re-check.
+            return
+
         try:
-            if not self._connected or not self._tv_is_online:
-                return
+            await self._push_to_tv(photo, photo_bytes)
+        finally:
+            # Everything in _push_to_tv touches the TV, so the art-mode check has to
+            # run on *every* exit path -- including a failed upload, which is the
+            # strongest signal available that we just knocked the Frame out of art
+            # mode. This previously sat at the end of the happy path, so an upload
+            # that failed returned early and skipped it.
+            await self._settle()
+            await self.verify_art_mode_after_write()
 
-            if not await self._is_art_mode_active():
-                logger.debug("TV is not in art-mode, skipping image update.")
-                return
-
-            logger.debug("apply_active_image: TV connected, uploading image")
-            photo_bytes = await self._fetch_photo_bytes(photo)
-            if photo_bytes is None:
-                return
+    async def _push_to_tv(self, photo: PhotoRef, photo_bytes: PhotoBytes) -> None:
+        """Upload the photo, activate it, and clear out previously uploaded images."""
+        try:
             data = await self._upload_photo(photo, photo_bytes)
         except websockets.exceptions.ConnectionClosedError:
             logger.exception("Connection to TV is closed, perhaps the TV is off?")
@@ -159,7 +173,6 @@ class SingleAsyncProcessor(UploadProcessor):
                 await self.reconnect()
             except TvNotConnectedError:
                 logger.exception("TV not connected, cannot update active image.")
-                return
             return
         except Exception:
             # log as much info about the error as possible
@@ -181,11 +194,6 @@ class SingleAsyncProcessor(UploadProcessor):
             logger.error("Slideshow image upload completed but did not return a content_id.")
         else:
             logger.error("Slideshow image upload failed, data is None.")
-
-        # Confirm the Frame is still in art mode after our command sequence: crashing
-        # out of it is exactly what this sequence provokes.
-        await self._settle()
-        await self.verify_art_mode_after_write()
 
     async def _upload_photo(self, photo: PhotoRef, photo_bytes: PhotoBytes) -> dict | None:
         """Upload photo bytes to TV and return the uploaded file details as provided by the television."""
