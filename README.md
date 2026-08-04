@@ -114,7 +114,7 @@ Create a `.env` file with your configuration. See `.env.dist` for all available 
 ```bash
 # Samsung TV Configuration
 tv_ip_address=192.168.1.100
-tv_port=8002
+tv_port=8002                  # 8002 = TLS + token auth; 8001 = plain WebSockets, no pairing. See "TV port" below
 tv_client_name=FrameGallery   # device name registered on the TV; keep stable to avoid re-pairing
 
 # Application Settings
@@ -180,6 +180,36 @@ Logs are written to two places, and both are capped so they cannot grow without 
 Note that the Docker-side limits only apply when the container is **recreated** (`docker compose up -d`); `docker compose restart` reuses the existing container and its current log settings.
 
 Running at `log_level=DEBUG` produces roughly 15k lines per day, the bulk of it HTTP client chatter from `httpcore`/`urllib3`. Set `log_level=INFO` to reduce this substantially; `websocket_log_level` remains a separate knob so the TV connection can still be debugged independently.
+
+#### TV port
+
+`tv_port` selects the whole transport, not just the port number. `samsungtvws` derives
+everything from it:
+
+| | `8002` (default) | `8001` |
+|---|---|---|
+| WebSocket | `wss://` | `ws://` |
+| Auth | token in the URL | none |
+| Pairing | one-time "Allow" prompt on the TV | not required, and skipped automatically |
+| REST probe | `https` | `http` |
+
+Both are served by current Frame firmware — 8001 is not a legacy-only option. Switching is
+a one-line change; the app detects that 8001 needs no token and skips pairing. Note that
+8001 is unencrypted and unauthenticated on your LAN.
+
+**Why you might switch.** Some Frames abort uploads by closing the WebSocket with status
+1005, which surfaces as:
+
+```
+sync_thread: TV op 'upload local:1234' failed: ('Invalid close opcode %r', 1005)
+```
+
+1005 is reserved by RFC 6455 and must never appear on the wire, so the TV is sending a
+malformed close frame. On at least one 2023 Frame (`QE32LS03CBUXXN`) these failures were
+frequent on 8002 and absent on 8001 across a same-window comparison, which suggests they
+relate to the token-authenticated channel rather than to uploading itself. The sample was
+small, so treat 8001 as an experiment worth measuring rather than a guaranteed fix: switch,
+then compare `grep -c "upload failed for" logs/framegallery.log` over a day.
 
 #### Database Migrations
 

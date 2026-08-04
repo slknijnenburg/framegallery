@@ -125,3 +125,66 @@ async def test_shutdown_cancels_pinger_and_does_not_rearm() -> None:
     with patch(_CREATE_TASK) as create_task:
         proc._start_reconnection_pinger()  # noqa: SLF001
         create_task.assert_not_called()
+
+
+# --- token pairing only applies to the secure port ---
+
+
+@pytest.mark.asyncio
+async def test_pairing_is_skipped_on_the_plain_websocket_port() -> None:
+    """
+    On the plain-WebSocket port there is no token to obtain.
+
+    That port's art URL carries no token parameter, so pairing achieves nothing --
+    and its remote-control channel rejects unauthenticated clients with
+    ms.channel.unauthorized. Running pairing there would raise on every reconnect
+    and leave the app permanently disconnected.
+    """
+    proc = _build_processor()
+    proc._port = SingleAsyncProcessor.SECURE_PORT + 1  # noqa: SLF001 -- any non-secure port
+
+    with patch("framegallery.frame_connector.processors.base.SamsungTVWSAsyncRemote") as remote_cls:
+        await proc._ensure_token()  # noqa: SLF001
+
+    remote_cls.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_pairing_runs_on_the_secure_port() -> None:
+    """The secure port still pairs, so the token flow is unchanged for existing setups."""
+    proc = _build_processor()
+    proc._port = SingleAsyncProcessor.SECURE_PORT  # noqa: SLF001
+
+    remote = MagicMock()
+    remote.open = AsyncMock()
+    remote.close = AsyncMock()
+
+    with patch(
+        "framegallery.frame_connector.processors.base.SamsungTVWSAsyncRemote",
+        return_value=remote,
+    ) as remote_cls:
+        await proc._ensure_token()  # noqa: SLF001
+
+    remote_cls.assert_called_once()
+    assert remote_cls.call_args.kwargs["port"] == SingleAsyncProcessor.SECURE_PORT
+    remote.open.assert_awaited_once()
+    remote.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_pairing_closes_the_remote_even_when_open_fails() -> None:
+    """A failed pairing must not leak the remote-control connection."""
+    proc = _build_processor()
+    proc._port = SingleAsyncProcessor.SECURE_PORT  # noqa: SLF001
+
+    remote = MagicMock()
+    remote.open = AsyncMock(side_effect=OSError("refused"))
+    remote.close = AsyncMock()
+
+    with (
+        patch("framegallery.frame_connector.processors.base.SamsungTVWSAsyncRemote", return_value=remote),
+        pytest.raises(OSError, match="refused"),
+    ):
+        await proc._ensure_token()  # noqa: SLF001
+
+    remote.close.assert_awaited_once()
