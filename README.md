@@ -114,7 +114,7 @@ Create a `.env` file with your configuration. See `.env.dist` for all available 
 ```bash
 # Samsung TV Configuration
 tv_ip_address=192.168.1.100
-tv_port=8002                  # 8002 = TLS + token auth; 8001 = plain WebSockets, no pairing. See "TV port" below
+tv_port=8002                  # 8002 = TLS + token auth (default); 8001 = plain WebSockets. See "TV port" below
 tv_client_name=FrameGallery   # device name registered on the TV; keep stable to avoid re-pairing
 
 # Application Settings
@@ -193,23 +193,40 @@ everything from it:
 | Pairing | one-time "Allow" prompt on the TV | not required, and skipped automatically |
 | REST probe | `https` | `http` |
 
-Both are served by current Frame firmware — 8001 is not a legacy-only option. Switching is
-a one-line change; the app detects that 8001 needs no token and skips pairing. Note that
-8001 is unencrypted and unauthenticated on your LAN.
+Both ports are served by current Frame firmware — 8001 is not a legacy-only option, and
+was confirmed working on a 2023 model (`QE32LS03CBUXXN`). The app detects that 8001 needs
+no token and skips pairing automatically. Note that 8001 is unencrypted and
+unauthenticated on your LAN.
 
-**Why you might switch.** Some Frames abort uploads by closing the WebSocket with status
-1005, which surfaces as:
+**Stay on the default unless you are deliberately investigating.** 8001 exists here so the
+option is available and does not silently hang the reconnect loop; it is not a
+recommendation.
+
+**Background.** Some Frames abort uploads by closing the WebSocket with status 1005:
 
 ```
 sync_thread: TV op 'upload local:1234' failed: ('Invalid close opcode %r', 1005)
 ```
 
 1005 is reserved by RFC 6455 and must never appear on the wire, so the TV is sending a
-malformed close frame. On at least one 2023 Frame (`QE32LS03CBUXXN`) these failures were
-frequent on 8002 and absent on 8001 across a same-window comparison, which suggests they
-relate to the token-authenticated channel rather than to uploading itself. The sample was
-small, so treat 8001 as an experiment worth measuring rather than a guaranteed fix: switch,
-then compare `grep -c "upload failed for" logs/framegallery.log` over a day.
+malformed close frame. A short probe on one 2023 Frame saw 20 uploads on 8001 without a
+single 1005, against roughly a third failing that way on 8002 in the same period — which
+hinted the errors relate to the token-authenticated channel rather than to uploading
+itself.
+
+That hint has **not** held up in practice, and neither trial was conclusive:
+
+- The probe used a different client name, no token file, and a longer timeout, and ran
+  while the app still held the 8002 channel. Too many variables differed to attribute the
+  result to the port.
+- A production switch was abandoned after five minutes and a single real upload attempt.
+  That attempt failed with a *timeout* rather than a 1005, and the TV then wedged — but
+  the same wedge occurs on 8002 several times a day, so it proved nothing either way.
+
+If you want to settle it, the only useful test is a full day on 8001 — several hundred
+uploads — judged solely on `grep -c "Invalid close opcode" logs/framegallery.log` against
+the 8002 baseline. A TV wedge partway through does not disqualify the run, since those
+happen on both ports. Anything shorter will mislead you, as it did here.
 
 #### Database Migrations
 
