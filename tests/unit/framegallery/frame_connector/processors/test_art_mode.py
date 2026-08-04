@@ -229,3 +229,114 @@ async def test_art_mode_queries_are_skipped_while_disconnected(processor: SyncTh
     assert await processor.get_art_mode() is None
     assert await processor.set_art_mode(enabled=True) is False
     processor._run_tv_op.assert_not_awaited()  # noqa: SLF001
+
+
+# --- the art-mode check must survive every failure path ---
+#
+# A Frame that dies mid-upload closes the WebSocket abruptly ("Invalid close opcode
+# 1005") and reappears moments later in regular TV mode. That failed upload is the
+# strongest evidence available that *we* caused the drop -- the one condition under
+# which restoring art mode is unambiguously right. apply_active_image used to return
+# early on it, skipping the check entirely, so the Frame sat on regular TV until
+# someone noticed.
+
+
+async def _apply(processor: SyncThreadProcessor, *, upload: object) -> MagicMock:
+    """Drive apply_active_image with a stubbed TV; return the verification spy."""
+    processor._fetch_photo_bytes = AsyncMock(  # noqa: SLF001
+        return_value=MagicMock(data=b"x", file_type_suffix="jpg", width=1920, height=1080)
+    )
+    processor._settle = AsyncMock()  # noqa: SLF001
+    verify = AsyncMock()
+    processor.verify_art_mode_after_write = verify
+
+    async def fake_run(fn, *, description, timeout, max_attempts=None):  # noqa: ANN001, ANN202, ARG001, ASYNC109
+        if description.startswith("upload"):
+            if isinstance(upload, Exception):
+                raise upload
+            return upload
+        return None
+
+    processor._run_tv_op = fake_run  # noqa: SLF001
+    processor.delete_files = AsyncMock(return_value={})
+    await processor.apply_active_image(MagicMock(composite_id="local:1"))
+    return verify
+
+
+@pytest.mark.asyncio
+async def test_art_mode_is_checked_after_a_failed_upload(processor: SyncThreadProcessor) -> None:
+    """A raising upload -- the Frame slamming the socket shut -- still triggers the check."""
+    verify = await _apply(processor, upload=OSError("Invalid close opcode 1005"))
+
+    verify.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_art_mode_is_checked_when_upload_returns_no_content_id(processor: SyncThreadProcessor) -> None:
+    """An upload that yields nothing may still have reached the TV."""
+    verify = await _apply(processor, upload=None)
+
+    verify.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_art_mode_is_checked_after_a_successful_upload(processor: SyncThreadProcessor) -> None:
+    """The happy path keeps checking, as before."""
+    verify = await _apply(processor, upload="MY-NEW")
+
+    verify.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_no_check_when_the_photo_could_not_be_fetched(processor: SyncThreadProcessor) -> None:
+    """Failing before any TV call means there is nothing to re-check."""
+    processor._fetch_photo_bytes = AsyncMock(return_value=None)  # noqa: SLF001
+    processor._settle = AsyncMock()  # noqa: SLF001
+    processor.verify_art_mode_after_write = AsyncMock()
+
+    await processor.apply_active_image(MagicMock(composite_id="local:1"))
+
+    processor.verify_art_mode_after_write.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_no_check_when_the_push_was_gated_off(processor: SyncThreadProcessor) -> None:
+    """A push suppressed because art mode is already off must not re-check or restore."""
+    processor.note_art_mode(active=False)
+    processor._settle = AsyncMock()  # noqa: SLF001
+    processor.verify_art_mode_after_write = AsyncMock()
+    processor._fetch_photo_bytes = AsyncMock()  # noqa: SLF001
+
+    await processor.apply_active_image(MagicMock(composite_id="local:1"))
+
+    processor.verify_art_mode_after_write.assert_not_awaited()
+    processor._fetch_photo_bytes.assert_not_awaited()  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_failed_upload_restores_art_mode_when_the_tv_dropped_out(processor: SyncThreadProcessor) -> None:
+    """
+    End to end: the exact sequence observed in production.
+
+    Upload dies with the TV closing the socket, art mode reads back "off", and the
+    restore fires -- rather than the drop being left for the periodic watchdog, which
+    cannot distinguish it from someone reaching for the remote and so leaves it alone.
+    """
+    processor._fetch_photo_bytes = AsyncMock(  # noqa: SLF001
+        return_value=MagicMock(data=b"x", file_type_suffix="jpg", width=1920, height=1080)
+    )
+    processor._settle = AsyncMock()  # noqa: SLF001
+    processor.get_art_mode = AsyncMock(side_effect=[False, True])
+    processor.set_art_mode = AsyncMock(return_value=True)
+
+    async def fake_run(fn, *, description, timeout, max_attempts=None):  # noqa: ANN001, ANN202, ARG001, ASYNC109
+        if description.startswith("upload"):
+            msg = "Invalid close opcode 1005"
+            raise OSError(msg)
+
+    processor._run_tv_op = fake_run  # noqa: SLF001
+
+    await processor.apply_active_image(MagicMock(composite_id="local:1"))
+
+    processor.set_art_mode.assert_awaited_once_with(enabled=True)
+    assert processor.art_mode_active is True
