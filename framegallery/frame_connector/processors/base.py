@@ -77,6 +77,11 @@ class UploadProcessor(abc.ABC):
     # Timeout (seconds) for the REST power-state probe. Short: it is a LAN request to
     # a TV that is either answering promptly or not answering at all.
     REST_TIMEOUT = 5
+    # The only TV port that speaks TLS and token auth. samsungtvws derives the whole
+    # transport from the port number -- ws:// vs wss://, whether the URL carries a
+    # token, http vs https for REST, and the SSL options -- by testing for exactly
+    # this value, so it is the single thing that distinguishes the two modes.
+    SECURE_PORT = 8002
     # How many previously uploaded images to delete in one batched call per cycle, and
     # the cap on the backlog we are prepared to remember.
     PENDING_DELETION_BATCH = 20
@@ -477,7 +482,20 @@ class UploadProcessor(abc.ABC):
 
         On the very first run the user must accept the prompt on the TV; the
         token is then written to `self._token_file` and reused silently after.
+
+        Only ``SECURE_PORT`` uses token auth. On the plain-WebSocket port the art
+        URL carries no token parameter at all, so pairing has nothing to
+        accomplish -- and the remote-control channel there rejects unauthenticated
+        clients outright with ``ms.channel.unauthorized``, which would abort every
+        reconnect and leave the app permanently disconnected.
         """
+        if self._port != self.SECURE_PORT:
+            logger.debug(
+                "Port %s uses plain WebSockets without token auth; skipping pairing.",
+                self._port,
+            )
+            return
+
         remote = SamsungTVWSAsyncRemote(
             host=self._ip_address,
             port=self._port,

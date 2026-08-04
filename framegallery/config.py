@@ -10,6 +10,11 @@ class Settings(BaseSettings):
 
     app_name: str = "Frame Gallery"
     tv_ip_address: str = "192.168.2.76"
+    # 8002 speaks TLS with token auth and requires a one-time "Allow" prompt on the
+    # TV; 8001 speaks plain WebSockets with no token and no pairing. The whole
+    # transport follows from this number -- ws:// vs wss://, http vs https for the
+    # REST probe, and whether pairing runs at all. Try 8001 if uploads fail with
+    # WebSocket close code 1005; see the "TV port" section of the README.
     tv_port: int = 8002
     # Client identity registered on the TV and granted the auth token. Must stay
     # constant across restarts; change it only if you want the TV to re-pair
