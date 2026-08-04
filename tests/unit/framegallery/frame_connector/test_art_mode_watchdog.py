@@ -10,6 +10,9 @@ from framegallery.frame_connector.art_mode_watchdog import ArtModeWatchdog, TvHe
 def _processor(*, powered: bool | None, art_mode: bool | None = None) -> MagicMock:
     """Build a processor stub whose two probes return the given readings."""
     processor = MagicMock()
+    # Explicit: a bare MagicMock attribute is truthy by accident, and whether the
+    # processor is connected now decides UNKNOWN vs ART_UNAVAILABLE.
+    processor.is_connected = True
     processor.is_tv_powered_on = AsyncMock(return_value=powered)
     processor.get_art_mode = AsyncMock(return_value=art_mode)
     processor.set_art_mode = AsyncMock(return_value=True)
@@ -146,3 +149,30 @@ async def test_probe_failure_does_not_kill_the_state() -> None:
 
     with pytest.raises(OSError, match="boom"):
         await _watchdog(processor).probe_once()
+
+
+@pytest.mark.asyncio
+async def test_not_yet_connected_is_unknown_not_a_crash_report() -> None:
+    """
+    Before the TV connection is up, the state is unknown -- not a crashed art system.
+
+    get_art_mode() returns None both when the art channel is wedged and when the
+    processor simply has no connection yet. Conflating them made every startup log
+    "the art system has most likely crashed", which is not merely noise: it was read
+    as evidence of a real fault during an incident and sent the diagnosis the wrong
+    way.
+    """
+    processor = _processor(powered=True, art_mode=None)
+    processor.is_connected = False
+
+    assert await _watchdog(processor).probe_once() is TvHealth.UNKNOWN
+    processor.note_art_mode.assert_called_once_with(active=None)
+
+
+@pytest.mark.asyncio
+async def test_connected_but_silent_art_channel_is_still_a_crash_report() -> None:
+    """With a live connection, an unanswerable art channel does mean the art system wedged."""
+    processor = _processor(powered=True, art_mode=None)
+    processor.is_connected = True
+
+    assert await _watchdog(processor).probe_once() is TvHealth.ART_UNAVAILABLE

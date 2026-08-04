@@ -123,6 +123,14 @@ class ArtModeWatchdog:
 
         art_mode = await self._processor.get_art_mode()
         if art_mode is None:
+            if not self._processor.is_connected:
+                # We never asked the TV anything: the processor has no connection yet.
+                # get_art_mode() returns None for that too, and reporting it as
+                # ART_UNAVAILABLE claims the art system crashed when nothing has been
+                # observed at all. That misreads every startup -- the first poll
+                # routinely lands before the connection is up -- and a false "most
+                # likely crashed" at boot is worse than admitting we do not know.
+                return TvHealth.UNKNOWN
             # REST answered but the art channel did not: the TV is alive and the art
             # system specifically has wedged. This is the signature of an Art Mode
             # crash, as opposed to the TV being off or someone watching television.
