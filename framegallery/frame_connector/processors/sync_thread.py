@@ -17,6 +17,7 @@ the Docent project uses to survive a flaky Frame:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -57,6 +58,13 @@ class SyncThreadProcessor(UploadProcessor):
     # Per-operation timeouts (seconds).
     UPLOAD_TIMEOUT = 120
     OP_TIMEOUT = 20
+    # How long to wait for the TV to confirm an upload ("image_added"). This is a
+    # *socket* timeout swapped in for the duration of the upload op: the client-wide
+    # CONNECT_TIMEOUT doubles as the WebSocket receive timeout, and at 10s it expired
+    # while the TV was still ingesting larger payloads -- the bytes had arrived, the
+    # image usually landed, but we never learned its content_id and it was stranded
+    # as an orphan. Confirmations of 30s+ are reported for big uploads upstream.
+    UPLOAD_CONFIRM_TIMEOUT = 60
     # Retry policy.
     MAX_ATTEMPTS = 3
     RETRY_DELAY = 2
@@ -236,6 +244,17 @@ class SyncThreadProcessor(UploadProcessor):
         file_data = photo_bytes.data
         file_type = photo_bytes.file_type_suffix
 
+        def _upload(art: SamsungTVArt) -> str | None:
+            # The client-wide timeout is tuned for quick request/response ops; an
+            # upload confirmation legitimately takes longer, so widen the socket
+            # timeout for this op only and restore it afterwards.
+            art.connection.settimeout(self.UPLOAD_CONFIRM_TIMEOUT)
+            try:
+                return art.upload(file_data, file_type=file_type, matte=matte, portrait_matte="none")
+            finally:
+                with contextlib.suppress(Exception):
+                    art.connection.settimeout(self.CONNECT_TIMEOUT)
+
         try:
             # NOTE: the *synchronous* SamsungTVArt.upload() returns the new content_id
             # as a plain string (or None), unlike the async client which returns a dict.
@@ -246,7 +265,7 @@ class SyncThreadProcessor(UploadProcessor):
             # content_id. Retrying re-sends it, turning one failed cycle into up to
             # three untracked copies. Better to skip this tick and try the next one.
             content_id = await self._run_tv_op(
-                lambda art: art.upload(file_data, file_type=file_type, matte=matte, portrait_matte="none"),
+                _upload,
                 description=f"upload {photo.composite_id}",
                 timeout=self.UPLOAD_TIMEOUT,
                 max_attempts=1,

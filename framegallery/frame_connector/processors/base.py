@@ -15,6 +15,7 @@ from samsungtvws.rest import SamsungTVRest
 
 from framegallery.aspect_ratio import get_aspect_ratio
 from framegallery.config import settings
+from framegallery.image_manipulation import normalize_for_upload, store_upload_payload
 from framegallery.logging_config import setup_logging
 from framegallery.repository.config_repository import (
     ConfigKey,
@@ -511,15 +512,46 @@ class UploadProcessor(abc.ABC):
             await remote.close()
 
     async def _fetch_photo_bytes(self, photo: PhotoRef) -> PhotoBytes | None:
-        """Resolve the raw image bytes for a photo through the library manager."""
+        """Resolve the image bytes for a photo and normalize them for the TV."""
         if self.library_manager is None:
             logger.error("Processor has no library_manager; cannot fetch photo bytes.")
             return None
         try:
-            return await self.library_manager.fetch_bytes(photo.composite_id)
+            photo_bytes = await self.library_manager.fetch_bytes(photo.composite_id)
         except Exception:
             logger.exception("Failed to fetch bytes for photo %s", photo.composite_id)
             return None
+        # Decoding a large original blocks for a noticeable moment; keep it off the loop.
+        return await asyncio.to_thread(self._prepare_upload_payload, photo, photo_bytes)
+
+    def _prepare_upload_payload(self, photo: PhotoRef, photo_bytes: PhotoBytes) -> PhotoBytes:
+        """Normalize the payload, log its final profile, and optionally keep a copy."""
+        normalized = normalize_for_upload(
+            photo_bytes,
+            max_width=settings.upload_max_width,
+            max_height=settings.upload_max_height,
+            jpeg_quality=settings.upload_jpeg_quality,
+        )
+        # One line per upload with the exact payload profile. This is what makes
+        # failure/size correlations answerable from the log alone next time.
+        logger.info(
+            "Upload payload for %s: %s %d bytes %sx%s (source: %s %d bytes)",
+            photo.composite_id,
+            normalized.file_type_suffix,
+            len(normalized.data),
+            normalized.width,
+            normalized.height,
+            photo_bytes.file_type_suffix,
+            len(photo_bytes.data),
+        )
+        if settings.upload_debug_keep > 0:
+            store_upload_payload(
+                Path(settings.data_path) / "upload_debug",
+                photo.composite_id,
+                normalized,
+                keep=settings.upload_debug_keep,
+            )
+        return normalized
 
     def _transform_file_data(self, file_data: dict) -> dict:
         """Transform a raw TV file entry into our standardized shape."""

@@ -136,6 +136,14 @@ upload_processor=single_async
 # processors (single_async/sync_thread). Guards against Art Mode crashing when the
 # switch command is sent before the TV has finished digesting the upload. 0 disables.
 tv_command_delay=5.0
+# Uploads are normalized to fit this box (downscaled, re-encoded as JPEG) before
+# being sent. Defaults fit the 32" Frame's 1080p panel; raise to 3840x2160 on 4K
+# models. See "Upload normalization" below.
+upload_max_width=1920
+upload_max_height=1080
+upload_jpeg_quality=90
+# Keep a copy of the last N upload payloads in $DATA_PATH/upload_debug/ (0 = none).
+upload_debug_keep=0
 # Art-mode watchdog: periodically checks whether the TV is reachable and still in art
 # mode. See the "Art-mode watchdog" section below.
 art_mode_watchdog_enabled=true
@@ -214,19 +222,13 @@ single 1005, against roughly a third failing that way on 8002 in the same period
 hinted the errors relate to the token-authenticated channel rather than to uploading
 itself.
 
-That hint has **not** held up in practice, and neither trial was conclusive:
-
-- The probe used a different client name, no token file, and a longer timeout, and ran
-  while the app still held the 8002 channel. Too many variables differed to attribute the
-  result to the port.
-- A production switch was abandoned after five minutes and a single real upload attempt.
-  That attempt failed with a *timeout* rather than a 1005, and the TV then wedged — but
-  the same wedge occurs on 8002 several times a day, so it proved nothing either way.
-
-If you want to settle it, the only useful test is a full day on 8001 — several hundred
-uploads — judged solely on `grep -c "Invalid close opcode" logs/framegallery.log` against
-the 8002 baseline. A TV wedge partway through does not disqualify the run, since those
-happen on both ports. Anything shorter will mislead you, as it did here.
+That hint did **not** hold up. The full-day test was run on a 2023 Frame: a day on each
+port, several hundred uploads each, under identical conditions. The failure *rate* was
+statistically identical — roughly a third of uploads on both ports — and only the error
+string changed: `Invalid close opcode 1005` on 8002 becomes `[Errno 32] Broken pipe` on
+8001. Both are the same event (the TV killing the art channel in response to the upload
+request) surfacing differently through TLS and plain sockets. Switching ports does not
+change upload reliability; see `docs/crash-analysis.md` for the full analysis.
 
 #### Database Migrations
 
@@ -277,6 +279,18 @@ Related settings:
 
 In `batch_slideshow` mode the app-driven slideshow loop and the TV auto-cleanup service are
 both suppressed, since the TV owns rotation and the processor manages its own batch.
+
+### Upload normalization
+
+Every image is normalized before it is sent to the TV, whatever library it came from.
+Anything larger than the `upload_max_width` x `upload_max_height` box is downscaled to fit (aspect ratio preserved, never upscaled) and re-encoded as JPEG at `upload_jpeg_quality`; non-JPEG formats (PNG/HEIC) are converted even when they already fit.
+EXIF rotation is baked into the pixels so portrait phone photos display upright.
+A JPEG that already fits is sent byte-for-byte untouched.
+
+This matters because the TV ingests uploads slowly and payload size drives how long the upload takes to confirm: full-resolution phone photos (30+ MP, 10+ MB originals from e.g. Immich) reliably exceeded the confirmation window, failing the upload *after* the bytes were sent and stranding an orphaned image on the TV (see `docs/crash-analysis.md`).
+The defaults target the 32" Frame's 1080p panel; on a 4K model (43" and up) set `upload_max_width=3840` and `upload_max_height=2160`.
+
+For diagnostics, `upload_debug_keep=N` keeps the last `N` exact payloads in `$DATA_PATH/upload_debug/` so you can inspect precisely what the TV received; `0` (default) keeps none.
 
 ### Images left on the TV
 
