@@ -78,13 +78,15 @@ The watchdog detects this state (`art_unavailable`) and recycles the connection,
 - **API 5.x** (2023+ models, reported as `5.0.1.0`): the upload mechanism is unchanged, but *event* payloads renamed `value` to `status` (`artmode_status` events). Upstream `samsung-tv-ws-api` fixed this in Dec 2025 (commit `f821d0d2`); our fork (v3.0.5) predates that fix. It only affects the async client's event tracking, so it is dormant while `sync_thread` is in use — but it must be pulled in before relying on `single_async` event handling.
 - **2025 non-Pro Frames**: reported JPEG-only for uploads (one more reason normalization always re-encodes to JPEG).
 
-## Follow-up leads (not yet done)
+## Follow-up leads
 
-1. **Warm-channel experiment against class A.**
-   Every upload currently rides a brand-new connection: the 30 s idle-recycle always fires between 180 s slideshow ticks.
+1. **Warm-channel experiment against class A** *(implemented, results pending)*.
+   Every upload used to ride a brand-new connection: the 30 s idle-recycle always fires between 180 s slideshow ticks.
    Both mature TypeScript implementations (`balmli/com.samsung.smart`, `tavicu/homebridge-samsung-tizen`) instead hold one persistent socket with a keepalive.
-   Test: disable the idle-recycle in favour of a keepalive ping (and/or send one benign request before `send_image`), run a full day, compare the announcement-kill rate against the ~30% baseline.
-   This is the only remaining lever on class A that is under our control.
+   The `tv_keepalive_interval` setting (August 2026) sends a WebSocket ping whenever the `sync_thread` connection has been idle that many seconds and disables the idle-recycle, so uploads run on a long-lived connection.
+   Note the ping only *sends*; no pong is awaited, so a "successful" ping proves the socket accepted the bytes, not that the TV is healthy — a dead peer still surfaces on the next real op, which owns reconnection.
+   Judgement criteria: a full day with `tv_keepalive_interval=15`, comparing the announcement-kill rate (failures at the `ready_to_use` wait) against the ~30% baseline.
+   A fallback variant if the ping alone changes nothing: send one benign art request before `send_image`.
 2. **Trial the `single_async` processor.**
    The upstream maintainer states the async art interface "works much better than the sync interface".
    Prerequisites: pull upstream commit `f821d0d2` (API 5.x event fix) into the fork, then a full-day A/B against `sync_thread`.

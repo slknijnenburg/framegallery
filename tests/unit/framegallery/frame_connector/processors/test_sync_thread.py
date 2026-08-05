@@ -231,6 +231,104 @@ async def test_settle_is_noop_when_delay_zero(processor: SyncThreadProcessor, mo
 
 
 @pytest.mark.asyncio
+async def test_idle_recycle_is_skipped_when_keepalive_is_enabled(
+    processor: SyncThreadProcessor,
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    """With the keepalive on, an idle connection is kept, not recycled."""
+    monkeypatch.setattr(sync_thread.settings, "tv_keepalive_interval", 15.0)
+    processor._last_used = time.monotonic() - (SyncThreadProcessor.IDLE_RECYCLE_SECONDS + 5)  # noqa: SLF001
+    processor._close_client = AsyncMock()  # noqa: SLF001
+    processor._connect_client = AsyncMock()  # noqa: SLF001
+
+    await processor._ensure_live_client()  # noqa: SLF001
+
+    processor._close_client.assert_not_called()  # noqa: SLF001
+    processor._connect_client.assert_not_called()  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_keepalive_pings_an_idle_connection(processor: SyncThreadProcessor, monkeypatch) -> None:  # noqa: ANN001
+    """An idle connection gets a WebSocket ping, and the idle clock resets."""
+    monkeypatch.setattr(sync_thread.settings, "tv_keepalive_interval", 15.0)
+    processor._last_used = time.monotonic() - 30  # noqa: SLF001
+
+    await processor._keepalive_once()  # noqa: SLF001
+
+    processor._art.connection.ping.assert_called_once()  # noqa: SLF001
+    assert time.monotonic() - processor._last_used < 1  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_keepalive_skips_a_recently_used_connection(
+    processor: SyncThreadProcessor,
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    """Real TV ops keep the socket warm by themselves; no ping is added on top."""
+    monkeypatch.setattr(sync_thread.settings, "tv_keepalive_interval", 15.0)
+    processor._last_used = time.monotonic()  # noqa: SLF001
+
+    await processor._keepalive_once()  # noqa: SLF001
+
+    processor._art.connection.ping.assert_not_called()  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_keepalive_skips_while_disconnected(processor: SyncThreadProcessor, monkeypatch) -> None:  # noqa: ANN001
+    """Without a client there is nothing to ping; reconnection is owned elsewhere."""
+    monkeypatch.setattr(sync_thread.settings, "tv_keepalive_interval", 15.0)
+    processor._art = None  # noqa: SLF001
+
+    await processor._keepalive_once()  # noqa: SLF001 -- must simply do nothing
+
+
+@pytest.mark.asyncio
+async def test_keepalive_ping_failure_drops_the_connection(
+    processor: SyncThreadProcessor,
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    """A failing ping means a dead socket: close it so the next op reconnects."""
+    monkeypatch.setattr(sync_thread.settings, "tv_keepalive_interval", 15.0)
+    processor._last_used = time.monotonic() - 30  # noqa: SLF001
+    processor._art.connection.ping.side_effect = OSError("broken pipe")  # noqa: SLF001
+    processor._close_client = AsyncMock()  # noqa: SLF001
+
+    await processor._keepalive_once()  # noqa: SLF001
+
+    processor._close_client.assert_awaited_once()  # noqa: SLF001
+
+
+def test_keepalive_is_off_by_default(processor: SyncThreadProcessor, monkeypatch) -> None:  # noqa: ANN001
+    """With the default interval of 0, no keepalive task is ever started."""
+    monkeypatch.setattr(sync_thread.settings, "tv_keepalive_interval", 0.0)
+    with patch("framegallery.frame_connector.processors.sync_thread.asyncio.create_task") as create_task:
+        processor._start_keepalive()  # noqa: SLF001
+    create_task.assert_not_called()
+
+
+def test_start_keepalive_is_idempotent_while_running(processor: SyncThreadProcessor, monkeypatch) -> None:  # noqa: ANN001
+    """A second _start_keepalive is a no-op while the loop is still alive."""
+    monkeypatch.setattr(sync_thread.settings, "tv_keepalive_interval", 15.0)
+    running = MagicMock()
+    running.done.return_value = False
+    processor._keepalive_task = running  # noqa: SLF001
+    with patch("framegallery.frame_connector.processors.sync_thread.asyncio.create_task") as create_task:
+        processor._start_keepalive()  # noqa: SLF001
+    create_task.assert_not_called()
+
+
+def test_stop_keepalive_cancels_the_task(processor: SyncThreadProcessor) -> None:
+    """close() must cancel the loop so a reconnect cycle cannot stack loops."""
+    task = MagicMock()
+    processor._keepalive_task = task  # noqa: SLF001
+
+    processor._stop_keepalive()  # noqa: SLF001
+
+    task.cancel.assert_called_once()
+    assert processor._keepalive_task is None  # noqa: SLF001
+
+
+@pytest.mark.asyncio
 async def test_upload_widens_the_socket_timeout_and_restores_it(processor: SyncThreadProcessor) -> None:
     """
     The upload op runs with UPLOAD_CONFIRM_TIMEOUT on the socket, then restores it.
