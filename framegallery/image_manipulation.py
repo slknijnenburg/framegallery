@@ -1,10 +1,18 @@
+import dataclasses
 import io
 import logging
+import re
+from datetime import UTC, datetime
 from pathlib import Path
 
 from PIL import Image as PILImage
+from PIL import ImageOps
+from pillow_heif import register_heif_opener
 
+from framegallery.libraries.base import PhotoBytes
 from framegallery.models import Image
+
+register_heif_opener()  # HEIF support, e.g. originals fetched from Immich
 
 # It's good practice to get a logger specific to this module
 logger = logging.getLogger(__name__)
@@ -90,6 +98,78 @@ def crop_image_data(file_data: bytes, crop_info: dict) -> bytes:
     except Exception:
         logger.exception("Error cropping image data")
         return file_data
+
+
+def normalize_for_upload(photo: PhotoBytes, *, max_width: int, max_height: int, jpeg_quality: int) -> PhotoBytes:
+    """
+    Downscale and re-encode a photo so the TV receives a small, predictable JPEG.
+
+    The Frame ingests uploads on a slow SoC: how long it takes to confirm an upload
+    scales with payload size, and full-resolution phone photos (30+ MP originals from
+    Immich) reliably blew past the confirmation window. Anything larger than the
+    ``max_width`` x ``max_height`` box is downscaled to fit (aspect ratio preserved,
+    never upscaled) and re-encoded as JPEG; non-JPEG inputs (PNG/HEIC) are re-encoded
+    even when they already fit, since not all Frame models accept other formats.
+
+    EXIF orientation is baked into the pixels before encoding, because the re-encoded
+    JPEG does not carry the original's EXIF and a portrait phone photo would otherwise
+    come out sideways.
+
+    A JPEG that already fits is returned byte-for-byte untouched -- only its recorded
+    dimensions are refreshed (post-rotation) so matte selection sees the displayed
+    orientation. Any failure falls back to the original bytes: a normalization bug
+    must degrade to today's behaviour, not block the slideshow.
+    """
+    try:
+        img = PILImage.open(io.BytesIO(photo.data))
+        original_format = img.format
+        img = ImageOps.exif_transpose(img)
+
+        fits = img.width <= max_width and img.height <= max_height
+        if original_format == "JPEG" and fits:
+            return dataclasses.replace(photo, width=img.width, height=img.height)
+
+        if not fits:
+            img.thumbnail((max_width, max_height), PILImage.Resampling.LANCZOS)
+        if img.mode not in ("RGB", "L"):
+            img = img.convert("RGB")
+
+        buffer = io.BytesIO()
+        img.save(buffer, format="JPEG", quality=jpeg_quality, optimize=True)
+        return dataclasses.replace(
+            photo,
+            data=buffer.getvalue(),
+            content_type="image/jpeg",
+            file_type_suffix=".jpg",
+            width=img.width,
+            height=img.height,
+        )
+    except Exception:
+        logger.exception("Failed to normalize photo for upload; sending the original bytes")
+        return photo
+
+
+def store_upload_payload(directory: Path, composite_id: str, photo: PhotoBytes, *, keep: int) -> None:
+    """
+    Keep a copy of the exact bytes about to be uploaded, pruning the oldest beyond ``keep``.
+
+    Purely diagnostic: filenames are UTC-timestamped so the directory reads as a
+    timeline of what the TV was actually sent. Must never break an upload, so every
+    failure is swallowed after logging.
+    """
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        safe_id = re.sub(r"[^A-Za-z0-9._-]", "_", composite_id)
+        timestamp = datetime.now(tz=UTC).strftime("%Y%m%d-%H%M%S.%f")
+        suffix = photo.file_type_suffix or ".bin"
+        (directory / f"{timestamp}_{safe_id}{suffix}").write_bytes(photo.data)
+
+        # Timestamped names sort chronologically, so pruning is a plain sort.
+        payloads = sorted(p for p in directory.iterdir() if p.is_file())
+        for old in payloads[:-keep]:
+            old.unlink()
+    except Exception:
+        logger.exception("Failed to store a copy of the upload payload for %s", composite_id)
 
 
 def read_file_data(image: Image) -> tuple[bytes, str]:

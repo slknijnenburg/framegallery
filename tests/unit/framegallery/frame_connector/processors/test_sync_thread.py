@@ -231,6 +231,33 @@ async def test_settle_is_noop_when_delay_zero(processor: SyncThreadProcessor, mo
 
 
 @pytest.mark.asyncio
+async def test_upload_widens_the_socket_timeout_and_restores_it(processor: SyncThreadProcessor) -> None:
+    """
+    The upload op runs with UPLOAD_CONFIRM_TIMEOUT on the socket, then restores it.
+
+    The client-wide timeout doubles as the WebSocket receive timeout; at its default
+    10s it expired while the TV was still ingesting larger payloads, stranding images
+    that had in fact been added.
+    """
+    processor._ensure_live_client = AsyncMock()  # noqa: SLF001
+    processor._settle = AsyncMock()  # noqa: SLF001
+    processor.delete_files = AsyncMock(return_value={})
+    art = processor._art  # noqa: SLF001
+    art.upload.return_value = "MY-F0009"
+
+    timeouts: list[float] = []
+    art.connection.settimeout.side_effect = timeouts.append
+
+    photo = SimpleNamespace(composite_id="local:1")
+    photo_bytes = SimpleNamespace(data=b"x", file_type_suffix=".jpg", width=1920, height=1080)
+    await processor._push_to_tv(photo, photo_bytes)  # noqa: SLF001
+
+    assert timeouts[0] == SyncThreadProcessor.UPLOAD_CONFIRM_TIMEOUT
+    assert timeouts[-1] == SyncThreadProcessor.CONNECT_TIMEOUT
+    art.upload.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_apply_active_image_skips_when_not_connected(processor: SyncThreadProcessor) -> None:
     """Nothing is uploaded when the processor is not connected."""
     processor._connected = False  # noqa: SLF001

@@ -43,6 +43,20 @@ class Settings(BaseSettings):
     # packet before retrying a failed connection. Optional; find it with
     # `arp -n <tv-ip>`. Only helps when the TV is asleep, not for art-mode crashes.
     tv_mac_address: str | None = None
+    # Every upload is normalized before it is sent: images larger than this box are
+    # downscaled (aspect ratio preserved) and re-encoded as JPEG. The Frame ingests
+    # the image on a slow SoC, so payload size directly drives how long an upload
+    # takes to be confirmed -- full-resolution phone photos (30+ MP, 10+ MB) reliably
+    # exceeded the confirmation window, while a normalized ~1 MB JPEG never did (see
+    # docs/crash-analysis.md). Defaults target the 32" Frame's 1080p panel; owners of
+    # 4K models (43" and up) should raise this to 3840x2160.
+    upload_max_width: int = 1920
+    upload_max_height: int = 1080
+    upload_jpeg_quality: int = 90
+    # Keep a copy of the last N upload payloads (the exact bytes sent to the TV) in
+    # {data_path}/upload_debug/, for inspecting what the TV actually received.
+    # 0 disables the copies. Normalization itself is always on.
+    upload_debug_keep: int = 0
     # Settle delay (seconds) inserted between consecutive TV commands in the
     # single-image processors (single_async / sync_thread): after upload before
     # select_image, and before deleting the previous image. The Frame needs a moment
