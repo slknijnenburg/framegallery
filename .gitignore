@@ -5,3 +5,4 @@ logs/*
 .venv/
 .claude/
 tasks/
+CLAUDE.local.md
