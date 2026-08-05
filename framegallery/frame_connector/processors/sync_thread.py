@@ -75,6 +75,7 @@ class SyncThreadProcessor(UploadProcessor):
         self._art: SamsungTVArt | None = None
         self._op_lock = asyncio.Lock()
         self._last_used = 0.0
+        self._keepalive_task: asyncio.Task | None = None
 
     # --- lifecycle ---
 
@@ -85,9 +86,11 @@ class SyncThreadProcessor(UploadProcessor):
         await self._connect_client()
         self._connected = True
         self._on_active_image_signal_connect()
+        self._start_keepalive()
 
     async def close(self) -> None:
         """Close the connection and (re)start the reconnection pinger."""
+        self._stop_keepalive()
         await self._close_client()
         self._connected = False
         self._on_active_image_signal_disconnect()
@@ -135,10 +138,70 @@ class SyncThreadProcessor(UploadProcessor):
         if self._art is None:
             await self._connect_client()
             return
+        if self._keepalive_enabled():
+            # The keepalive ping is what keeps the socket from going stale, so the
+            # idle-recycle would only throw away a perfectly warm connection -- and
+            # the whole point of the keepalive is that every TV op (most importantly
+            # the upload announcement) runs on a long-lived connection.
+            return
         if time.monotonic() - self._last_used > self.IDLE_RECYCLE_SECONDS:
             logger.debug("sync_thread: recycling idle connection (idle > %ds)", self.IDLE_RECYCLE_SECONDS)
             await self._close_client()
             await self._connect_client()
+
+    # --- keepalive (the "warm channel" experiment, see docs/crash-analysis.md) ---
+
+    def _keepalive_enabled(self) -> bool:
+        """Whether the WebSocket keepalive replaces the idle-recycle."""
+        return settings.tv_keepalive_interval > 0
+
+    def _start_keepalive(self) -> None:
+        """Start the keepalive loop, if enabled and not already running."""
+        if not self._keepalive_enabled() or self._shutting_down:
+            return
+        if self._keepalive_task is not None and not self._keepalive_task.done():
+            return
+        task = asyncio.create_task(self._keepalive_loop())
+        self._keepalive_task = task
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+
+    def _stop_keepalive(self) -> None:
+        """Cancel the keepalive loop (idempotent)."""
+        if self._keepalive_task is not None:
+            self._keepalive_task.cancel()
+            self._keepalive_task = None
+
+    async def _keepalive_loop(self) -> None:
+        """Ping the TV whenever the connection sits idle. A failing ping must not kill the loop."""
+        interval = settings.tv_keepalive_interval
+        logger.info("sync_thread: connection keepalive started (ping after %ss idle)", interval)
+        while True:
+            await asyncio.sleep(interval)
+            try:
+                await self._keepalive_once()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception("sync_thread: keepalive iteration failed; will retry next cycle")
+
+    async def _keepalive_once(self) -> None:
+        """Send one WebSocket ping if the connection has been idle for a full interval."""
+        async with self._op_lock:
+            art = self._art
+            if art is None or art.connection is None:
+                # Not connected right now; the normal reconnect paths own recovery.
+                return
+            if time.monotonic() - self._last_used < settings.tv_keepalive_interval:
+                # Real TV ops are flowing, which keeps the socket warm by itself.
+                return
+            try:
+                await asyncio.to_thread(art.connection.ping)
+            except Exception as exc:  # noqa: BLE001 -- a dead socket here is expected, not exceptional
+                logger.warning("sync_thread: keepalive ping failed (%s); dropping the connection", exc)
+                await self._close_client()
+            else:
+                self._last_used = time.monotonic()
 
     def _wake_tv(self) -> None:
         """Send a Wake-on-LAN packet if a TV MAC address is configured."""

@@ -43,6 +43,14 @@ class Settings(BaseSettings):
     # packet before retrying a failed connection. Optional; find it with
     # `arp -n <tv-ip>`. Only helps when the TV is asleep, not for art-mode crashes.
     tv_mac_address: str | None = None
+    # Keep the sync_thread TV connection warm by sending a WebSocket ping whenever it
+    # has been idle this many seconds, instead of tearing it down and rebuilding it
+    # (the 30s idle-recycle). 0 disables the keepalive and keeps the recycle. This is
+    # the "warm channel" experiment from docs/crash-analysis.md: every upload
+    # currently rides a brand-new connection, and the hypothesis is that the TV's
+    # ~30% announcement-kill rate is lower on a long-lived connection, as used by the
+    # mature TypeScript implementations. Applies to the sync_thread processor only.
+    tv_keepalive_interval: float = 0.0
     # Every upload is normalized before it is sent: images larger than this box are
     # downscaled (aspect ratio preserved) and re-encoded as JPEG. The Frame ingests
     # the image on a slow SoC, so payload size directly drives how long an upload

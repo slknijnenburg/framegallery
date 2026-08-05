@@ -273,6 +273,7 @@ Related settings:
 | Variable | Default | Applies to | Description |
 |---|---|---|---|
 | `tv_mac_address` | *(unset)* | `sync_thread` | TV MAC address; when set, a Wake-on-LAN packet is sent before retrying a failed connection (`arp -n <tv-ip>` to find it). |
+| `tv_keepalive_interval` | `0` | `sync_thread` | When set (seconds), the TV connection is kept warm with a WebSocket ping whenever it has been idle that long, and the 30s idle-recycle is disabled — so every upload runs on a long-lived connection instead of a brand-new one. `0` disables the keepalive and keeps the recycle. Experimental: this tests whether a warm channel lowers the TV's upload-rejection rate (see `docs/crash-analysis.md`). |
 | `tv_command_delay` | `5.0` | `single_async`, `sync_thread` | Settle delay in seconds inserted between consecutive TV commands: after `upload` before `select_image`, and before deleting the previous image. The Frame needs a moment to finish digesting an upload before it reliably accepts the next command; issuing them back-to-back can crash Art Mode back to regular TV. Set to `0` for the original back-to-back behaviour. |
 | `batch_size` | `50` | `batch_slideshow` | How many images to upload to the TV in one batch. |
 | `batch_rotation_minutes` | `3` | `batch_slideshow` | The TV's own rotation interval, in whole minutes (the TV API only accepts minutes, so `slideshow_interval` does not apply in this mode). |
