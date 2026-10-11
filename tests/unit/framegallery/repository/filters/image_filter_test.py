@@ -218,6 +218,26 @@ def test_keyword_filter_operators(operator: str) -> None:
     assert len(compiled) > 0
 
 
+@pytest.mark.parametrize(
+    ("operator", "expected_pattern"),
+    [
+        ("contains", "'%Holiday%'"),
+        ("beginsWith", "'Holiday%'"),
+        ("endsWith", "'%Holiday'"),
+        ("doesNotContain", "'%Holiday%'"),
+        ("doesNotBeginWith", "'Holiday%'"),
+        ("doesNotEndWith", "'%Holiday'"),
+    ],
+)
+def test_keyword_filter_like_pattern_avoids_concat(operator: str, expected_pattern: str) -> None:
+    """LIKE patterns must not use SQL concat(), which SQLite only has from 3.44."""
+    expression = KeywordFilter("Holiday", operator).get_expression()
+    compiled = str(expression.compile(compile_kwargs={"literal_binds": True}))
+
+    assert "concat" not in compiled.lower()
+    assert f"LIKE {expected_pattern}" in compiled
+
+
 def test_keyword_filter_unsupported_operator() -> None:
     """Test KeywordFilter raises error for unsupported operator."""
     keyword_filter = KeywordFilter("Holiday", "unsupported_op")
@@ -244,10 +264,10 @@ def test_keyword_filter_sql_injection_protection() -> None:
         # Verify we get a valid SQLAlchemy expression without errors
         assert expression is not None
         # Verify it can be compiled (this would raise if SQL injection succeeded)
-        compiled = str(expression.compile())
-        assert len(compiled) > 0
-        # Should contain func.concat for safe parameter binding
-        assert "concat" in compiled.lower()
+        compiled = expression.compile()
+        # The value travels as a bound parameter, never inlined into the SQL text
+        assert dangerous_value not in str(compiled)
+        assert f"%{dangerous_value}%" in compiled.params.values()
 
 
 def test_keyword_filter_fail_fast_validation() -> None:

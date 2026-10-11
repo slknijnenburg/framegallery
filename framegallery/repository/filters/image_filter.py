@@ -177,14 +177,12 @@ class KeywordFilter(ImageFilter):
         mapping = {
             "=": lambda: _create_exists_clause(json_each_table.c.value == value),
             "!=": lambda: ~_create_exists_clause(json_each_table.c.value == value),
-            "contains": lambda: _create_exists_clause(json_each_table.c.value.like(func.concat("%", value, "%"))),
-            "beginsWith": lambda: _create_exists_clause(json_each_table.c.value.like(func.concat(value, "%"))),
-            "endsWith": lambda: _create_exists_clause(json_each_table.c.value.like(func.concat("%", value))),
-            "doesNotContain": lambda: ~_create_exists_clause(
-                json_each_table.c.value.like(func.concat("%", value, "%"))
-            ),
-            "doesNotBeginWith": lambda: ~_create_exists_clause(json_each_table.c.value.like(func.concat(value, "%"))),
-            "doesNotEndWith": lambda: ~_create_exists_clause(json_each_table.c.value.like(func.concat("%", value))),
+            "contains": lambda: _create_exists_clause(json_each_table.c.value.like(f"%{value}%")),
+            "beginsWith": lambda: _create_exists_clause(json_each_table.c.value.like(f"{value}%")),
+            "endsWith": lambda: _create_exists_clause(json_each_table.c.value.like(f"%{value}")),
+            "doesNotContain": lambda: ~_create_exists_clause(json_each_table.c.value.like(f"%{value}%")),
+            "doesNotBeginWith": lambda: ~_create_exists_clause(json_each_table.c.value.like(f"{value}%")),
+            "doesNotEndWith": lambda: ~_create_exists_clause(json_each_table.c.value.like(f"%{value}")),
             "in": lambda: _create_exists_clause(json_each_table.c.value.in_(_ensure_list(value))),
             "notIn": lambda: ~_create_exists_clause(json_each_table.c.value.in_(_ensure_list(value))),
         }
